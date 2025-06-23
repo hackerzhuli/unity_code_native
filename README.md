@@ -1,58 +1,28 @@
-# Unity Code Native - Process Information Tool
+# Unity Code Native - Unity Development Integration Tool
 
-A Rust executable that retrieves process information and outputs it in CSV format.
+A Rust-based tool designed for Unity development workflow integration that monitors Unity Editor processes and provides real-time communication capabilities for development tools.
 
 ## Description
 
-This tool takes a single command-line argument (process name, e.g., "Unity.exe") and searches for all running processes matching that name. It then outputs detailed process information in CSV format.
+This tool serves as a bridge between external development tools and Unity Editor instances. It can detect running Unity processes, extract project information, and provide real-time Unity state monitoring through a UDP-based messaging protocol.
 
-## Output Format
+## Key Features
 
-The tool outputs CSV data with the following columns:
-- **Process Name**: The name of the process
-- **Process ID**: The unique process identifier (PID)
-- **Parent ID**: The process ID of the parent process (PPID)
-- **Command Line**: The full command line used to start the process
+### Unity Process Detection
+- Automatically detects running Unity Editor instances
+- Extracts Unity project paths from command line arguments
+- Supports various Unity command line options (`-projectpath`, `-createproject`, etc.)
+- Handles quoted/unquoted paths and international characters
 
-## Usage
+### Real-time Communication
+- UDP-based messaging protocol for Unity state monitoring
+- Automatic Unity state change notifications
+- Hot reload detection capabilities
+- Keep-alive messaging system
 
-```bash
-# Build the project
-cargo build --release
+## Use Cases
 
-# Run with a process name
-cargo run -- Unity.exe
-
-# Or run the compiled executable
-./target/release/unity_code_native Unity.exe
-```
-
-## Example Output
-
-```csv
-Process Name,Process ID,Parent ID,Command Line
-Unity.exe,1234,5678,"C:\Program Files\Unity\Hub\Editor\2023.1.0f1\Editor\Unity.exe" -projectPath "C:\MyProject"
-Unity.exe,9876,5432,"C:\Program Files\Unity\Hub\Editor\2023.2.0f1\Editor\Unity.exe" -batchmode
-```
-
-## Dependencies
-
-- `sysinfo`: For cross-platform system and process information
-- `csv`: For CSV output formatting
-
-## Features
-
-- Cross-platform compatibility (Windows, macOS, Linux)
-- Efficient process enumeration
-- Clean CSV output format
-- Command-line argument validation
-- Error handling for invalid process names
-
-## Requirements
-
-- Rust 2024 edition or later
-- Cargo package manager
-
-## License
-
-This project is open source.
+- **IDE Extensions**: Development tools that need to know which Unity project is currently active
+- **Hot Reload Systems**: Tools that want to integrate with Unity's hot reload functionality
+- **Development Workflow Automation**: Scripts that need to monitor Unity Editor state
+- **Multi-project Management**: Tools managing multiple Unity projects simultaneously
