@@ -23,7 +23,7 @@ pub enum MessageType{
 }
 
 pub struct ProcessState {
-    IsUnityRunning: bool,
+    UnityProcessId: u32, // 0 if Unity is not running
     IsHotReloadEnabled: bool,
 }
 ```

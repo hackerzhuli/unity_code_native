@@ -6,6 +6,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use sysinfo::PidExt;
 use crate::monitor::ProcessMonitor;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -27,8 +28,8 @@ impl From<u8> for MessageType {
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ProcessState {
-    #[serde(rename = "IsUnityRunning")]
-    pub is_unity_running: bool,
+    #[serde(rename = "UnityProcessId")]
+    pub unity_process_id: u32,
     #[serde(rename = "IsHotReloadEnabled")]
     pub is_hot_reload_enabled: bool,
 }
@@ -185,7 +186,10 @@ impl Server {
 
     fn get_process_state(&mut self) -> ProcessState {
         ProcessState {
-            is_unity_running: self.monitor.unity_pid().is_some(),
+            unity_process_id: match self.monitor.unity_pid() {
+                Some(pid) => pid.as_u32(),
+                None => 0,
+            },
             is_hot_reload_enabled: self.monitor.hotreload_pid().is_some(),
         }
     }
