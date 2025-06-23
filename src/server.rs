@@ -190,7 +190,7 @@ impl Server {
                 Some(pid) => pid.as_u32(),
                 None => 0,
             },
-            is_hot_reload_enabled: self.monitor.hotreload_pid().is_some(),
+            is_hot_reload_enabled: self.monitor.hot_reload_pid().is_some(),
         }
     }
     

@@ -2,24 +2,11 @@ use std::path::Path;
 
 use sysinfo::{Pid, ProcessExt, ProcessRefreshKind, System, SystemExt};
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct ProcessInfo {
-    pub(crate) pid: u32,
-    pub(crate) name: String,
-    pub(crate) project_path: String,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum ProcessType {
-    Unity,
-    HotReload,
-}
-
 pub(crate) struct ProcessMonitor {
     pub(crate) system: System,
     pub(crate) target_project_path: String,
     pub(crate) unity_pid: Option<Pid>,
-    pub(crate) hotreload_pid: Option<Pid>,
+    pub(crate) hot_reload_pid: Option<Pid>,
 }
 
 impl ProcessMonitor {
@@ -28,7 +15,7 @@ impl ProcessMonitor {
             system: System::new(),
             target_project_path,
             unity_pid: None,
-            hotreload_pid: None,
+            hot_reload_pid: None,
         }
     }
 
@@ -39,10 +26,10 @@ impl ProcessMonitor {
      */
     pub(crate) fn update(&mut self, is_full: bool) -> () {
         self.update_unity_process();
-        self.update_hotreload_process();
+        self.update_hot_reload_process();
 
         // if everything is still running, no need to continue
-        if self.unity_pid().is_some() && self.hotreload_pid().is_some() {
+        if self.unity_pid().is_some() && self.hot_reload_pid().is_some() {
             return;
         }
 
@@ -56,18 +43,26 @@ impl ProcessMonitor {
             .refresh_processes_specifics(ProcessRefreshKind::new()); // we need nothing, no cpu, no memory, just basics
         let normalized_project_path = normalize_path(&self.target_project_path.as_str());
 
-        // First pass: Check for Unity processes
-        let mut found_unity_pid = None::<Pid>;
-        for (pid, process) in self.system.processes() {
-            let process_name = process.name();
+        if self.unity_pid().is_none() {
+            self.detect_unity_process(&normalized_project_path);
+        }
 
-            if process_name.to_lowercase() == "unity.exe" || process_name.to_lowercase() == "unity"
-            {
-                if self.is_valid_unity_process(process) {
-                    if let Some(path) = extract_unity_project_path(process) {
+        if is_full && self.hot_reload_pid().is_none() {
+            self.detect_hot_reload_process(normalized_project_path);
+        }
+    }
+
+    fn detect_hot_reload_process(&mut self, normalized_project_path: String) {
+        let mut found_hot_reload_pid = None::<Pid>;
+
+        // Second pass: Only check for CodePatcherCLI processes if Unity exists for the target project
+        if self.unity_pid().is_some() {
+            for (pid, process) in self.system.processes() {
+                if self.is_valid_hot_reload_process(process) {
+                    if let Some(path) = extract_hot_reload_project_path(process) {
                         let normalized_path = normalize_path(path.as_str());
                         if normalized_project_path == normalized_path {
-                            found_unity_pid = Some(*pid);
+                            found_hot_reload_pid = Some(*pid);
                             break;
                         }
                     }
@@ -75,28 +70,24 @@ impl ProcessMonitor {
             }
         }
 
-        self.set_unity_pid(found_unity_pid);
+        self.set_hot_reload_pid(found_hot_reload_pid);
+    }
 
-        if is_full {
-            let mut found_hotreload_pid = None::<Pid>;
-
-            // Second pass: Only check for CodePatcherCLI processes if Unity exists for the target project
-            if self.unity_pid().is_some() {
-                for (pid, process) in self.system.processes() {
-                    if self.is_valid_hotreload_process(process) {
-                        if let Some(path) = extract_hotreload_project_path(process) {
-                            let normalized_path = normalize_path(path.as_str());
-                            if normalized_project_path == normalized_path {
-                                found_hotreload_pid = Some(*pid);
-                                break;
-                            }
-                        }
+    fn detect_unity_process(&mut self, normalized_project_path: &String) {
+        let mut found_unity_pid = None::<Pid>;
+        for (pid, process) in self.system.processes() {
+            if self.is_valid_unity_process(process) {
+                if let Some(path) = extract_unity_project_path(process) {
+                    let normalized_path = normalize_path(path.as_str());
+                    if *normalized_project_path == normalized_path {
+                        found_unity_pid = Some(*pid);
+                        break;
                     }
                 }
             }
-
-            self.set_hotreload_pid(found_hotreload_pid);
         }
+
+        self.set_unity_pid(found_unity_pid);
     }
 
     /**
@@ -109,23 +100,29 @@ impl ProcessMonitor {
 
         let unity_pid = self.unity_pid().unwrap();
 
-        if !self.system.refresh_process_specifics(unity_pid, ProcessRefreshKind::new()) {
+        if !self
+            .system
+            .refresh_process_specifics(unity_pid, ProcessRefreshKind::new())
+        {
             self.set_unity_pid(None);
         }
     }
 
     /**
-     * if hotreload process exists, check whether if it is still valid and if not, we invalidate the cache
+     * if hot_reload process exists, check whether if it is still valid and if not, we invalidate the cache
      */
-    pub(crate) fn update_hotreload_process(&mut self) {
-        if self.hotreload_pid().is_none() {
+    pub(crate) fn update_hot_reload_process(&mut self) {
+        if self.hot_reload_pid().is_none() {
             return;
         }
 
-        let hotreload_pid = self.hotreload_pid().unwrap();
+        let hot_reload_pid = self.hot_reload_pid().unwrap();
 
-        if !self.system.refresh_process_specifics(hotreload_pid, ProcessRefreshKind::new()) {
-            self.set_hotreload_pid(None);
+        if !self
+            .system
+            .refresh_process_specifics(hot_reload_pid, ProcessRefreshKind::new())
+        {
+            self.set_hot_reload_pid(None);
         }
     }
 
@@ -142,7 +139,7 @@ impl ProcessMonitor {
         true
     }
 
-    pub(crate) fn is_valid_hotreload_process(&self, process: &sysinfo::Process) -> bool {
+    pub(crate) fn is_valid_hot_reload_process(&self, process: &sysinfo::Process) -> bool {
         process.name() == get_hot_reload_name()
     }
 
@@ -150,20 +147,20 @@ impl ProcessMonitor {
         self.unity_pid
     }
 
-    pub(crate) fn set_hotreload_pid(&mut self, hotreload_pid: Option<Pid>) {
-        if self.hotreload_pid == hotreload_pid {
+    pub(crate) fn set_hot_reload_pid(&mut self, hot_reload_pid: Option<Pid>) {
+        if self.hot_reload_pid == hot_reload_pid {
             return;
         }
-        if hotreload_pid.is_none() {
-            println!("HotReload process is closed");
+        if hot_reload_pid.is_none() {
+            println!("hot_reload process is closed");
         } else {
-            println!("HotReload process detected, id = {:?}", hotreload_pid);
+            println!("hot_reload process detected, id = {:?}", hot_reload_pid);
         }
-        self.hotreload_pid = hotreload_pid;
+        self.hot_reload_pid = hot_reload_pid;
     }
 
-    pub(crate) fn hotreload_pid(&self) -> Option<Pid> {
-        self.hotreload_pid
+    pub(crate) fn hot_reload_pid(&self) -> Option<Pid> {
+        self.hot_reload_pid
     }
 
     pub(crate) fn set_unity_pid(&mut self, unity_pid: Option<Pid>) {
@@ -237,7 +234,7 @@ pub(crate) fn extract_unity_project_path(process: &sysinfo::Process) -> Option<S
     None
 }
 
-pub(crate) fn extract_hotreload_project_path(process: &sysinfo::Process) -> Option<String> {
+pub(crate) fn extract_hot_reload_project_path(process: &sysinfo::Process) -> Option<String> {
     let cmd_args = process.cmd();
 
     for i in 0..cmd_args.len() {
