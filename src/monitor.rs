@@ -109,7 +109,7 @@ impl ProcessMonitor {
 
         let unity_pid = self.unity_pid().unwrap();
 
-        if !self.system.refresh_process(unity_pid) {
+        if !self.system.refresh_process_specifics(unity_pid, ProcessRefreshKind::new()) {
             self.set_unity_pid(None);
         }
     }
@@ -124,7 +124,7 @@ impl ProcessMonitor {
 
         let hotreload_pid = self.hotreload_pid().unwrap();
 
-        if !self.system.refresh_process(hotreload_pid) {
+        if !self.system.refresh_process_specifics(hotreload_pid, ProcessRefreshKind::new()) {
             self.set_hotreload_pid(None);
         }
     }
