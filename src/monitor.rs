@@ -77,7 +77,7 @@ impl ProcessMonitor {
 
         self.set_unity_pid(found_unity_pid);
 
-        if !is_full {
+        if is_full {
             let mut found_hotreload_pid = None::<Pid>;
 
             // Second pass: Only check for CodePatcherCLI processes if Unity exists for the target project
