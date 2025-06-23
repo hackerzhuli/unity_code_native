@@ -25,7 +25,7 @@ impl From<u8> for MessageType {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]
 pub struct ProcessState {
     #[serde(rename = "IsUnityRunning")]
     pub is_unity_running: bool,
@@ -33,8 +33,8 @@ pub struct ProcessState {
     pub is_hot_reload_enabled: bool,
 }
 
-// Time interval for periodic monitor updates when no state requests come in
-const MONITOR_UPDATE_INTERVAL: Duration = Duration::from_secs(10);
+// Time interval for periodic detect Unity when Unity is not yet detected
+const DETECT_UNITY_INTERVAL: Duration = Duration::from_secs(10);
 
 struct ClientInfo {
     last_message_time: Instant,
@@ -55,7 +55,7 @@ impl Server {
 
         let socket = UdpSocket::bind(&addr)?;
         // Set blocking socket with 1-second timeout
-        socket.set_read_timeout(Some(Duration::from_secs(1)))?;
+        socket.set_read_timeout(Some(Duration::from_millis(500)))?;
 
         println!("Server listening on {}", addr);
 
@@ -63,7 +63,7 @@ impl Server {
             socket,
             clients: HashMap::new(),
             monitor: ProcessMonitor::new(project_path),
-            last_monitor_update: Instant::now() - MONITOR_UPDATE_INTERVAL, // we want to update immediately
+            last_monitor_update: Instant::now() - DETECT_UNITY_INTERVAL, // we want to update immediately
         })
     }
 
@@ -85,8 +85,9 @@ impl Server {
             // Clean up inactive clients
             self.cleanup_inactive_clients();
 
-            // check if we need update
-            if self.last_monitor_update.elapsed() >= MONITOR_UPDATE_INTERVAL {
+            // check if unity is already detected or DETECT_UNITY_INTERVAL is reached
+            // this will make detect new Unity instance slow and find out Unity shutdown fast
+            if self.last_monitor_update.elapsed() >= DETECT_UNITY_INTERVAL || self.monitor.unity_pid().is_some() {
                 // only checks unity
                 if self.monitor_update(false) {
                     println!("state changed to {:?}, broadcast to clients", self.get_process_state());
@@ -104,18 +105,17 @@ impl Server {
     fn monitor_update(&mut self, is_full:bool) -> bool {
         let start = Instant::now();
 
-        let old_unity_pid = self.monitor.unity_pid();
-        let old_hotreload_pid = self.monitor.hotreload_pid();
+        let old_state = self.get_process_state();
         
         self.monitor.update(is_full);
         self.last_monitor_update = Instant::now();
         
-        let changed = self.monitor.unity_pid() != old_unity_pid || self.monitor.hotreload_pid() != old_hotreload_pid;
+        let new_state = self.get_process_state();
 
         #[cfg(debug_assertions)]{
-            println!("monitor update took: {:?}, is_full:{}", start.elapsed(), is_full);
+            println!("monitor update took: {:?}, is_full:{}, state is:{:?}", start.elapsed(), is_full, new_state);
         }
-        changed
+        old_state != new_state
     }
 
     fn handle_message(&mut self, data: &[u8], addr: std::net::SocketAddr) {

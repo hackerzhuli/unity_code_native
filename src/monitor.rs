@@ -109,10 +109,8 @@ impl ProcessMonitor {
 
         let unity_pid = self.unity_pid().unwrap();
 
-        self.system.refresh_process(unity_pid);
-
-        if self.system.process(unity_pid).is_none() {
-            self.set_unity_pid(None); // Process no longer exists, invalidate cache
+        if !self.system.refresh_process(unity_pid) {
+            self.set_unity_pid(None);
         }
     }
 
@@ -126,11 +124,8 @@ impl ProcessMonitor {
 
         let hotreload_pid = self.hotreload_pid().unwrap();
 
-        self.system.refresh_process(hotreload_pid);
-
-        // Check if HotReload process still exists
-        if self.system.process(hotreload_pid).is_none() {
-            self.set_hotreload_pid(None); // Process no longer exists, invalidate cache
+        if !self.system.refresh_process(hotreload_pid) {
+            self.set_hotreload_pid(None);
         }
     }
 
