@@ -1,7 +1,7 @@
 # Messaging Protocol
 
 ## About the Server
-The server is implemened in rust, so the following types or struct are rust types or structs.
+The server is implemented in rust, so the following types or structs are rust types or structs.
 
 ## Base configuration
 We communicate through udp socket.
@@ -16,8 +16,8 @@ A u8 for message type, an u32 for request id(0 if no request), an u32 for payloa
 ### Message table
 | Message type | Name | Payload | Description |
 | --- | --- | --- | --- |
-| 0 | None | empty| does nothing, but can be used to keep the connection alive
-| 1 | GetUnityState | request is empty, response is ProcessState | Get the current state of Unity process, including whether Hot Reload is enabled.
+| 0 | None | Empty| Does nothing, but can be used to keep the connection alive
+| 1 | GetUnityState | Request is empty, response is ProcessState | Get the current state of Unity process, including whether Hot Reload is enabled.
 
 ``` rust
 pub enum MessageType{
