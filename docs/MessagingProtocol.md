@@ -16,7 +16,7 @@ A u8 for message type, an u32 for request id(0 if no request), an u32 for payloa
 ### Message table
 | Message type | Name | Payload | Description |
 | --- | --- | --- | --- |
-| 0 | None | Empty| Does nothing, but can be used to keep the connection alive
+| 0 | None | Empty | Does nothing(no response), but can be used to keep the connection alive |
 | 1 | GetUnityState | Request is empty, response is ProcessState | Get the current state of Unity process, including whether Hot Reload is enabled.
 
 ``` rust
