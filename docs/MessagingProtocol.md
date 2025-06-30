@@ -1,5 +1,8 @@
 # Messaging Protocol
 
+## About the Server
+The server is implemened in rust, so the following types or struct are rust types or structs.
+
 ## Base configuration
 We communicate through udp socket.
 
