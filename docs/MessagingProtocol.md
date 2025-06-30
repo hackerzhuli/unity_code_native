@@ -29,6 +29,6 @@ pub struct ProcessState {
 ```
 
 Notes for GetUnityState:
-- Even if there is no request, if Unity state change is detected, the client will get the message, note that whether Hot Reload is enabled is not reliable, because it is not detected unless requested
-- If client needs to know if Hot Reload for Unity is enabled for certain, client must send the request
-- Checking process state can be slow, expect it to take 100ms
+- Even if there is no request, if Unity state change is detected, the client will still get the message, note that whether Hot Reload is enabled is not reliable, because a new Hot Reload for Unity process will not be detected unless requested
+- If client wants to know whether Hot Reload is enabled, it must send the request.
+- Checking process state can be slow, it can take up to 100ms.
