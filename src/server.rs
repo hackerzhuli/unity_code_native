@@ -120,7 +120,7 @@ impl Server {
     }
 
     fn handle_message(&mut self, data: &[u8], addr: std::net::SocketAddr) {
-        if data.len() < 5 {
+        if data.len() < 9 {
             eprintln!("Invalid message format: too short");
             return;
         }
@@ -134,15 +134,16 @@ impl Server {
         );
 
         let message_type = MessageType::from(data[0]);
-        let payload_length = u32::from_le_bytes([data[1], data[2], data[3], data[4]]) as usize;
+        let request_id = u32::from_le_bytes([data[1], data[2], data[3], data[4]]);
+        let payload_length = u32::from_le_bytes([data[5], data[6], data[7], data[8]]) as usize;
 
-        if data.len() < 5 + payload_length {
+        if data.len() < 9 + payload_length {
             eprintln!("Invalid message format: payload length mismatch");
             return;
         }
 
         let _payload = if payload_length > 0 {
-            match std::str::from_utf8(&data[5..5 + payload_length]) {
+            match std::str::from_utf8(&data[9..9 + payload_length]) {
                 Ok(s) => s,
                 Err(_) => {
                     eprintln!("Invalid UTF-8 in payload");
@@ -158,25 +159,25 @@ impl Server {
                 // Do nothing
             }
             MessageType::GetUnityState => {
-                self.handle_get_unity_state(addr);
+                self.handle_get_unity_state(addr, request_id);
             }
         }
     }
 
-    fn handle_get_unity_state(&mut self, addr: std::net::SocketAddr) {
+    fn handle_get_unity_state(&mut self, addr: std::net::SocketAddr, request_id: u32) {
         // Always update monitor when state is requested(full check)
         let _changed = self.monitor_update(true);
 
-        self.send_state(addr);
+        self.send_state(addr, request_id);
     }
 
-    fn send_state(&mut self, addr: std::net::SocketAddr) {
+    fn send_state(&mut self, addr: std::net::SocketAddr, request_id: u32) {
         // Return real process state data from monitor
         let state = self.get_process_state();
 
         match serde_json::to_string(&state) {
             Ok(json) => {
-                self.send_response(MessageType::GetUnityState, &json, addr);
+                self.send_response(MessageType::GetUnityState, request_id, &json, addr);
             }
             Err(e) => {
                 eprintln!("Error serializing ProcessState: {}", e);
@@ -212,16 +213,17 @@ impl Server {
         // Send to all connected clients
         let clients: Vec<std::net::SocketAddr> = self.clients.keys().cloned().collect();
         for addr in clients {
-            self.send_response(message_type, &json, addr);
+            self.send_response(message_type, 0, &json, addr); // request_id = 0 for broadcasts
         }
     }
     
-    fn send_response(&self, message_type: MessageType, payload: &str, addr: std::net::SocketAddr) {
+    fn send_response(&self, message_type: MessageType, request_id: u32, payload: &str, addr: std::net::SocketAddr) {
         let payload_bytes = payload.as_bytes();
         let payload_length = payload_bytes.len() as u32;
 
-        let mut response = Vec::with_capacity(5 + payload_bytes.len());
+        let mut response = Vec::with_capacity(9 + payload_bytes.len());
         response.push(message_type as u8);
+        response.extend_from_slice(&request_id.to_le_bytes());
         response.extend_from_slice(&payload_length.to_le_bytes());
         response.extend_from_slice(payload_bytes);
 
