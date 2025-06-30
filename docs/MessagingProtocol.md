@@ -3,15 +3,15 @@
 ## Base configuration
 We communicate through udp socket.
 
-port: 50000 + (pid % 1000)
+Port: 50000 + (pid % 1000)
 
-drops the client if no message is sent for 30 seconds.
+Drops the client if no message is sent for 30 seconds.
 
 ## Message format
 A u8 for message type, an u32 for request id(0 if no request), an u32 for payload length, the rest is a utf8 string, which is serialized json from corresponding struct(can be empty if there is no struct for that message type). Note that multibyte integers are little endian in the message.
 
 ### Message table
-| message type | name | payload | description |
+| Message type | Name | Payload | Description |
 | --- | --- | --- | --- |
 | 0 | None | empty| does nothing, but can be used to keep the connection alive
 | 1 | GetUnityState | request is empty, response is ProcessState | Get the current state of Unity process, including whether Hot Reload is enabled.
