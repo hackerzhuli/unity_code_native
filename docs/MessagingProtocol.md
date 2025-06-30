@@ -8,7 +8,7 @@ port: 50000 + (pid % 1000)
 drops the client if no message is sent for 30 seconds.
 
 ## Message format
-a byte for message type, 4 bytes (little endian) for payload length, the rest is a utf8 string, that is serialized json from struct, can be empty.
+A u8 for message type, an u32 for request id(0 if no request), an u32 for payload length, the rest is a utf8 string, which is serialized json from corresponding struct(can be empty if there is no struct for that message type). Note that multibyte integers are little endian in the message.
 
 ### Message table
 | message type | name | payload | description |
@@ -29,6 +29,6 @@ pub struct ProcessState {
 ```
 
 Notes for GetUnityState:
-- Even if there is no request, if Unity state change is detected, the client will still get the message, note that whether Hot Reload is enabled is not reliable, because a new Hot Reload for Unity process will not be detected unless requested
+- Even if there is no request, if Unity state change is detected, the client will still get the message, note that whether Hot Reload is enabled is not reliable, because a new Hot Reload for Unity process will not be detected unless requested (for performance reasons)
 - If a client wants to know whether Hot Reload is enabled for sure, it must send the request.
 - Detecting processes can be slow, it can take up to 100ms.
