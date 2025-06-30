@@ -5,7 +5,7 @@ This command line tool is a utility for Unity related process detection. It can 
 
 ## Why rust, not C# or javascript?
 
-It turns out process detection is very tricky in javascript, which involves running powershell in windows, which takes seconds, too inefficient for our case. What about C#? It turns out that C# don't have a way of getting parent id of a process, which makes the implementation tricky again, we do need parent id. So rust is the way to go.
+It turns out process detection is very tricky in javascript, which involves running powershell in windows, which takes seconds, too inefficient for our case. What about C#? It turns out that C# don't have a way of getting parent id of a process, which makes the implementation tricky again, we do need parent id. So rust is the way to go. Also performance is very good with rust, because we can specify exactly what info we need for a process, without wasting time retriving info like CPU usage, memory usage and so on.
 
 ## Key Features
 - Run the executable with one argument the path of the Unity project
