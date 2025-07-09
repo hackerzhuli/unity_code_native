@@ -1,5 +1,7 @@
 //! Tests for USS diagnostics functionality
 
+use crate::uss::tree_printer::print_tree_to_stdout;
+
 use super::diagnostics::*;
 use super::parser::UssParser;
 use tower_lsp::lsp_types::NumberOrString;
@@ -224,4 +226,129 @@ fn test_invalid_unit_detection() {
         });
         assert!(has_emeea_error, "Should specifically identify 'emeea' as invalid unit");
     }
+}
+
+#[test]
+fn test_valid_rgb_color() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { color: rgb(255,255,255); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should not have any color-related errors for valid rgb
+    let color_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-color".to_string())))
+        .collect();
+    
+    assert!(color_errors.is_empty(), "Valid rgb color should not produce errors. Found: {:?}", 
+        color_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_valid_rgba_color() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-color: rgba(255,255,255,1); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should not have any color-related errors for valid rgba
+    let color_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-color".to_string())))
+        .collect();
+    
+    assert!(color_errors.is_empty(), "Valid rgba color should not produce errors. Found: {:?}", 
+        color_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_valid_hex_color() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { -unity-background-image-tint-color: #ffffff; }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should not have any color-related errors for valid hex color
+    let color_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-color".to_string())))
+        .collect();
+    
+    assert!(color_errors.is_empty(), "Valid hex color #ffffff should not produce errors. Found: {:?}", 
+        color_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+// TODO: Implement proper type-based validation for hex colors
+// This test will be re-enabled once we have proper property type validation
+#[test]
+fn test_invalid_hex_color_too_long() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { border-left-color: #ffffaabbcc; }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    
+
+    
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Debug: Print all diagnostics
+    println!("\nDiagnostics for #ffffaabbcc:");
+    for (i, diagnostic) in results.iter().enumerate() {
+        println!("  {}: {} - {}", i, 
+            diagnostic.code.as_ref().map(|c| match c {
+                tower_lsp::lsp_types::NumberOrString::String(s) => s.as_str(),
+                tower_lsp::lsp_types::NumberOrString::Number(_) => "number",
+            }).unwrap_or("no-code"),
+            diagnostic.message
+        );
+    }
+    
+    // Should detect invalid hex color (too long - 10 characters)
+    let color_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-color".to_string())))
+        .collect();
+    
+    assert!(!color_errors.is_empty(), "Should detect invalid hex color #ffffaabbcc (too long). Found {} total diagnostics", results.len());
+    
+    let has_hex_error = color_errors.iter().any(|error| {
+        error.message.contains("#ffffaabbcc")
+    });
+    assert!(has_hex_error, "Should specifically identify #ffffaabbcc as invalid hex color");
+}
+
+// TODO: Implement proper type-based validation for hex colors
+// This test will be re-enabled once we have proper property type validation
+#[test]
+fn test_invalid_hex_color_invalid_chars() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { border-right-color: #ffaapp; }";
+    
+    let tree = parser.parse(content, None).unwrap();
+
+    print_tree_to_stdout(tree.root_node(), content);
+    
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect invalid hex color (contains 'p' which is not a hex digit)
+    let color_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-color".to_string())))
+        .collect();
+    
+    assert!(!color_errors.is_empty(), "Should detect invalid hex color #ffaaeepp (invalid characters). Found {} total diagnostics", results.len());
+    
+    let has_hex_error = color_errors.iter().any(|error| {
+        error.message.contains("#ffaaeepp")
+    });
+    assert!(has_hex_error, "Should specifically identify #ffaaeepp as invalid hex color");
 }

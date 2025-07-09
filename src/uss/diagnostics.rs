@@ -7,6 +7,7 @@ use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use std::collections::HashSet;
 use crate::uss::definitions::UssDefinitions;
+use crate::uss::tree_printer;
 
 /// USS diagnostic analyzer
 pub struct UssDiagnostics {
@@ -32,6 +33,14 @@ impl UssDiagnostics {
         diagnostics
     }
     
+    /// Debug helper: Print the complete syntax tree to stdout
+    /// Useful for understanding tree structure during development
+    #[allow(dead_code)]
+    pub fn debug_print_tree(&self, tree: &Tree, content: &str) {
+        let root_node = tree.root_node();
+        tree_printer::print_tree_to_stdout(root_node, content);
+    }
+    
     /// Recursively walk the syntax tree and validate nodes
     fn walk_node(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
 
@@ -49,7 +58,9 @@ impl UssDiagnostics {
             "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
             "at_rule" => self.validate_at_rule(node, content, diagnostics),
             "call_expression" => self.validate_function_arguments_wrapper(node, content, diagnostics),
-            "color_value" => self.validate_color_value(node, content, diagnostics),
+            "color_value" => {
+                self.validate_color_value(node, content, diagnostics);
+            },
             "integer_value" | "float_value" => {
                 // Numeric values are handled when we encounter their unit children
             },
@@ -80,6 +91,9 @@ impl UssDiagnostics {
                         }
                     }
                 }
+            },
+            "plain_value" => {
+                // Plain values will be validated by their expected type in validate_property_value
             },
             _ => {
                 // Other node types don't need special handling
@@ -458,6 +472,7 @@ impl UssDiagnostics {
         if color_text.starts_with('#') {
             // Validate hex color format
             let hex_part = &color_text[1..];
+            
             if hex_part.len() != 3 && hex_part.len() != 6 && hex_part.len() != 8 {
                 let range = self.node_to_range(node, content);
                 diagnostics.push(Diagnostic {
@@ -493,79 +508,7 @@ impl UssDiagnostics {
                 self.add_invalid_value_diagnostic(value_node, content, property_name, &format!("Expected: {}", expected), diagnostics);
             }
         } else {
-            // Validate units for length values
-            self.validate_value_units(value_node, content, property_name, diagnostics);
-            
-            // For color properties, validate color values
-            if property_name.contains("color") && value_node.kind() == "plain_value" {
-                if !self.definitions.is_valid_color_keyword(value_text) && !value_text.starts_with('#') {
-                    self.add_invalid_value_diagnostic(value_node, content, property_name, "Expected: valid color keyword, hex color, or color function", diagnostics);
-                }
-            }
-        }
-    }
-    
-    /// Validate units for property values
-    fn validate_value_units(&self, value_node: Node, content: &str, property_name: &str, diagnostics: &mut Vec<Diagnostic>) {
-        // Get property info to check expected value types
-        if let Some(property_info) = self.definitions.get_property_info(property_name) {
-            // Determine valid units based on value types
-            let mut valid_units = HashSet::new();
-            
-            for value_type in &property_info.value_types {
-                match value_type {
-                    crate::uss::definitions::ValueType::Length => {
-                        valid_units.insert("px");
-                        valid_units.insert("%");
-                    }
-                    crate::uss::definitions::ValueType::Angle => {
-                        valid_units.insert("deg");
-                        valid_units.insert("rad");
-                    }
-                    _ => {}
-                }
-            }
-            
-            if !valid_units.is_empty() {
-                // Look for numeric values with units in the value
-                self.validate_units_in_node(value_node, content, property_name, Some(&valid_units), diagnostics);
-            } else {
-                self.validate_units_in_node(value_node, content, property_name, None, diagnostics);
-            }
-        }
-    }
-    
-    /// Recursively validate units in a node and its children
-    fn validate_units_in_node(&self, node: Node, content: &str, property_name: &str, valid_units: Option<&HashSet<&str>>, diagnostics: &mut Vec<Diagnostic>) {
-        
-        // Check if this node is a numeric value with a unit
-        if node.kind() == "integer_value" || node.kind() == "float_value" {
-            // Look for a unit child node
-            if let Some(unit_node) = node.child_by_field_name("unit") {
-                let unit_text = unit_node.utf8_text(content.as_bytes()).unwrap_or("");
-                
-                if let Some(valid_units) = valid_units {
-                    if !valid_units.contains(unit_text) {
-                        let mut expected_vec: Vec<&str> = valid_units.iter().copied().collect();
-                        expected_vec.sort(); // Sort for consistent output
-                        let expected = expected_vec.join(", ");
-                        self.add_invalid_unit_diagnostic(unit_node, content, property_name, unit_text, &expected, diagnostics);
-                    }
-                } else {
-                    // No valid units specified, check against USS supported units
-                    let uss_length_units: HashSet<&str> = ["px", "%"].iter().copied().collect();
-                    if !uss_length_units.contains(unit_text) {
-                        self.add_invalid_unit_diagnostic(unit_node, content, property_name, unit_text, "px, %", diagnostics);
-                    }
-                }
-            }
-        }
-        
-        // Recursively check child nodes
-        for i in 0..node.child_count() {
-            if let Some(child) = node.child(i) {
-                self.validate_units_in_node(child, content, property_name, valid_units, diagnostics);
-            }
+
         }
     }
     
@@ -674,6 +617,7 @@ impl UssDiagnostics {
         });
     }
     
+
     /// Convert tree-sitter node to LSP range
     fn node_to_range(&self, node: Node, content: &str) -> Range {
         let start_byte = node.start_byte();

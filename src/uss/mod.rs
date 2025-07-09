@@ -11,6 +11,7 @@ pub mod highlighting;
 pub mod definitions;
 pub mod hover;
 pub mod property_data;
+pub mod tree_printer;
 
 #[cfg(test)]
 mod diagnostics_tests;

@@ -118,10 +118,10 @@ impl UssHoverProvider {
         property_name: &str,
         unity_manager: &UnityProjectManager,
     ) -> Hover {
-        let unity_version = unity_manager.detect_unity_version();
+        let unity_version_for_docs = unity_manager.get_unity_version_for_docs();
         let description = self.definitions.get_property_description(property_name)
             .unwrap_or("USS property");
-        let doc_url = self.definitions.get_property_documentation_url(property_name, &unity_version)
+        let doc_url = self.definitions.get_property_documentation_url(property_name, &unity_version_for_docs)
             .unwrap_or("https://docs.unity3d.com/Manual/UIE-USS.html".to_string());
         
         let is_inherited = self.definitions.is_property_inherited(property_name);
