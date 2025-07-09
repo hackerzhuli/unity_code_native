@@ -225,7 +225,7 @@ impl UssDefinitions {
         }
         
         let mut valid_functions = HashSet::new();
-        let functions = ["url", "resource", "var", "rgb", "rgba"];
+        let functions = ["url", "resource", "var", "rgb", "rgba", "hsl", "hsla"];
         for func in functions {
             valid_functions.insert(func);
         }

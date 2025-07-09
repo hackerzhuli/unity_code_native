@@ -351,10 +351,8 @@ impl UssDiagnostics {
                     }
                 }
                 
-                // Validate property value
-                if let Some(value_node) = node.child(2) { // Skip colon
-                    self.validate_property_value(property_name, value_node, content, diagnostics);
-                }
+                // Validate property value using the entire declaration node
+                self.validate_property_value(property_name, node, content, diagnostics);
             }
         }
     }
@@ -497,19 +495,66 @@ impl UssDiagnostics {
         }
     }
     
-    /// Validate property value based on property type
-    fn validate_property_value(&self, property_name: &str, value_node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
-        let value_text = value_node.utf8_text(content.as_bytes()).unwrap_or("");
-        
-        // Check if the value is valid for this specific property
-        if let Some(valid_values) = self.definitions.get_valid_keyword_values_for_property(property_name) {
-            if !self.definitions.is_valid_value_for_property(property_name, value_text) {
-                let expected = valid_values.join(", ");
-                self.add_invalid_value_diagnostic(value_node, content, property_name, &format!("Expected: {}", expected), diagnostics);
+    /// Validate property value using ValueFormat::is_match
+    fn validate_property_value(&self, property_name: &str, declaration_node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
+        // Get property information from definitions
+        if let Some(property_info) = self.definitions.get_property_info(property_name) {
+            // Check if any of the property's value formats match
+            let mut any_format_matches = false;
+            
+            for value_format in &property_info.value_spec.formats {
+                if value_format.is_match(declaration_node, content) {
+                    any_format_matches = true;
+                    break;
+                }
             }
-        } else {
-
+            
+            if !any_format_matches {
+                // Find the value nodes to highlight in the error
+                let mut value_nodes = Vec::new();
+                for i in 2..declaration_node.child_count() {
+                    if let Some(child) = declaration_node.child(i) {
+                        // Skip semicolons and whitespace
+                        if child.kind() != ";" && !child.kind().is_empty() {
+                            value_nodes.push(child);
+                        }
+                    }
+                }
+                
+                // Create error range covering all value nodes
+                let range = if value_nodes.is_empty() {
+                    // Fallback to the entire declaration if no value nodes found
+                    self.node_to_range(declaration_node, content)
+                } else if value_nodes.len() == 1 {
+                    self.node_to_range(value_nodes[0], content)
+                } else {
+                    // Create range from first to last value node
+                    let start_pos = self.byte_to_position(value_nodes[0].start_byte(), content);
+                    let end_pos = self.byte_to_position(value_nodes[value_nodes.len() - 1].end_byte(), content);
+                    Range { start: start_pos, end: end_pos }
+                };
+                
+                // Get the actual value text for the error message
+                let value_text = if value_nodes.is_empty() {
+                    "<missing value>".to_string()
+                } else {
+                    value_nodes.iter()
+                        .map(|node| node.utf8_text(content.as_bytes()).unwrap_or(""))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                };
+                
+                diagnostics.push(Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("invalid-property-value".to_string())),
+                    source: Some("uss".to_string()),
+                    message: format!("Invalid value '{}' for property '{}'", value_text, property_name),
+                    ..Default::default()
+                });
+            }
         }
+        // If property info is not found, we already reported "unknown-property" error in validate_declaration
     }
     
     /// Add invalid unit diagnostic
@@ -561,12 +606,12 @@ impl UssDiagnostics {
                 }
                 "rgb" => {
                     // Should have exactly 3 arguments
-                    let non_comma_children: Vec<_> = (0..args_node.child_count())
+                    let actual_args: Vec<_> = (0..args_node.child_count())
                         .filter_map(|i| args_node.child(i))
-                        .filter(|child| child.kind() != ",")
+                        .filter(|child| child.kind() != "," && child.kind() != "(" && child.kind() != ")")
                         .collect();
                     
-                    if non_comma_children.len() != 3 {
+                    if actual_args.len() != 3 {
                         let range = self.node_to_range(args_node, content);
                         diagnostics.push(Diagnostic {
                             range,
@@ -580,12 +625,12 @@ impl UssDiagnostics {
                 }
                 "rgba" => {
                     // Should have exactly 4 arguments
-                    let non_comma_children: Vec<_> = (0..args_node.child_count())
+                    let actual_args: Vec<_> = (0..args_node.child_count())
                         .filter_map(|i| args_node.child(i))
-                        .filter(|child| child.kind() != ",")
+                        .filter(|child| child.kind() != "," && child.kind() != "(" && child.kind() != ")")
                         .collect();
                     
-                    if non_comma_children.len() != 4 {
+                    if actual_args.len() != 4 {
                         let range = self.node_to_range(args_node, content);
                         diagnostics.push(Diagnostic {
                             range,
@@ -593,6 +638,44 @@ impl UssDiagnostics {
                             code: Some(NumberOrString::String("invalid-argument-count".to_string())),
                             source: Some("uss".to_string()),
                             message: "rgba() function requires exactly 4 arguments (red, green, blue, alpha)".to_string(),
+                            ..Default::default()
+                        });
+                    }
+                }
+                "hsl" => {
+                    // Should have exactly 3 arguments
+                    let actual_args: Vec<_> = (0..args_node.child_count())
+                        .filter_map(|i| args_node.child(i))
+                        .filter(|child| child.kind() != "," && child.kind() != "(" && child.kind() != ")")
+                        .collect();
+                    
+                    if actual_args.len() != 3 {
+                        let range = self.node_to_range(args_node, content);
+                        diagnostics.push(Diagnostic {
+                            range,
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            code: Some(NumberOrString::String("invalid-argument-count".to_string())),
+                            source: Some("uss".to_string()),
+                            message: "hsl() function requires exactly 3 arguments (hue, saturation, lightness)".to_string(),
+                            ..Default::default()
+                        });
+                    }
+                }
+                "hsla" => {
+                    // Should have exactly 4 arguments
+                    let actual_args: Vec<_> = (0..args_node.child_count())
+                        .filter_map(|i| args_node.child(i))
+                        .filter(|child| child.kind() != "," && child.kind() != "(" && child.kind() != ")")
+                        .collect();
+                    
+                    if actual_args.len() != 4 {
+                        let range = self.node_to_range(args_node, content);
+                        diagnostics.push(Diagnostic {
+                            range,
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            code: Some(NumberOrString::String("invalid-argument-count".to_string())),
+                            source: Some("uss".to_string()),
+                            message: "hsla() function requires exactly 4 arguments (hue, saturation, lightness, alpha)".to_string(),
                             ..Default::default()
                         });
                     }
