@@ -9,7 +9,7 @@ use server::Server;
 use uss::server::start_uss_language_server;
 use log::{error, info};
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     let args: Vec<String> = env::args().collect();
 
