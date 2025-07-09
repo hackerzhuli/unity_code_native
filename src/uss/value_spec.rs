@@ -41,7 +41,7 @@ pub struct ValueEntry {
 /// Specific value format with exact type and count requirements
 #[derive(Debug, Clone)]
 pub struct ValueFormat {
-    // this format should have these entries in this order(also, we allow optional entries)
+    /// this format should have these entries in this order
     pub entries: Vec<ValueEntry>,
 }
 
