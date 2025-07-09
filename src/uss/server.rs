@@ -13,6 +13,7 @@ use crate::uss::parser::UssParser;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::diagnostics::UssDiagnostics;
 use crate::uss::hover::UssHoverProvider;
+use crate::uss::color_provider::UssColorProvider;
 use crate::unity_project_manager::UnityProjectManager;
 
 /// USS Language Server
@@ -27,6 +28,7 @@ struct UssServerState {
     highlighter: UssHighlighter,
     diagnostics: UssDiagnostics,
     hover_provider: UssHoverProvider,
+    color_provider: UssColorProvider,
     unity_manager: UnityProjectManager,
     document_trees: HashMap<Url, Tree>,
     document_content: HashMap<Url, String>,
@@ -40,6 +42,7 @@ impl UssLanguageServer {
             highlighter: UssHighlighter::new(),
             diagnostics: UssDiagnostics::new(),
             hover_provider: UssHoverProvider::new(),
+            color_provider: UssColorProvider::new(),
             unity_manager: UnityProjectManager::new(project_path),
             document_trees: HashMap::new(),
             document_content: HashMap::new(),
@@ -123,6 +126,7 @@ impl LanguageServer for UssLanguageServer {
                     },
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
+                color_provider: Some(ColorProviderCapability::Simple(true)),
                 ..Default::default()
             },
             ..Default::default()
@@ -229,6 +233,41 @@ impl LanguageServer for UssLanguageServer {
                 }
             )
         ))
+    }
+    
+    async fn document_color(&self, params: DocumentColorParams) -> Result<Vec<ColorInformation>> {
+        let uri = params.text_document.uri;
+        
+        let colors = if let Ok(state) = self.state.lock() {
+            if let (Some(tree), Some(content)) = (
+                state.document_trees.get(&uri),
+                state.document_content.get(&uri)
+            ) {
+                state.color_provider.provide_document_colors(tree, content)
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+        
+        Ok(colors)
+    }
+    
+    async fn color_presentation(
+        &self,
+        params: ColorPresentationParams,
+    ) -> Result<Vec<ColorPresentation>> {
+        let state = self.state.lock().ok();
+        if let Some(state) = state {
+            let presentations = state.color_provider.provide_color_presentations(
+                &params.color,
+                params.range,
+            );
+            Ok(presentations)
+        } else {
+            Ok(Vec::new())
+        }
     }
 }
 

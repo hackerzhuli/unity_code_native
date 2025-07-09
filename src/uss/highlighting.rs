@@ -4,6 +4,7 @@
 
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
+use crate::uss::definitions::UssDefinitions;
 
 /// USS semantic token provider
 pub struct UssHighlighter {
@@ -110,7 +111,20 @@ impl UssHighlighter {
                     (3, 0) // PROPERTY
                 }
             },
-            "plain_value" | "integer_value" | "float_value" => (4, 0), // NUMBER
+            "plain_value" => {
+                // Check if this plain_value is actually a color keyword
+                if let Ok(text) = node.utf8_text(content.as_bytes()) {
+                    let definitions = UssDefinitions::new();
+                    if definitions.is_valid_color_keyword(text) {
+                        (4, 0) // NUMBER (colors) - same as color_value
+                    } else {
+                        (4, 0) // NUMBER (regular values)
+                    }
+                } else {
+                    (4, 0) // NUMBER
+                }
+            },
+            "integer_value" | "float_value" => (4, 0), // NUMBER
             "string_value" => (5, 0),   // STRING
             "color_value" => (4, 0),    // NUMBER (colors)
             "comment" => (6, 0),        // COMMENT
@@ -252,5 +266,22 @@ mod tests {
         
         // Should have tokens for CSS variables
         assert!(!tokens.is_empty());
+    }
+    
+    #[test]
+    fn test_color_keyword_highlighting() {
+        let mut parser = UssParser::new().expect("Failed to create parser");
+        let content = "Button { color: red; background-color: blue; border-color: aliceblue; }";
+        let tree = parser.parse(content, None).expect("Failed to parse");
+        
+        let highlighter = UssHighlighter::new();
+        let tokens = highlighter.generate_tokens(&tree, content);
+        
+        // Should have tokens for color keywords
+        assert!(!tokens.is_empty());
+        
+        // Check that we have NUMBER tokens (type 4) for color keywords
+        let has_color_tokens = tokens.iter().any(|token| token.token_type == 4);
+        assert!(has_color_tokens, "Should highlight color keywords as NUMBER tokens");
     }
 }

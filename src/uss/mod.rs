@@ -13,6 +13,7 @@ pub mod hover;
 pub mod property_data;
 pub mod tree_printer;
 pub mod value_spec;
+pub mod color_provider;
 
 #[cfg(test)]
 mod diagnostics_tests;
