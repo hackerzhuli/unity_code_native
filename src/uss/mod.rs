@@ -17,3 +17,6 @@ pub mod color_provider;
 
 #[cfg(test)]
 mod diagnostics_tests;
+
+#[cfg(test)]
+mod value_spec_tests;
