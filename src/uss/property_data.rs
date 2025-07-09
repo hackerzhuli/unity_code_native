@@ -3,7 +3,7 @@
 //! Contains the actual property definitions for USS properties.
 //! This module is separated from definitions.rs to improve maintainability.
 
-use crate::uss::definitions::{PropertyInfo, ValueType};
+use crate::uss::definitions::{PropertyInfo, ValueType, ValueSpec, ValueFormat};
 use std::collections::HashMap;
 
 /// Create all standard CSS properties supported by USS
@@ -51,7 +51,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-background".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Color],
+            value_spec: ValueSpec::color(),
+            value_types: vec![ValueType::Color], // Legacy compatibility
         },
         PropertyInfo {
             name: "background-image",
@@ -139,8 +140,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#border-color".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Color],
-            
+            value_spec: ValueSpec::shorthand(ValueFormat::Single(ValueType::Color), 1, 4),
+            value_types: vec![ValueType::Color], // Legacy compatibility
         },
         PropertyInfo {
             name: "border-left-color",
@@ -165,7 +166,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#drawing-borders".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
+            value_spec: ValueSpec::shorthand(ValueFormat::Single(ValueType::Length), 1, 4),
+            value_types: vec![ValueType::Length], // Legacy compatibility
         },
         PropertyInfo {
             name: "border-right-color",
@@ -240,8 +242,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
-            value_types: vec![ValueType::Color],
-            
+            value_spec: ValueSpec::color(),
+            value_types: vec![ValueType::Color], // Legacy compatibility
         },
         PropertyInfo {
             name: "cursor",
@@ -267,8 +269,13 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Number, ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![
+                ValueFormat::Single(ValueType::Keyword), // auto, none, initial, etc.
+                ValueFormat::Sequence(vec![ValueType::Number]), // flex-grow only
+                ValueFormat::Sequence(vec![ValueType::Number, ValueType::Number]), // flex-grow flex-shrink
+                ValueFormat::Sequence(vec![ValueType::Number, ValueType::Number, ValueType::Length]), // flex-grow flex-shrink flex-basis
+            ]),
+            value_types: vec![ValueType::Number, ValueType::Length, ValueType::Keyword], // Legacy compatibility
         },
         PropertyInfo {
             name: "flex-basis",
@@ -321,8 +328,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
-            value_types: vec![ValueType::Length],
-
+            value_spec: ValueSpec::single(ValueType::Length),
+            value_types: vec![ValueType::Length], // Legacy compatibility
         },
         PropertyInfo {
             name: "height",
@@ -366,8 +373,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::shorthand(ValueFormat::OneOf(vec![ValueType::Length, ValueType::Keyword]), 1, 4),
+            value_types: vec![ValueType::Length, ValueType::Keyword], // Legacy compatibility
         },
         PropertyInfo {
             name: "margin-bottom",
@@ -582,8 +589,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Multiple(vec![ValueType::Keyword, ValueType::Number])],
-            
+            value_types: vec![ValueType::Number],
+
         },
         PropertyInfo {
             name: "transition-delay",

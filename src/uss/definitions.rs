@@ -5,25 +5,56 @@
 //! like diagnostics and autocomplete.
 
 use crate::uss::property_data::{create_standard_properties, create_unity_properties};
-use std::collections::{HashMap, HashSet};/// Value type that a property accepts
-#[derive(Debug, Clone, PartialEq)]
+use std::collections::{HashMap, HashSet};/// Basic value type that a property accepts
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ValueType {
     /// Length values (px, %, auto)
     Length,
-    /// Numeric values (unitless numbers)
+    Percentage,
+    /// Numeric values (unitless numbers)(can be integer or float)
     Number,
+    /// Numeric values that can only be integer
+    Integer,
+    String,
+    Time,
     /// Color values (hex, keywords, functions)
     Color,
     /// Angle values (deg, rad, grad, turn)
     Angle,
     /// Keyword values from a predefined list
-    Keyword,
+    Keyword(& 'static str),
     /// Resource references (url(), resource())
     Resource,
-    /// Custom CSS variables (var())
-    Variable,
-    /// Multiple value types allowed
-    Multiple(Vec<ValueType>),
+    /// e.g., property names in transition-property
+    /// Note: Must not be a CSS keyword unless escaped.
+    Identifier
+}
+
+/// one value entry of property
+#[derive(Debug, Clone)]
+pub struct ValueEntry{
+    /// All valid value types for this entry
+    pub types: Vec<ValueType>,
+    /// Whether this entry is optional
+    pub is_optional: bool,
+}
+
+/// Specific value format with exact type and count requirements
+#[derive(Debug, Clone)]
+pub struct ValueFormat {
+    // this format should have these entries in this order(also, we allow optional entries)
+    pub entries: Vec<ValueEntry>,
+}
+
+/// Complete value specification for a property
+#[derive(Debug, Clone)]
+pub struct ValueSpec {
+    /// All possible value formats for this property
+    pub formats: Vec<ValueFormat>,
+    /// Default value if not specified
+    pub default_value: Option<&'static str>,
+    /// Valid keyword values (if any format accepts keywords)
+    pub valid_keywords: Option<&'static [&'static str]>,
 }
 
 /// Property documentation information
@@ -39,7 +70,9 @@ pub struct PropertyInfo {
     pub inherited: bool,
     /// Whether this property is animatable
     pub animatable: bool,
-    /// Expected value types for this property
+    /// Complete value specification for this property
+    pub value_spec: ValueSpec,
+    /// Legacy: Expected value types for this property (for backward compatibility)
     pub value_types: Vec<ValueType>,
 }
 
