@@ -371,6 +371,12 @@ impl UssDefinitions {
         self.properties.contains_key(property_name)
     }
     
+    /// Check if a property is a predefined USS property (excludes custom CSS variables)
+    /// This is used for features like hover that should only show info for predefined properties
+    pub fn is_predefined_property(&self, property_name: &str) -> bool {
+        self.properties.contains_key(property_name)
+    }
+    
     /// Check if a pseudo-class is valid
     pub fn is_valid_pseudo_class(&self, pseudo_class: &str) -> bool {
         self.valid_pseudo_classes.contains(pseudo_class)

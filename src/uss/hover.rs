@@ -34,7 +34,7 @@ impl UssHoverProvider {
         let node = self.find_property_at_position(tree, source, position)?;
         let property_name = self.extract_property_name(&node, source)?;
         
-        if self.definitions.is_valid_property(&property_name) {
+        if self.definitions.is_predefined_property(&property_name) {
             Some(self.create_hover_content(&property_name, unity_manager))
         } else {
             None
@@ -143,9 +143,6 @@ impl UssHoverProvider {
             content.push_str(&format!("\n\n*{}*", characteristics.join(", ")));
         }
         
-        // Add Unity version info
-        content.push_str(&format!("\n\n**Unity Version:** {}", unity_version));
-        
         // Add documentation link
         content.push_str(&format!("\n\n[📖 Documentation]({})", doc_url));
         
@@ -212,7 +209,6 @@ mod tests {
         
         if let HoverContents::Markup(content) = hover.contents {
             assert!(content.value.contains("**color**"));
-            assert!(content.value.contains("Unity Version:"));
             assert!(content.value.contains("Documentation"));
             assert_eq!(content.kind, MarkupKind::Markdown);
         } else {
@@ -227,6 +223,16 @@ mod tests {
         
         // Test that invalid properties are not recognized
         assert!(!provider.definitions.is_valid_property("invalid-property"));
+        assert!(!provider.definitions.is_predefined_property("invalid-property"));
+        
+        // Test that custom CSS properties are valid for diagnostics but not for hover
+        assert!(provider.definitions.is_valid_property("--button-border-color-what"));
+        assert!(!provider.definitions.is_predefined_property("--button-border-color-what"));
+        assert!(provider.definitions.is_valid_property("--custom-property"));
+        assert!(!provider.definitions.is_predefined_property("--custom-property"));
+        
+        // Test that predefined properties are recognized by both methods
         assert!(provider.definitions.is_valid_property("color"));
+        assert!(provider.definitions.is_predefined_property("color"));
     }
 }
