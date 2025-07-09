@@ -12,6 +12,7 @@ pub mod definitions;
 pub mod hover;
 pub mod property_data;
 pub mod tree_printer;
+pub mod value_spec;
 
 #[cfg(test)]
 mod diagnostics_tests;
