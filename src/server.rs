@@ -1,12 +1,16 @@
 use std::{
     collections::HashMap,
-    io::{self, ErrorKind},
-    net::UdpSocket,
+    io,
     time::{Duration, Instant},
 };
 
 use serde::{Deserialize, Serialize};
 use sysinfo::PidExt;
+use tokio::{
+    net::UdpSocket,
+    time::interval,
+};
+use log::{debug, error, info, warn};
 use crate::monitor::ProcessMonitor;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -49,16 +53,14 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(project_path: String) -> io::Result<Self> {
+    pub async fn new(project_path: String) -> io::Result<Self> {
         let pid = std::process::id();
         let port = 50000 + (pid % 1000);
         let addr = format!("127.0.0.1:{}", port);
 
-        let socket = UdpSocket::bind(&addr)?;
-        // Set blocking socket with 1-second timeout
-        socket.set_read_timeout(Some(Duration::from_millis(500)))?;
+        let socket = UdpSocket::bind(&addr).await?;
 
-        println!("Server listening on {}", addr);
+        info!("Server listening on {}", addr);
 
         Ok(Server {
             socket,
@@ -68,31 +70,41 @@ impl Server {
         })
     }
 
-    pub fn run(&mut self) {
+    pub async fn run(&mut self) {
         let mut buffer = [0u8; 1024];
+        let mut cleanup_interval = interval(Duration::from_secs(5));
+        let mut monitor_interval = interval(Duration::from_millis(100));
 
         loop {
-            // Handle incoming messages
-            match self.socket.recv_from(&mut buffer) {
-                Ok((size, addr)) => {
-                    self.handle_message(&buffer[..size], addr);
+            tokio::select! {
+                // Handle incoming messages
+                result = self.socket.recv_from(&mut buffer) => {
+                    match result {
+                        Ok((size, addr)) => {
+                            self.handle_message(&buffer[..size], addr).await;
+                        }
+                        Err(e) => {
+                            error!("Error receiving message: {}", e);
+                        }
+                    }
                 }
-                Err(ref e) if e.kind() == ErrorKind::TimedOut => {}
-                Err(e) => {
-                    eprintln!("Error receiving message: {}", e);
+                
+                // Clean up inactive clients periodically
+                _ = cleanup_interval.tick() => {
+                    self.cleanup_inactive_clients();
                 }
-            }
-
-            // Clean up inactive clients
-            self.cleanup_inactive_clients();
-
-            // check if unity is already detected or DETECT_UNITY_INTERVAL is reached
-            // this will make detect new Unity instance slow and find out Unity shutdown fast
-            if self.last_monitor_update.elapsed() >= DETECT_UNITY_INTERVAL || self.monitor.unity_pid().is_some() {
-                // only checks unity
-                if self.monitor_update(false) {
-                    println!("state changed to {:?}, broadcast to clients", self.get_process_state());
-                    self.broadcast_state();
+                
+                // Monitor Unity processes
+                _ = monitor_interval.tick() => {
+                    // check if unity is already detected or DETECT_UNITY_INTERVAL is reached
+                    // this will make detect new Unity instance slow and find out Unity shutdown fast
+                    if self.last_monitor_update.elapsed() >= DETECT_UNITY_INTERVAL || self.monitor.unity_pid().is_some() {
+                        // only checks unity
+                        if self.monitor_update(false) {
+                            info!("state changed to {:?}, broadcast to clients", self.get_process_state());
+                            self.broadcast_state().await;
+                        }
+                    }
                 }
             }
         }
@@ -114,14 +126,14 @@ impl Server {
         let new_state = self.get_process_state();
 
         #[cfg(debug_assertions)]{
-            println!("monitor update took: {:?}, is_full:{}, state is:{:?}", start.elapsed(), is_full, new_state);
+            debug!("monitor update took: {:?}, is_full:{}, state is:{:?}", start.elapsed(), is_full, new_state);
         }
         old_state != new_state
     }
 
-    fn handle_message(&mut self, data: &[u8], addr: std::net::SocketAddr) {
+    async fn handle_message(&mut self, data: &[u8], addr: std::net::SocketAddr) {
         if data.len() < 9 {
-            eprintln!("Invalid message format: too short");
+            warn!("Invalid message format: too short");
             return;
         }
 
@@ -138,7 +150,7 @@ impl Server {
         let payload_length = u32::from_le_bytes([data[5], data[6], data[7], data[8]]) as usize;
 
         if data.len() < 9 + payload_length {
-            eprintln!("Invalid message format: payload length mismatch");
+            warn!("Invalid message format: payload length mismatch");
             return;
         }
 
@@ -146,7 +158,7 @@ impl Server {
             match std::str::from_utf8(&data[9..9 + payload_length]) {
                 Ok(s) => s,
                 Err(_) => {
-                    eprintln!("Invalid UTF-8 in payload");
+                    warn!("Invalid UTF-8 in payload");
                     return;
                 }
             }
@@ -159,28 +171,28 @@ impl Server {
                 // Do nothing
             }
             MessageType::GetUnityState => {
-                self.handle_get_unity_state(addr, request_id);
+                self.handle_get_unity_state(addr, request_id).await;
             }
         }
     }
 
-    fn handle_get_unity_state(&mut self, addr: std::net::SocketAddr, request_id: u32) {
+    async fn handle_get_unity_state(&mut self, addr: std::net::SocketAddr, request_id: u32) {
         // Always update monitor when state is requested(full check)
         let _changed = self.monitor_update(true);
 
-        self.send_state(addr, request_id);
+        self.send_state(addr, request_id).await;
     }
 
-    fn send_state(&mut self, addr: std::net::SocketAddr, request_id: u32) {
+    async fn send_state(&mut self, addr: std::net::SocketAddr, request_id: u32) {
         // Return real process state data from monitor
         let state = self.get_process_state();
 
         match serde_json::to_string(&state) {
             Ok(json) => {
-                self.send_response(MessageType::GetUnityState, request_id, &json, addr);
+                self.send_response(MessageType::GetUnityState, request_id, &json, addr).await;
             }
             Err(e) => {
-                eprintln!("Error serializing ProcessState: {}", e);
+                error!("Error serializing ProcessState: {}", e);
             }
         }
     }
@@ -195,29 +207,29 @@ impl Server {
         }
     }
     
-    fn broadcast_state(&mut self) {
+    async fn broadcast_state(&mut self) {
         // Return real process state data from monitor
         let state = self.get_process_state();
 
         match serde_json::to_string(&state) {
             Ok(json) => {
-                self.broadcast(MessageType::GetUnityState, json);
+                self.broadcast(MessageType::GetUnityState, json).await;
             }
             Err(e) => {
-                eprintln!("Error serializing ProcessState for broadcast: {}", e);
+                error!("Error serializing ProcessState for broadcast: {}", e);
             }
         }
     }
 
-    fn broadcast(&mut self, message_type: MessageType, json: String) {
+    async fn broadcast(&mut self, message_type: MessageType, json: String) {
         // Send to all connected clients
         let clients: Vec<std::net::SocketAddr> = self.clients.keys().cloned().collect();
         for addr in clients {
-            self.send_response(message_type, 0, &json, addr); // request_id = 0 for broadcasts
+            self.send_response(message_type, 0, &json, addr).await; // request_id = 0 for broadcasts
         }
     }
     
-    fn send_response(&self, message_type: MessageType, request_id: u32, payload: &str, addr: std::net::SocketAddr) {
+    async fn send_response(&self, message_type: MessageType, request_id: u32, payload: &str, addr: std::net::SocketAddr) {
         let payload_bytes = payload.as_bytes();
         let payload_length = payload_bytes.len() as u32;
 
@@ -227,8 +239,8 @@ impl Server {
         response.extend_from_slice(&payload_length.to_le_bytes());
         response.extend_from_slice(payload_bytes);
 
-        if let Err(e) = self.socket.send_to(&response, addr) {
-            eprintln!("Error sending response to {}: {}", addr, e);
+        if let Err(e) = self.socket.send_to(&response, addr).await {
+            error!("Error sending response to {}: {}", addr, e);
         }
     }
 
@@ -239,7 +251,7 @@ impl Server {
         self.clients.retain(|addr, client| {
             let is_active = now.duration_since(client.last_message_time) < timeout;
             if !is_active {
-                println!("Dropping inactive client: {}", addr);
+                info!("Dropping inactive client: {}", addr);
             }
             is_active
         });

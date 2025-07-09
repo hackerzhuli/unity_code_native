@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use sysinfo::{Pid, ProcessExt, ProcessRefreshKind, System, SystemExt};
+use log::info;
 
 pub(crate) struct ProcessMonitor {
     pub(crate) system: System,
@@ -152,9 +153,9 @@ impl ProcessMonitor {
             return;
         }
         if hot_reload_pid.is_none() {
-            println!("hot_reload process is closed");
+            info!("hot_reload process is closed");
         } else {
-            println!("hot_reload process detected, id = {:?}", hot_reload_pid);
+            info!("hot_reload process detected, id = {:?}", hot_reload_pid);
         }
         self.hot_reload_pid = hot_reload_pid;
     }
@@ -168,9 +169,9 @@ impl ProcessMonitor {
             return;
         }
         if unity_pid.is_none() {
-            println!("Unity process is closed");
+            info!("Unity process is closed");
         } else {
-            println!("Unity process detected, id = {:?}", unity_pid);
+            info!("Unity process detected, id = {:?}", unity_pid);
         }
         self.unity_pid = unity_pid;
     }
