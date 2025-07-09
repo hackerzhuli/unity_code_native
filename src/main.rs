@@ -60,9 +60,10 @@ async fn main() {
     };
     
     // Start USS Language Server concurrently
-    let lsp_server_task = async {
+    let project_path_for_lsp = PathBuf::from(&target_project_path);
+    let lsp_server_task = async move {
         info!("Starting USS Language Server (will handle LSP requests when connected)");
-        if let Err(e) = start_uss_language_server().await {
+        if let Err(e) = start_uss_language_server(project_path_for_lsp).await {
             error!("USS Language Server error: {:?}", e);
         }
         info!("USS Language Server stopped");

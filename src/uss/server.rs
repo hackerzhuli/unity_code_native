@@ -12,6 +12,8 @@ use tree_sitter::Tree;
 use crate::uss::parser::UssParser;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::diagnostics::UssDiagnostics;
+use crate::uss::hover::UssHoverProvider;
+use crate::unity_project_manager::UnityProjectManager;
 
 /// USS Language Server
 pub struct UssLanguageServer {
@@ -24,17 +26,21 @@ struct UssServerState {
     parser: UssParser,
     highlighter: UssHighlighter,
     diagnostics: UssDiagnostics,
+    hover_provider: UssHoverProvider,
+    unity_manager: UnityProjectManager,
     document_trees: HashMap<Url, Tree>,
     document_content: HashMap<Url, String>,
 }
 
 impl UssLanguageServer {
     /// Create a new USS language server
-    pub fn new(client: Client) -> Self {
+    pub fn new(client: Client, project_path: std::path::PathBuf) -> Self {
         let state = UssServerState {
             parser: UssParser::new().expect("Failed to create USS parser"),
             highlighter: UssHighlighter::new(),
             diagnostics: UssDiagnostics::new(),
+            hover_provider: UssHoverProvider::new(),
+            unity_manager: UnityProjectManager::new(project_path),
             document_trees: HashMap::new(),
             document_content: HashMap::new(),
         };
@@ -116,6 +122,7 @@ impl LanguageServer for UssLanguageServer {
                         ..Default::default()
                     },
                 )),
+                hover_provider: Some(HoverProviderCapability::Simple(true)),
                 ..Default::default()
             },
             ..Default::default()
@@ -168,14 +175,37 @@ impl LanguageServer for UssLanguageServer {
             Ok(None)
         }
     }
+    
+    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+        
+        let state = self.state.lock().ok();
+        if let Some(state) = state {
+            if let (Some(tree), Some(content)) = (
+                state.document_trees.get(&uri),
+                state.document_content.get(&uri)
+            ) {
+                let hover = state.hover_provider.hover(
+                    tree,
+                    content,
+                    position,
+                    &state.unity_manager
+                );
+                return Ok(hover);
+            }
+        }
+        
+        Ok(None)
+    }
 }
 
 /// Create and start the USS language server
-pub async fn start_uss_language_server() -> Result<()> {
+pub async fn start_uss_language_server(project_path: std::path::PathBuf) -> Result<()> {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
     
-    let (service, socket) = LspService::new(UssLanguageServer::new);
+    let (service, socket) = LspService::new(|client| UssLanguageServer::new(client, project_path.clone()));
     Server::new(stdin, stdout, socket).serve(service).await;
     
     Ok(())
