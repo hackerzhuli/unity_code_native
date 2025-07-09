@@ -198,6 +198,38 @@ impl LanguageServer for UssLanguageServer {
         
         Ok(None)
     }
+    
+    async fn diagnostic(
+        &self,
+        params: DocumentDiagnosticParams,
+    ) -> Result<DocumentDiagnosticReportResult> {
+        let uri = params.text_document.uri;
+        
+        let diagnostics = if let Ok(state) = self.state.lock() {
+            if let (Some(tree), Some(content)) = (
+                state.document_trees.get(&uri),
+                state.document_content.get(&uri)
+            ) {
+                state.diagnostics.analyze(tree, content)
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+        
+        Ok(DocumentDiagnosticReportResult::Report(
+            DocumentDiagnosticReport::Full(
+                RelatedFullDocumentDiagnosticReport {
+                    related_documents: None,
+                    full_document_diagnostic_report: FullDocumentDiagnosticReport {
+                        result_id: None,
+                        items: diagnostics,
+                    },
+                }
+            )
+        ))
+    }
 }
 
 /// Create and start the USS language server

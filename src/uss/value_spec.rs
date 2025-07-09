@@ -4,6 +4,7 @@
 //! including ValueType, ValueEntry, ValueFormat, and ValueSpec.
 
 use tree_sitter::Node;
+use crate::uss::definitions::UssDefinitions;
 
 /// Basic value type that a property accepts
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -300,8 +301,16 @@ impl ValueFormat {
                     }
                     "plain_value" => {
                         // Named colors or hex values
-                        node_text.starts_with('#') || 
-                        matches!(node_text, "red" | "green" | "blue" | "white" | "black" | "transparent")
+                        if node_text.starts_with('#') {
+                            // Validate hex color format
+                            let hex_part = &node_text[1..];
+                            (hex_part.len() == 3 || hex_part.len() == 6) && 
+                            hex_part.chars().all(|c| c.is_ascii_hexdigit())
+                        } else {
+                            // Check against comprehensive color keywords from UssDefinitions
+                            let definitions = UssDefinitions::new();
+                            definitions.is_valid_color_keyword(node_text)
+                        }
                     }
                     _ => false,
                 }
@@ -355,6 +364,7 @@ impl ValueFormat {
 mod tests {
     use super::*;
     use crate::uss::parser::UssParser;
+    use crate::uss::definitions::UssDefinitions;
 
     #[test]
     fn test_value_format_is_match() {
@@ -470,6 +480,42 @@ mod tests {
         let tree7 = parser.parse(content7, None).unwrap();
         let declaration7 = find_declaration_node(&tree7);
         assert!(!color_format.is_match(declaration7, content7), "Should reject non-color function");
+    }
+    
+    #[test]
+    fn test_named_color_keywords() {
+        let mut parser = UssParser::new().unwrap();
+        let color_format = ValueFormat::single(ValueType::Color);
+        
+        // Test case 1: aliceblue - the specific color mentioned in the issue
+        let content1 = "Button { border-right-color: aliceblue; }";
+        let tree1 = parser.parse(content1, None).unwrap();
+        let declaration1 = find_declaration_node(&tree1);
+        assert!(color_format.is_match(declaration1, content1), "Should accept 'aliceblue' as valid color");
+        
+        // Test case 2: Other common named colors
+        let content2 = "Button { color: cornflowerblue; }";
+        let tree2 = parser.parse(content2, None).unwrap();
+        let declaration2 = find_declaration_node(&tree2);
+        assert!(color_format.is_match(declaration2, content2), "Should accept 'cornflowerblue' as valid color");
+        
+        // Test case 3: transparent keyword
+        let content3 = "Button { background-color: transparent; }";
+        let tree3 = parser.parse(content3, None).unwrap();
+        let declaration3 = find_declaration_node(&tree3);
+        assert!(color_format.is_match(declaration3, content3), "Should accept 'transparent' as valid color");
+        
+        // Test case 4: Invalid color name
+        let content4 = "Button { color: notarealcolor; }";
+        let tree4 = parser.parse(content4, None).unwrap();
+        let declaration4 = find_declaration_node(&tree4);
+        assert!(!color_format.is_match(declaration4, content4), "Should reject invalid color name");
+        
+        // Test case 5: Basic colors that should still work
+        let content5 = "Button { color: white; }";
+        let tree5 = parser.parse(content5, None).unwrap();
+        let declaration5 = find_declaration_node(&tree5);
+        assert!(color_format.is_match(declaration5, content5), "Should accept 'white' as valid color");
     }
     
     #[test]
