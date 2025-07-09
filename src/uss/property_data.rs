@@ -252,22 +252,17 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             animatable: false,
             value_spec: ValueSpec::multiple_formats(vec![
                 // Built-in cursor keywords
-                ValueFormat {
-                    entries: vec![ValueSpec::cursor_keywords()],
-                },
+                ValueFormat::keywords(&[
+                    "arrow", "text", "resize-vertical", "resize-horizontal",
+                    "link", "slide-arrow", "resize-up-right", "resize-up-left",
+                    "move-arrow", "rotate-arrow", "scale-arrow", "arrow-plus",
+                    "arrow-minus", "pan", "orbit", "zoom", "fps", "split-resize-up-down",
+                    "split-resize-left-right"
+                ]),
                 // Custom cursor: resource/url + optional hotspot coordinates
-                ValueFormat {
-                    entries: vec![
-                        ValueEntry { types: vec![ValueType::Asset], is_optional: false },
-                        ValueEntry { types: vec![ValueType::Number], is_optional: false },
-                        ValueEntry { types: vec![ValueType::Number], is_optional: false },
-                    ],
-                },
-                ValueFormat {
-                    entries: vec![
-                        ValueEntry { types: vec![ValueType::Asset], is_optional: false },
-                    ],
-                }
+                ValueFormat::sequence(vec![ValueType::Asset, ValueType::Number, ValueType::Number]),
+                // Custom cursor: resource/url only
+                ValueFormat::single(ValueType::Asset)
             ]),
         },
         PropertyInfo {
@@ -285,17 +280,14 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: false,
             animatable: false,
             value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("auto"), ValueType::Keyword("none"), ValueType::Keyword("initial")], is_optional: false }] }, // auto, none, initial, etc.
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Number], is_optional: false }] }, // flex-grow only
-                ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Number], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Number], is_optional: false }
-                ] }, // flex-grow flex-shrink
-                ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Number], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Number], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Length], is_optional: false }
-                ] }, // flex-grow flex-shrink flex-basis
+                ValueFormat::keywords(&["none"]), 
+                ValueFormat::single(ValueType::Number), // flex-grow only
+                ValueFormat::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]), // flex-basis only
+                ValueFormat::sequence(vec![ValueType::Number, ValueType::Number]), // flex-grow flex-shrink
+                ValueFormat::sequence(vec![ValueType::Number, ValueType::Length]), // flex-grow flex-basis (length)
+                ValueFormat::sequence(vec![ValueType::Number, ValueType::Keyword("auto")]), // flex-grow flex-basis (auto)
+                ValueFormat::sequence(vec![ValueType::Number, ValueType::Number, ValueType::Length]), // flex-grow flex-shrink flex-basis (length)
+                ValueFormat::sequence(vec![ValueType::Number, ValueType::Number, ValueType::Keyword("auto")]), // flex-grow flex-shrink flex-basis (auto)
             ]),
         },
         PropertyInfo {

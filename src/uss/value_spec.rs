@@ -85,15 +85,7 @@ impl ValueFormat {
         }
     }
 
-    /// Create a ValueFormat with cursor keywords
-    pub fn cursor_keywords() -> Self {
-        Self::keywords(&[
-            "arrow", "text", "resize-vertical", "resize-horizontal", "link", "slide-arrow",
-            "resize-up-right", "resize-up-left", "move-arrow", "rotate-arrow", "scale-arrow",
-            "arrow-plus", "arrow-minus", "pan", "orbit", "zoom", "fps",
-            "split-resize-up-down", "split-resize-left-right"
-        ])
-    }
+
 }
 
 /// Complete value specification for a property
