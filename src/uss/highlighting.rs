@@ -97,12 +97,12 @@ impl UssHighlighter {
             "id_selector" => (1, 0),    // VARIABLE
             "tag_name" => (2, 0),       // TYPE
             "property_name" => {
-                // Check if it's a Unity-specific property
+                // Check if it's a CSS custom property
                 if let Ok(text) = node.utf8_text(content.as_bytes()) {
-                    if text.starts_with("-unity-") {
-                        (8, 1) // KEYWORD with DECLARATION modifier
-                    } else if text.starts_with("--") {
+                    if text.starts_with("--") {
                         (1, 0) // VARIABLE (CSS custom property)
+                    } else if text.starts_with("-unity-") {
+                        (3, 1) // PROPERTY with DECLARATION modifier for Unity-specific
                     } else {
                         (3, 0) // PROPERTY
                     }
@@ -206,9 +206,9 @@ mod tests {
         // Should have tokens including Unity-specific property
         assert!(!tokens.is_empty());
         
-        // Check that we have a KEYWORD token with DECLARATION modifier for -unity-font
+        // Check that we have a PROPERTY token with DECLARATION modifier for -unity-font
         let has_unity_property = tokens.iter().any(|token| {
-            token.token_type == 8 && token.token_modifiers_bitset == 1
+            token.token_type == 3 && token.token_modifiers_bitset == 1
         });
         assert!(has_unity_property, "Should highlight Unity-specific properties");
     }
