@@ -11,6 +11,7 @@ use tree_sitter::Tree;
 
 use crate::uss::parser::UssParser;
 use crate::uss::highlighting::UssHighlighter;
+use crate::uss::diagnostics::UssDiagnostics;
 
 /// USS Language Server
 pub struct UssLanguageServer {
@@ -22,6 +23,7 @@ pub struct UssLanguageServer {
 struct UssServerState {
     parser: UssParser,
     highlighter: UssHighlighter,
+    diagnostics: UssDiagnostics,
     document_trees: HashMap<Url, Tree>,
     document_content: HashMap<Url, String>,
 }
@@ -32,6 +34,7 @@ impl UssLanguageServer {
         let state = UssServerState {
             parser: UssParser::new().expect("Failed to create USS parser"),
             highlighter: UssHighlighter::new(),
+            diagnostics: UssDiagnostics::new(),
             document_trees: HashMap::new(),
             document_content: HashMap::new(),
         };
@@ -43,7 +46,7 @@ impl UssLanguageServer {
     }
     
     /// Parse document and store the syntax tree
-    fn parse_document(&self, uri: &Url, content: &str) {
+    async fn parse_document(&self, uri: &Url, content: &str) {
         // Parse without incremental parsing for now to avoid borrowing conflicts
         let new_tree = {
             if let Ok(mut state) = self.state.lock() {
@@ -53,12 +56,20 @@ impl UssLanguageServer {
             }
         };
         
-        // Store the result in a separate lock scope
+        // Store the result and generate diagnostics in a separate lock scope
         if let Some(tree) = new_tree {
-            if let Ok(mut state) = self.state.lock() {
-                state.document_trees.insert(uri.clone(), tree);
-                state.document_content.insert(uri.clone(), content.to_string());
-            }
+            let diagnostics = {
+                if let Ok(mut state) = self.state.lock() {
+                    state.document_trees.insert(uri.clone(), tree.clone());
+                    state.document_content.insert(uri.clone(), content.to_string());
+                    state.diagnostics.analyze(&tree, content)
+                } else {
+                    Vec::new()
+                }
+            };
+            
+            // Publish diagnostics
+            self.client.publish_diagnostics(uri.clone(), diagnostics, None).await;
         }
     }
     
@@ -97,6 +108,14 @@ impl LanguageServer for UssLanguageServer {
                         },
                     ),
                 ),
+                diagnostic_provider: Some(DiagnosticServerCapabilities::Options(
+                    DiagnosticOptions {
+                        identifier: Some("uss".to_string()),
+                        inter_file_dependencies: false,
+                        workspace_diagnostics: false,
+                        ..Default::default()
+                    },
+                )),
                 ..Default::default()
             },
             ..Default::default()
@@ -117,8 +136,8 @@ impl LanguageServer for UssLanguageServer {
         let uri = params.text_document.uri;
         let content = params.text_document.text;
         
-        // Parse the document
-        self.parse_document(&uri, &content);
+        // Parse the document and generate diagnostics
+        self.parse_document(&uri, &content).await;
         
         self.client
             .log_message(MessageType::INFO, format!("Opened USS document: {}", uri))
@@ -129,8 +148,8 @@ impl LanguageServer for UssLanguageServer {
         let uri = params.text_document.uri;
         
         if let Some(change) = params.content_changes.into_iter().next() {
-            // Re-parse the document with new content
-            self.parse_document(&uri, &change.text);
+            // Re-parse the document with new content and generate diagnostics
+            self.parse_document(&uri, &change.text).await;
         }
     }
     

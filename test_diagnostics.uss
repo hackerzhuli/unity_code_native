@@ -1,0 +1,52 @@
+/* Test USS file to demonstrate diagnostics */
+
+/* Valid USS */
+.valid-class {
+    display: flex;
+    flex-direction: column;
+    background-color: #ff0000;
+    -unity-font-style: bold;
+    margin: 10px;
+}
+
+/* Invalid USS - should trigger diagnostics */
+.invalid-class {
+    /* Unknown property */
+    invalid-property: value;
+    
+    /* Invalid value for display */
+    display: invalid-value;
+    
+    /* Invalid hex color */
+    color: #gggggg;
+    
+    /* Invalid Unity-specific value */
+    -unity-background-scale-mode: invalid-mode;
+}
+
+/* Nested rules - not allowed in USS */
+.parent {
+    color: blue;
+    
+    .nested {
+        color: red;
+    }
+}
+
+/* Invalid pseudo-class */
+.element:invalid-pseudo {
+    color: green;
+}
+
+/* Unsupported at-rule */
+@media screen {
+    .responsive {
+        width: 100%;
+    }
+}
+
+/* Invalid function */
+.function-test {
+    background-image: unknown-function("test.png");
+    color: rgb(255, 0); /* Missing third argument */
+}

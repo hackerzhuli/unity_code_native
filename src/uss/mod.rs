@@ -8,3 +8,4 @@ pub mod server;
 pub mod parser;
 pub mod diagnostics;
 pub mod highlighting;
+pub mod definitions;
