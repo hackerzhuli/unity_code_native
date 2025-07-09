@@ -33,8 +33,8 @@ impl UssDiagnostics {
     
     /// Recursively walk the syntax tree and validate nodes
     fn walk_node(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
-        // Check for syntax errors
-        if node.has_error() {
+        // Check for syntax errors - only report for ERROR nodes directly, not for nodes that contain errors
+        if node.kind() == "ERROR" {
             self.add_syntax_error(node, content, diagnostics);
         }
         
@@ -74,44 +74,17 @@ impl UssDiagnostics {
     
     /// Get a more precise error range for syntax errors
     fn get_precise_error_range(&self, node: Node, content: &str) -> Range {
-        // If the node is an ERROR node, try to find the actual problematic token
-        if node.kind() == "ERROR" {
-            // First, try to find the deepest ERROR node or MISSING node
-            let mut deepest_error = None;
-            let mut cursor = node.walk();
+        // If the node has errors, find the most specific error location
+        if node.has_error() {
+            // Look for ERROR nodes within this node
+            let error_nodes = self.find_error_nodes(node);
             
-            // Walk through all descendants to find the most specific error
-            if cursor.goto_first_child() {
-                loop {
-                    let current_node = cursor.node();
-                    
-                    // Prioritize MISSING nodes as they indicate exactly what's wrong
-                    if current_node.is_missing() {
-                        deepest_error = Some(current_node);
-                        break;
-                    }
-                    
-                    // Also consider ERROR nodes, but MISSING takes priority
-                    if current_node.kind() == "ERROR" && deepest_error.is_none() {
-                        deepest_error = Some(current_node);
-                    }
-                    
-                    // Continue traversing
-                    if !cursor.goto_next_sibling() {
-                        if !cursor.goto_parent() {
-                            break;
-                        }
-                        if !cursor.goto_next_sibling() {
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            // If we found a specific error node, use it
-            if let Some(error_node) = deepest_error {
+            if !error_nodes.is_empty() {
+                // Use the first ERROR node found (they should be small and specific)
+                let error_node = error_nodes[0];
                 let error_range = self.node_to_range(error_node, content);
-                // Still limit to single line if it spans multiple lines
+                
+                // Limit to single line if it spans multiple lines
                 if error_range.end.line > error_range.start.line {
                     let line_end_position = self.find_line_end_position(error_range.start.line, content);
                     return Range {
@@ -122,27 +95,20 @@ impl UssDiagnostics {
                 return error_range;
             }
             
-            // Fallback: look for the last non-whitespace token before the error
-            for i in (0..node.child_count()).rev() {
-                if let Some(child) = node.child(i) {
-                    let child_text = child.utf8_text(content.as_bytes()).unwrap_or("");
-                    // Find the last meaningful token
-                    if !child_text.trim().is_empty() && !child_text.starts_with("/*") && !child_text.starts_with("//") {
-                        let child_range = self.node_to_range(child, content);
-                        // Create a small range at the end of this token to indicate where the error is
-                        return Range {
-                            start: child_range.end,
-                            end: Position {
-                                line: child_range.end.line,
-                                character: child_range.end.character + 1,
-                            },
-                        };
-                    }
-                }
+            // Look for MISSING nodes
+            let missing_nodes = self.find_missing_nodes(node);
+            if !missing_nodes.is_empty() {
+                let missing_node = missing_nodes[0];
+                return self.node_to_range(missing_node, content);
             }
         }
         
-        // If we can't find a more specific location, try to limit to a single line
+        // If this is an ERROR node itself, use its range directly
+        if node.kind() == "ERROR" {
+            return self.node_to_range(node, content);
+        }
+        
+        // Fallback: limit the node range to a single line
         let node_range = self.node_to_range(node, content);
         let start_line = node_range.start.line;
         let end_line = node_range.end.line;
@@ -157,6 +123,60 @@ impl UssDiagnostics {
         } else {
             node_range
         }
+    }
+    
+    /// Find all ERROR nodes within a given node
+    fn find_error_nodes<'a>(&self, node: Node<'a>) -> Vec<Node<'a>> {
+        let mut error_nodes = Vec::new();
+        let mut cursor = node.walk();
+        
+        if cursor.goto_first_child() {
+            loop {
+                let current_node = cursor.node();
+                
+                if current_node.kind() == "ERROR" {
+                    error_nodes.push(current_node);
+                }
+                
+                // Recursively search children
+                if current_node.child_count() > 0 {
+                    error_nodes.extend(self.find_error_nodes(current_node));
+                }
+                
+                if !cursor.goto_next_sibling() {
+                    break;
+                }
+            }
+        }
+        
+        error_nodes
+    }
+    
+    /// Find all MISSING nodes within a given node
+    fn find_missing_nodes<'a>(&self, node: Node<'a>) -> Vec<Node<'a>> {
+        let mut missing_nodes = Vec::new();
+        let mut cursor = node.walk();
+        
+        if cursor.goto_first_child() {
+            loop {
+                let current_node = cursor.node();
+                
+                if current_node.is_missing() {
+                    missing_nodes.push(current_node);
+                }
+                
+                // Recursively search children
+                if current_node.child_count() > 0 {
+                    missing_nodes.extend(self.find_missing_nodes(current_node));
+                }
+                
+                if !cursor.goto_next_sibling() {
+                    break;
+                }
+            }
+        }
+        
+        missing_nodes
     }
     
     /// Find the end position of a given line
@@ -501,6 +521,21 @@ mod tests {
         
         let tree = parser.parse(content, None).unwrap();
         let results = diagnostics.analyze(&tree, content);
+        
+        // Debug: Check diagnostic details
+        // Uncomment the following lines for debugging:
+        // for (i, diagnostic) in results.iter().enumerate() {
+        //     println!("  {}: Line {}:{}-{}:{} - {} - {}", 
+        //         i, 
+        //         diagnostic.range.start.line, diagnostic.range.start.character,
+        //         diagnostic.range.end.line, diagnostic.range.end.character,
+        //         diagnostic.code.as_ref().map(|c| match c {
+        //             tower_lsp::lsp_types::NumberOrString::String(s) => s.as_str(),
+        //             tower_lsp::lsp_types::NumberOrString::Number(_) => "number",
+        //         }).unwrap_or("no-code"),
+        //         diagnostic.message
+        //     );
+        // }
         
         // Should have at least one syntax error
         let syntax_errors: Vec<_> = results.iter()
