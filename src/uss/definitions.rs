@@ -21,12 +21,12 @@ pub enum ValueType {
     Color,
     /// Angle values (deg, rad, grad, turn)
     Angle,
-    /// Keyword values from a predefined list
+    /// Keyword values from a predefined list (a USS Keyword)
     Keyword(& 'static str),
     /// Resource references (url(), resource())
     Resource,
     /// e.g., property names in transition-property
-    /// Note: Must not be a CSS keyword unless escaped.
+    /// Note: Must not be a USS keyword unless escaped.
     Identifier
 }
 
@@ -50,11 +50,7 @@ pub struct ValueFormat {
 #[derive(Debug, Clone)]
 pub struct ValueSpec {
     /// All possible value formats for this property
-    pub formats: Vec<ValueFormat>,
-    /// Default value if not specified
-    pub default_value: Option<&'static str>,
-    /// Valid keyword values (if any format accepts keywords)
-    pub valid_keywords: Option<&'static [&'static str]>,
+    pub formats: Vec<ValueFormat>
 }
 
 /// Property documentation information
