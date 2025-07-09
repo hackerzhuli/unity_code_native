@@ -58,7 +58,8 @@ impl UssDiagnostics {
     
     /// Add syntax error diagnostic
     fn add_syntax_error(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
-        let range = self.node_to_range(node, content);
+        // Try to find the most specific error location within the node
+        let range = self.get_precise_error_range(node, content);
         let text = node.utf8_text(content.as_bytes()).unwrap_or("<invalid>");
         
         diagnostics.push(Diagnostic {
@@ -69,6 +70,69 @@ impl UssDiagnostics {
             message: format!("Syntax error: {}", text),
             ..Default::default()
         });
+    }
+    
+    /// Get a more precise error range for syntax errors
+    fn get_precise_error_range(&self, node: Node, content: &str) -> Range {
+        // If the node is an ERROR node, try to find the actual problematic token
+        if node.kind() == "ERROR" {
+            // Look for the first non-whitespace, non-comment child that might be the issue
+            for i in 0..node.child_count() {
+                if let Some(child) = node.child(i) {
+                    let child_text = child.utf8_text(content.as_bytes()).unwrap_or("");
+                    // Skip whitespace and comments
+                    if !child_text.trim().is_empty() && !child_text.starts_with("/*") && !child_text.starts_with("//") {
+                        // If this child also has an error, recurse
+                        if child.has_error() {
+                            return self.get_precise_error_range(child, content);
+                        }
+                        // Otherwise, this might be the problematic token
+                        return self.node_to_range(child, content);
+                    }
+                }
+            }
+        }
+        
+        // If we can't find a more specific location, try to limit to a single line
+        let node_range = self.node_to_range(node, content);
+        let start_line = node_range.start.line;
+        let end_line = node_range.end.line;
+        
+        // If the error spans multiple lines, limit it to the first line
+        if end_line > start_line {
+            let line_end_position = self.find_line_end_position(start_line, content);
+            Range {
+                start: node_range.start,
+                end: line_end_position,
+            }
+        } else {
+            node_range
+        }
+    }
+    
+    /// Find the end position of a given line
+    fn find_line_end_position(&self, line_number: u32, content: &str) -> Position {
+        let mut current_line = 0;
+        let mut character = 0;
+        
+        for ch in content.chars() {
+            if current_line == line_number {
+                if ch == '\n' {
+                    break;
+                }
+                character += 1;
+            } else if ch == '\n' {
+                current_line += 1;
+                character = 0;
+            } else if current_line < line_number {
+                character += 1;
+            }
+        }
+        
+        Position {
+            line: line_number,
+            character: character as u32,
+        }
     }
     
     /// Validate rule set for nested rules (not allowed in USS)
@@ -370,5 +434,89 @@ impl UssDiagnostics {
 impl Default for UssDiagnostics {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::uss::parser::UssParser;
+
+    #[test]
+    fn test_precise_syntax_error_range() {
+        let diagnostics = UssDiagnostics::new();
+        let mut parser = UssParser::new().unwrap();
+        
+        // Test case with syntax error - a simple invalid token
+        let content = ".valid-rule {\n    background-color: red;\n}\n\na;\n\n.another-valid-rule {\n    color: blue;\n}";
+        
+        let tree = parser.parse(content, None).unwrap();
+        let results = diagnostics.analyze(&tree, content);
+        
+        // Should have at least one syntax error
+        let syntax_errors: Vec<_> = results.iter()
+            .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("syntax-error".to_string())))
+            .collect();
+        
+        assert!(!syntax_errors.is_empty(), "Should detect syntax error");
+        
+        // Test that errors don't span the entire file (which was the original problem)
+        // Each error should be limited to a reasonable range
+        for error in &syntax_errors {
+            let line_span = error.range.end.line - error.range.start.line;
+            let char_span = if error.range.start.line == error.range.end.line {
+                error.range.end.character - error.range.start.character
+            } else {
+                100 // If it spans multiple lines, we'll check line span instead
+            };
+            
+            // Error should not span more than 1 line or more than 50 characters on a single line
+            assert!(line_span <= 1 && char_span <= 50, 
+                "Error range too large: spans {} lines and {} chars. Range: {}:{}-{}:{}",
+                line_span, char_span, 
+                error.range.start.line, error.range.start.character,
+                error.range.end.line, error.range.end.character);
+        }
+        
+        // At least one error should be detected for the "a;" token
+        let has_small_error = syntax_errors.iter().any(|error| {
+            let line_span = error.range.end.line - error.range.start.line;
+            let char_span = if error.range.start.line == error.range.end.line {
+                error.range.end.character - error.range.start.character
+            } else {
+                100
+            };
+            line_span == 0 && char_span <= 10 // Small, precise error
+        });
+        
+        assert!(has_small_error, "Should have at least one small, precise error range");
+    }
+    
+    #[test]
+    fn test_multiline_error_limitation() {
+        let diagnostics = UssDiagnostics::new();
+        let mut parser = UssParser::new().unwrap();
+        
+        // Test case with a syntax error that might span multiple lines
+        let content = r#"
+.rule {
+    background-color: red
+    /* missing semicolon */
+    color: blue;
+}
+"#;
+        
+        let tree = parser.parse(content, None);
+        if let Some(tree) = tree {
+            let results = diagnostics.analyze(&tree, content);
+            
+            // Check that any syntax errors don't span too many lines
+            for diagnostic in results {
+                if diagnostic.code == Some(tower_lsp::lsp_types::NumberOrString::String("syntax-error".to_string())) {
+                    let line_span = diagnostic.range.end.line - diagnostic.range.start.line;
+                    assert!(line_span <= 1, "Syntax error should not span more than 1 line, but spans {} lines", line_span);
+                }
+            }
+        }
     }
 }
