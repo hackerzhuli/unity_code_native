@@ -100,11 +100,11 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: false,
             animatable: true,
             value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("cover"), ValueType::Keyword("contain"), ValueType::Keyword("auto")], is_optional: false }] }, // cover, contain, auto
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Length], is_optional: false }] }, // single length
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("cover"), ValueType::Keyword("contain"), ValueType::Keyword("auto")] }] }, // cover, contain, auto
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Length] }] }, // single length
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Length], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Length], is_optional: false }
+                    ValueEntry { types: vec![ValueType::Length] },
+                    ValueEntry { types: vec![ValueType::Length] }
                 ] }, // width height
             ]),
         },
@@ -570,21 +570,21 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             animatable: false,
             value_spec: ValueSpec::multiple_formats(vec![
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::PropertyName], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Time], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Time], is_optional: false }
+                    ValueEntry { types: vec![ValueType::PropertyName] },
+                    ValueEntry { types: vec![ValueType::Time] },
+                    ValueEntry { types: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")] },
+                    ValueEntry { types: vec![ValueType::Time] }
                 ] },
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::PropertyName], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Time], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")], is_optional: false }
+                    ValueEntry { types: vec![ValueType::PropertyName] },
+                    ValueEntry { types: vec![ValueType::Time] },
+                    ValueEntry { types: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")] }
                 ] },
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::PropertyName], is_optional: false },
-                    ValueEntry { types: vec![ValueType::Time], is_optional: false }
+                    ValueEntry { types: vec![ValueType::PropertyName] },
+                    ValueEntry { types: vec![ValueType::Time] }
                 ] },
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("all"), ValueType::Keyword("none")], is_optional: false }] }
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("all"), ValueType::Keyword("none")] }] }
             ]),
         },
         PropertyInfo {

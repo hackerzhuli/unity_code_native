@@ -32,9 +32,7 @@ pub enum ValueType {
 #[derive(Debug, Clone)]
 pub struct ValueEntry {
     /// All valid value types for this entry
-    pub types: Vec<ValueType>,
-    /// Whether this entry is optional
-    pub is_optional: bool,
+    pub types: Vec<ValueType>
 }
 
 /// Specific value format with exact type and count requirements
@@ -50,7 +48,6 @@ impl ValueFormat {
         Self {
             entries: vec![ValueEntry {
                 types: vec![value_type],
-                is_optional: false,
             }],
         }
     }
@@ -60,7 +57,6 @@ impl ValueFormat {
         Self {
             entries: vec![ValueEntry {
                 types: value_types,
-                is_optional: false,
             }],
         }
     }
@@ -70,7 +66,6 @@ impl ValueFormat {
         Self {
             entries: vec![ValueEntry {
                 types: keywords.iter().map(|&k| ValueType::Keyword(k)).collect(),
-                is_optional: false,
             }],
         }
     }
@@ -80,12 +75,9 @@ impl ValueFormat {
         Self {
             entries: value_types.into_iter().map(|vt| ValueEntry {
                 types: vec![vt],
-                is_optional: false,
             }).collect(),
         }
     }
-
-
 }
 
 /// Complete value specification for a property
@@ -117,7 +109,6 @@ impl ValueSpec {
             for i in 0..count {
                 entries.push(ValueEntry {
                     types: vec![value_type],
-                    is_optional: i >= min_count,
                 });
             }
             formats.push(ValueFormat { entries });
