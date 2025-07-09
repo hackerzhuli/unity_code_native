@@ -118,7 +118,8 @@ impl UssHoverProvider {
         property_name: &str,
         unity_manager: &UnityProjectManager,
     ) -> Hover {
-        let unity_version_for_docs = unity_manager.get_unity_version_for_docs();
+        let unity_version_for_docs = unity_manager.get_unity_version_for_docs()
+            .unwrap_or_else(|| "6000.0".to_string());
         let description = self.definitions.get_property_description(property_name)
             .unwrap_or("USS property");
         let doc_url = self.definitions.get_property_documentation_url(property_name, &unity_version_for_docs)

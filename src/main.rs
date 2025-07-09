@@ -40,8 +40,10 @@ async fn main() {
     
     // Create Unity project manager instance
     let unity_project_manager = UnityProjectManager::new(PathBuf::from(&target_project_path));
-    let unity_version = unity_project_manager.detect_unity_version();
-    info!("Detected Unity version: {}", unity_version);
+    match unity_project_manager.detect_unity_version() {
+        Ok(version) => info!("Detected Unity version: {}", version),
+        Err(e) => info!("Unity project detection failed: {}", e),
+    }
 
     // Start UDP server first
     let target_project_path_clone = target_project_path.clone();

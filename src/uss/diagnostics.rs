@@ -5,7 +5,6 @@
 
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
-use std::collections::HashSet;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::tree_printer;
 
