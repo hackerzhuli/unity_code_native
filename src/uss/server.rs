@@ -65,20 +65,12 @@ impl UssLanguageServer {
             }
         };
         
-        // Store the result and generate diagnostics in a separate lock scope
+        // Store the result - diagnostics will be provided via the diagnostic() method
         if let Some(tree) = new_tree {
-            let diagnostics = {
-                if let Ok(mut state) = self.state.lock() {
-                    state.document_trees.insert(uri.clone(), tree.clone());
-                    state.document_content.insert(uri.clone(), content.to_string());
-                    state.diagnostics.analyze(&tree, content)
-                } else {
-                    Vec::new()
-                }
-            };
-            
-            // Publish diagnostics
-            self.client.publish_diagnostics(uri.clone(), diagnostics, None).await;
+            if let Ok(mut state) = self.state.lock() {
+                state.document_trees.insert(uri.clone(), tree.clone());
+                state.document_content.insert(uri.clone(), content.to_string());
+            }
         }
     }
     
