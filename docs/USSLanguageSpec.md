@@ -328,7 +328,7 @@ Button {
   - `:root` matches stylesheet attachment points, not a fixed root element.
   - **Inheritance**: USS supports CSS-like inheritance (e.g., `color` inherits), but some properties may not due to Unity’s UI Toolkit structure.
   - **Style Application**: Styles apply in file order; later rules override earlier ones if specificity is equal.
-- **Limitations**: No support for all CSS features (e.g., no `!important`, limited pseudo-classes).
+- **Limitations**: No support for all CSS features (e.g., no `!important`, limited pseudo-classes, no nested rules).
 
 ## Additional References
 - [USS properties reference

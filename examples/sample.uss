@@ -1,0 +1,120 @@
+/* Sample USS file demonstrating Unity Style Sheet syntax */
+
+/* Import other stylesheets */
+@import "common-styles.uss";
+
+/* Root variables */
+:root {
+    --primary-color: #3498db;
+    --secondary-color: rgba(52, 152, 219, 0.8);
+    --border-radius: 4px;
+}
+
+/* Type selectors */
+Button {
+    background-color: var(--primary-color);
+    color: white;
+    border-radius: var(--border-radius);
+    padding: 8px 16px;
+    margin: 4px;
+    -unity-font: resource("Arial");
+    -unity-font-style: bold;
+}
+
+/* Class selectors */
+.primary-button {
+    background-color: #2ecc71;
+    -unity-background-scale-mode: stretch-to-fill;
+}
+
+.secondary-button {
+    background-color: var(--secondary-color);
+    border-width: 2px;
+    border-color: #34495e;
+}
+
+/* Name selectors (ID-like) */
+#main-menu {
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    width: 100%;
+    height: 100%;
+}
+
+/* Pseudo-class selectors */
+Button:hover {
+    background-color: #2980b9;
+    transform-origin: center;
+    scale: 1.05 1.05;
+}
+
+Button:active {
+    background-color: #1f5f8b;
+    scale: 0.95 0.95;
+}
+
+Toggle:checked {
+    background-color: #27ae60;
+    -unity-background-image-tint-color: white;
+}
+
+/* Complex selectors */
+.dialog-box > Button {
+    margin-bottom: 8px;
+}
+
+.toolbar .icon-button {
+    width: 32px;
+    height: 32px;
+    background-image: url("icons/default.png");
+}
+
+/* Multiple selectors */
+Label, TextField {
+    color: #2c3e50;
+    font-size: 14px;
+    -unity-text-align: middle-left;
+}
+
+/* Unity-specific properties */
+.custom-element {
+    -unity-font-definition: url("fonts/custom-font.asset");
+    -unity-text-outline: 1px #000000;
+    -unity-text-overflow-position: end;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Flexbox layout */
+.container {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: space-between;
+}
+
+.flex-item {
+    flex-grow: 1;
+    flex-shrink: 0;
+    flex-basis: auto;
+}
+
+/* Positioning */
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Transform properties */
+.animated-element {
+    transform-origin: center;
+    translate: 10px 20px;
+    rotate: 45deg;
+    scale: 1.2 1.2;
+}
