@@ -248,6 +248,57 @@ impl UssDiagnostics {
                     });
                 }
                 
+                // Check for missing semicolon by detecting colon within plain_value
+                // This happens when parser treats "background-color: red\n    border-radius:10px" as one declaration
+                let plain_values: Vec<_> = (0..node.child_count())
+                    .filter_map(|i| node.child(i))
+                    .filter(|child| child.kind() == "plain_value")
+                    .collect();
+                
+                for plain_value in &plain_values {
+                    let value_text = plain_value.utf8_text(content.as_bytes()).unwrap_or("");
+                    
+                    // Look for a colon in the plain_value text, which indicates a new property started
+                    // without a semicolon ending the previous one
+                    if let Some(colon_pos) = value_text.find(':') {
+                        // Extract the part before the colon - this should be a property name
+                        let potential_property = value_text[..colon_pos].trim();
+                        
+                        // Check if this looks like a valid CSS property name
+                        if potential_property.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') 
+                           && potential_property.len() > 2 
+                           && !potential_property.chars().next().unwrap_or(' ').is_ascii_digit() {
+                            
+                            // This is likely a new property declaration, meaning we're missing a semicolon
+                            // Find the position just before this property starts
+                            let node_start = plain_value.start_byte();
+                            let property_start_in_value = value_text[..colon_pos].rfind(potential_property).unwrap_or(0);
+                            let error_byte_pos = node_start + property_start_in_value;
+                            
+                            // Create a range just before the new property
+                            let error_position = self.byte_to_position(error_byte_pos, content);
+                            let range = Range {
+                                start: Position {
+                                    line: error_position.line,
+                                    character: if error_position.character > 0 { error_position.character - 1 } else { 0 },
+                                },
+                                end: error_position,
+                            };
+                            
+                            diagnostics.push(Diagnostic {
+                                range,
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                code: Some(NumberOrString::String("missing-semicolon".to_string())),
+                                source: Some("uss".to_string()),
+                                message: format!("Missing semicolon before property '{}'", potential_property),
+                                ..Default::default()
+                            });
+                            
+                            break; // Only report the first missing semicolon in this declaration
+                        }
+                    }
+                }
+                
                 // Validate property value
                 if let Some(value_node) = node.child(2) { // Skip colon
                     self.validate_property_value(property_name, value_node, content, diagnostics);
@@ -260,6 +311,28 @@ impl UssDiagnostics {
     fn validate_pseudo_class(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
         let pseudo_class = node.utf8_text(content.as_bytes()).unwrap_or("");
         
+        // Check if this "pseudo-class" is actually a missing semicolon case
+        // Pattern: property-name:value (e.g., "border-radius:10px")
+        if let Some(colon_pos) = pseudo_class.find(':') {
+            let property_part = &pseudo_class[..colon_pos];
+            let value_part = &pseudo_class[colon_pos + 1..];
+            
+            // Check if the part before colon looks like a CSS property name
+            if self.is_likely_css_property(property_part) && !value_part.is_empty() {
+                // This is likely a missing semicolon, not a pseudo-class
+                let range = self.node_to_range(node, content);
+                diagnostics.push(Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("missing-semicolon".to_string())),
+                    source: Some("uss".to_string()),
+                    message: format!("Missing semicolon after property '{}'", property_part),
+                    ..Default::default()
+                });
+                return;
+            }
+        }
+        
         if !self.definitions.is_valid_pseudo_class(pseudo_class) {
             let range = self.node_to_range(node, content);
             diagnostics.push(Diagnostic {
@@ -271,6 +344,27 @@ impl UssDiagnostics {
                 ..Default::default()
             });
         }
+    }
+    
+    /// Check if a string looks like a CSS property name
+    fn is_likely_css_property(&self, text: &str) -> bool {
+        // CSS property names:
+        // - contain only lowercase letters, digits, and hyphens
+        // - don't start with a digit
+        // - are reasonable length (2-30 characters)
+        // - contain at least one letter
+        if text.len() < 2 || text.len() > 30 {
+            return false;
+        }
+        
+        if text.starts_with(char::is_numeric) {
+            return false;
+        }
+        
+        let has_letter = text.chars().any(|c| c.is_alphabetic());
+        let valid_chars = text.chars().all(|c| c.is_alphanumeric() || c == '-');
+        
+        has_letter && valid_chars
     }
     
     /// Validate at-rule (only @import is supported)
@@ -583,6 +677,71 @@ mod tests {
         });
         
         assert!(has_small_error, "Should have at least one small, precise error range");
+    }
+    
+    #[test]
+    fn test_missing_semicolon_detection() {
+        let diagnostics = UssDiagnostics::new();
+        let mut parser = UssParser::new().unwrap();
+        
+        // Test case with missing semicolon after background-color: red
+        let content = r#"@import url("a.css");
+
+a {
+    background-color: red
+    border-radius:10px;
+}"#;
+        
+        let tree = parser.parse(content, None).unwrap();
+        let results = diagnostics.analyze(&tree, content);
+        
+        // Check if missing semicolon is detected
+        let missing_semicolon_errors: Vec<_> = results.iter()
+            .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("missing-semicolon".to_string())))
+            .collect();
+        
+        assert!(!missing_semicolon_errors.is_empty(), "Should detect missing semicolon");
+        
+        // Verify the error is reported at the correct location (before 'border-radius')
+        let has_border_radius_error = missing_semicolon_errors.iter().any(|error| {
+            error.message.contains("border-radius")
+        });
+        
+        assert!(has_border_radius_error, "Should detect missing semicolon before 'border-radius' property");
+    }
+
+    #[test]
+    fn test_nested_rule_missing_semicolon() {
+        let diagnostics = UssDiagnostics::new();
+        let mut parser = UssParser::new().unwrap();
+        
+        // Test case with missing semicolon before nested rule
+        let content = r#"@import url("a.css");
+
+a {
+    background-color: red;
+    border-radius:10px
+    c{
+        
+    }
+}"#;
+        
+        let tree = parser.parse(content, None).unwrap();
+        let results = diagnostics.analyze(&tree, content);
+        
+
+        
+        // Should detect missing semicolon before nested rule, not pseudo-class error
+        let missing_semicolon_errors: Vec<_> = results.iter()
+            .filter(|e| e.message.contains("Missing semicolon after property"))
+            .collect();
+        
+        assert!(!missing_semicolon_errors.is_empty(), "Should detect missing semicolon before nested rule");
+        
+        // Verify the specific error message
+        let semicolon_error = &missing_semicolon_errors[0];
+        assert!(semicolon_error.message.contains("border-radius"), "Should identify the correct property name");
+        assert_eq!(semicolon_error.code, Some(NumberOrString::String("missing-semicolon".to_string())));
     }
     
     #[test]
