@@ -650,7 +650,7 @@ impl ValueSpec {
         
         for count in min_count..=max_count {
             let mut entries = Vec::new();
-            for i in 0..count {
+            for _i in 0..count {
                 entries.push(ValueEntry {
                     types: vec![value_type],
                 });

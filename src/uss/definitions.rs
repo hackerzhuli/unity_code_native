@@ -5,7 +5,7 @@
 //! like diagnostics and autocomplete.
 
 use crate::uss::property_data::{create_standard_properties, create_unity_properties};
-use crate::uss::value_spec::{ValueType, ValueEntry, ValueFormat, ValueSpec};
+use crate::uss::value_spec::ValueSpec;
 use std::collections::{HashMap, HashSet};
 
 

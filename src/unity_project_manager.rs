@@ -12,9 +12,7 @@ use std::io;
 #[derive(Debug, Deserialize)]
 struct ProjectVersion {
     #[serde(rename = "m_EditorVersion")]
-    editor_version: String,
-    #[serde(rename = "m_EditorVersionWithRevision")]
-    editor_version_with_revision: Option<String>,
+    editor_version: String
 }
 
 /// Result type for Unity project operations
