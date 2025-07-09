@@ -25,7 +25,7 @@ impl UssHighlighter {
                     SemanticTokenType::STRING,       // 5 - string_value
                     SemanticTokenType::COMMENT,      // 6 - comments
                     SemanticTokenType::MODIFIER,     // 7 - pseudo-class selectors
-                    SemanticTokenType::KEYWORD,      // 8 - at-rules, Unity properties
+                    SemanticTokenType::KEYWORD,      // 8 - at-rules (@import, @media)
                     SemanticTokenType::FUNCTION,     // 9 - function_name
                 ],
                 token_modifiers: vec![
@@ -116,6 +116,7 @@ impl UssHighlighter {
             "comment" => (6, 0),        // COMMENT
             "pseudo_class_selector" => (7, 0), // MODIFIER
             "at_rule" => (8, 0),        // KEYWORD
+            "import_statement" => (8, 0), // KEYWORD (for @import statements)
             "function_name" => (9, 0),  // FUNCTION
             "class_name" => (0, 0),     // CLASS (for .class-name)
             "id_name" => (1, 0),        // VARIABLE (for #id-name)
