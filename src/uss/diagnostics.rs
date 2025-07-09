@@ -43,8 +43,6 @@ impl UssDiagnostics {
     
     /// Recursively walk the syntax tree and validate nodes
     fn walk_node(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
-
-        
         // Check for syntax errors - only report for ERROR nodes directly, not for nodes that contain errors
         if node.kind() == "ERROR" {
             self.add_syntax_error(node, content, diagnostics);
@@ -57,7 +55,28 @@ impl UssDiagnostics {
             },
             "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
             "at_rule" => self.validate_at_rule(node, content, diagnostics),
-            "call_expression" => self.validate_function_arguments_wrapper(node, content, diagnostics),
+            "call_expression" => {
+                // First validate the function name itself
+                if let Some(function_name_node) = node.child_by_field_name("function") {
+                    let function_name = function_name_node.utf8_text(content.as_bytes()).unwrap_or("");
+                    
+                    // Check if this is a supported USS function
+                    if !self.definitions.is_valid_function(function_name) {
+                        let range = self.node_to_range(function_name_node, content);
+                        diagnostics.push(Diagnostic {
+                            range,
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            code: Some(NumberOrString::String("unsupported-function".to_string())),
+                            source: Some("uss".to_string()),
+                            message: format!("Function '{}' is not supported in USS. USS does not support calc() and other CSS functions.", function_name),
+                            ..Default::default()
+                        });
+                    }
+                }
+                
+                // Then validate function arguments
+                self.validate_function_arguments_wrapper(node, content, diagnostics);
+            }
             "color_value" => {
                 self.validate_color_value(node, content, diagnostics);
             },
@@ -65,29 +84,15 @@ impl UssDiagnostics {
                 // Numeric values are handled when we encounter their unit children
             },
             "unit" => {
-                // Check if this unit is part of a declaration
+                // Check if this is a supported unit
                 if let Some(parent) = node.parent() {
                     if parent.kind() == "integer_value" || parent.kind() == "float_value" {
-                        // Find the declaration this numeric value belongs to
-                        let mut current = parent;
-                        while let Some(p) = current.parent() {
-                            if p.kind() == "declaration" {
-                                // Found the declaration, get the property name
-                                if let Some(property_node) = p.child(0) {
-                                    if property_node.kind() == "property_name" {
-                                        let property_name = property_node.utf8_text(content.as_bytes()).unwrap_or("");
-                                        let unit_text = node.utf8_text(content.as_bytes()).unwrap_or("");
-                                        
-                                        // Simple validation - check against common USS units
-                                        let valid_units = ["px", "%", "deg", "rad"];
-                                        if !valid_units.contains(&unit_text) {
-                                            self.add_invalid_unit_diagnostic(node, content, property_name, unit_text, "px, %, deg, rad", diagnostics);
-                                        }
-                                    }
-                                }
-                                break;
-                            }
-                            current = p;
+                        let unit_text = node.utf8_text(content.as_bytes()).unwrap_or("");
+                        
+                        // Check against supported USS units
+                        let valid_units = ["px", "%", "deg", "grad", "rad", "turn"];
+                        if !valid_units.contains(&unit_text) {
+                            self.add_invalid_unit_diagnostic(node, content, "", unit_text, "px, %, deg, grad, rad, turn", diagnostics);
                         }
                     }
                 }
