@@ -116,7 +116,34 @@ impl UssHighlighter {
             "comment" => (6, 0),        // COMMENT
             "pseudo_class_selector" => (7, 0), // MODIFIER
             "at_rule" => (8, 0),        // KEYWORD
-            "import_statement" => (8, 0), // KEYWORD (for @import statements)
+            "import_statement" => {
+                // Process children for import statements to highlight parts separately
+                for i in 0..node.child_count() {
+                    if let Some(child) = node.child(i) {
+                        // Check if this child is the @import keyword
+                        if let Ok(text) = child.utf8_text(content.as_bytes()) {
+                            if text == "@import" {
+                                // Highlight @import as KEYWORD
+                                let start = child.start_position();
+                                let end = child.end_position();
+                                tokens.push(RawToken {
+                                    line: start.row as u32,
+                                    start_char: start.column as u32,
+                                    length: (end.column - start.column) as u32,
+                                    token_type: 8, // KEYWORD
+                                    modifiers: 0,
+                                });
+                            } else {
+                                // Process other children normally (like string_value)
+                                Self::walk_node_for_tokens(&child, content, tokens);
+                            }
+                        } else {
+                            Self::walk_node_for_tokens(&child, content, tokens);
+                        }
+                    }
+                }
+                return;
+            },
             "function_name" => (9, 0),  // FUNCTION
             "class_name" => (0, 0),     // CLASS (for .class-name)
             "id_name" => (1, 0),        // VARIABLE (for #id-name)
