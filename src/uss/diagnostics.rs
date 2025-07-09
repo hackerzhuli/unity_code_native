@@ -43,42 +43,67 @@ impl UssDiagnostics {
     
     /// Recursively walk the syntax tree and validate nodes
     fn walk_node(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
+        // Track the number of diagnostics before processing children
+        let initial_diagnostic_count = diagnostics.len();
+        
         // Check for syntax errors - only report for ERROR nodes directly, not for nodes that contain errors
         if node.kind() == "ERROR" {
             self.add_syntax_error(node, content, diagnostics);
         }
         
+        // Recursively check children first to detect any child errors
+        for i in 0..node.child_count() {
+            if let Some(child) = node.child(i) {
+                self.walk_node(child, content, diagnostics);
+            }
+        }
+        
+        // Check if any diagnostics were added by children
+        let child_diagnostics_added = diagnostics.len() > initial_diagnostic_count;
+        
         match node.kind() {
             "rule_set" => self.validate_rule_set(node, content, diagnostics),
             "declaration" => {
-                self.validate_declaration(node, content, diagnostics);
+                // Only validate declaration if no child diagnostics were generated
+                // This prevents redundant error messages when child nodes (like invalid tokens,
+                // syntax errors, or malformed values) have already reported issues.
+                // For example, if a property value contains a syntax error, we don't want to
+                // also report that the property itself is invalid - the child error is sufficient.
+                if !child_diagnostics_added {
+                    self.validate_declaration(node, content, diagnostics);
+                }
             },
             "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
             "at_rule" => self.validate_at_rule(node, content, diagnostics),
             "call_expression" => {
-                // First validate the function name itself
-                if let Some(function_name_node) = node.child_by_field_name("function") {
-                    let function_name = function_name_node.utf8_text(content.as_bytes()).unwrap_or("");
-                    
-                    // Check if this is a supported USS function
-                    if !self.definitions.is_valid_function(function_name) {
-                        let range = self.node_to_range(function_name_node, content);
-                        diagnostics.push(Diagnostic {
-                            range,
-                            severity: Some(DiagnosticSeverity::ERROR),
-                            code: Some(NumberOrString::String("unsupported-function".to_string())),
-                            source: Some("uss".to_string()),
-                            message: format!("Function '{}' is not supported in USS. USS does not support calc() and other CSS functions.", function_name),
-                            ..Default::default()
-                        });
+                // Only validate function if no child diagnostics were generated
+                if !child_diagnostics_added {
+                    // First validate the function name itself
+                    if let Some(function_name_node) = node.child_by_field_name("function") {
+                        let function_name = function_name_node.utf8_text(content.as_bytes()).unwrap_or("");
+                        
+                        // Check if this is a supported USS function
+                        if !self.definitions.is_valid_function(function_name) {
+                            let range = self.node_to_range(function_name_node, content);
+                            diagnostics.push(Diagnostic {
+                                range,
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                code: Some(NumberOrString::String("unsupported-function".to_string())),
+                                source: Some("uss".to_string()),
+                                message: format!("Function '{}' is not supported in USS. USS does not support calc() and other CSS functions.", function_name),
+                                ..Default::default()
+                            });
+                        }
                     }
+                    
+                    // Then validate function arguments
+                    self.validate_function_arguments_wrapper(node, content, diagnostics);
                 }
-                
-                // Then validate function arguments
-                self.validate_function_arguments_wrapper(node, content, diagnostics);
             }
             "color_value" => {
-                self.validate_color_value(node, content, diagnostics);
+                if !child_diagnostics_added {
+                    self.validate_color_value(node, content, diagnostics);
+                }
             },
             "integer_value" | "float_value" => {
                 // Numeric values are handled when we encounter their unit children
@@ -102,13 +127,6 @@ impl UssDiagnostics {
             },
             _ => {
                 // Other node types don't need special handling
-            }
-        }
-        
-        // Recursively check children
-        for i in 0..node.child_count() {
-            if let Some(child) = node.child(i) {
-                self.walk_node(child, content, diagnostics);
             }
         }
     }
@@ -235,6 +253,8 @@ impl UssDiagnostics {
         
         missing_nodes
     }
+    
+
     
     /// Find the end position of a given line
     fn find_line_end_position(&self, line_number: u32, content: &str) -> Position {
@@ -582,8 +602,12 @@ impl UssDiagnostics {
             match function_name {
                 "resource" | "url" => {
                     // Should have exactly one string argument
-                    let arg_count = args_node.child_count();
-                    if arg_count == 0 {
+                    let actual_args: Vec<_> = (0..args_node.child_count())
+                        .filter_map(|i| args_node.child(i))
+                        .filter(|child| child.kind() != "," && child.kind() != "(" && child.kind() != ")")
+                        .collect();
+                    
+                    if actual_args.is_empty() {
                         let range = self.node_to_range(args_node, content);
                         diagnostics.push(Diagnostic {
                             range,
@@ -593,6 +617,58 @@ impl UssDiagnostics {
                             message: format!("{}() function requires a string argument", function_name),
                             ..Default::default()
                         });
+                    } else if actual_args.len() != 1 {
+                        let range = self.node_to_range(args_node, content);
+                        diagnostics.push(Diagnostic {
+                            range,
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            code: Some(NumberOrString::String("invalid-argument-count".to_string())),
+                            source: Some("uss".to_string()),
+                            message: format!("{}() function requires exactly 1 argument, found {}", function_name, actual_args.len()),
+                            ..Default::default()
+                        });
+                    } else {
+                        // Validate that the argument is a string
+                        let arg = actual_args[0];
+                        let arg_text = arg.utf8_text(content.as_bytes()).unwrap_or("");
+                        
+                        // Check if it's a quoted string or looks like a valid path
+                        let is_quoted_string = (arg_text.starts_with('"') && arg_text.ends_with('"')) ||
+                                             (arg_text.starts_with('\'') && arg_text.ends_with('\''));
+                        
+                        if !is_quoted_string && arg.kind() != "string_value" {
+                            let range = self.node_to_range(arg, content);
+                            diagnostics.push(Diagnostic {
+                                range,
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                code: Some(NumberOrString::String("invalid-argument-type".to_string())),
+                                source: Some("uss".to_string()),
+                                message: format!("{}() function requires a string argument, found: {}", function_name, arg_text),
+                                ..Default::default()
+                            });
+                        }
+                        
+                        // Additional validation for resource() function
+                        if function_name == "resource" && is_quoted_string {
+                            let path = if arg_text.len() >= 2 {
+                                &arg_text[1..arg_text.len()-1] // Remove quotes
+                            } else {
+                                ""
+                            };
+                            
+                            // Check for common resource path patterns
+                            if path.is_empty() {
+                                let range = self.node_to_range(arg, content);
+                                diagnostics.push(Diagnostic {
+                                    range,
+                                    severity: Some(DiagnosticSeverity::WARNING),
+                                    code: Some(NumberOrString::String("empty-resource-path".to_string())),
+                                    source: Some("uss".to_string()),
+                                    message: "Empty resource path in resource() function".to_string(),
+                                    ..Default::default()
+                                });
+                            }
+                        }
                     }
                 }
                 "var" => {

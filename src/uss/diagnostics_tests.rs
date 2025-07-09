@@ -436,3 +436,196 @@ fn test_invalid_hex_color_invalid_chars() {
     // Should detect some error for invalid hex color (contains 'p' which is not a hex digit)
     assert!(!results.is_empty(), "Should detect some error for invalid hex color #ffaapp (invalid characters). Found {} total diagnostics", results.len());
 }
+
+#[test]
+fn test_valid_url_function() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: url(\"path/to/image.png\"); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should not have any errors for valid url function
+    assert!(results.is_empty(), "Valid url() function should not produce any errors. Found: {:?}", 
+        results.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_valid_resource_function() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: resource(\"UI/Textures/button-bg\"); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should not have any errors for valid resource function
+    assert!(results.is_empty(), "Valid resource() function should not produce any errors. Found: {:?}", 
+        results.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_url_function_missing_argument() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: url(); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect missing argument error
+    let missing_arg_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("missing-argument".to_string())))
+        .collect();
+    
+    assert!(!missing_arg_errors.is_empty(), "Should detect missing argument in url() function");
+    assert!(missing_arg_errors[0].message.contains("url() function requires a string argument"));
+}
+
+#[test]
+fn test_resource_function_missing_argument() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: resource(); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect missing argument error
+    let missing_arg_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("missing-argument".to_string())))
+        .collect();
+    
+    assert!(!missing_arg_errors.is_empty(), "Should detect missing argument in resource() function");
+    assert!(missing_arg_errors[0].message.contains("resource() function requires a string argument"));
+}
+
+#[test]
+fn test_url_function_too_many_arguments() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: url(\"path1.png\", \"path2.png\"); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect too many arguments error
+    let arg_count_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-argument-count".to_string())))
+        .collect();
+    
+    assert!(!arg_count_errors.is_empty(), "Should detect too many arguments in url() function");
+    assert!(arg_count_errors[0].message.contains("url() function requires exactly 1 argument, found 2"));
+}
+
+#[test]
+fn test_resource_function_too_many_arguments() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: resource(\"path1\", \"path2\"); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect too many arguments error
+    let arg_count_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-argument-count".to_string())))
+        .collect();
+    
+    assert!(!arg_count_errors.is_empty(), "Should detect too many arguments in resource() function");
+    assert!(arg_count_errors[0].message.contains("resource() function requires exactly 1 argument, found 2"));
+}
+
+#[test]
+fn test_url_function_invalid_argument_type() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: url(123); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect invalid argument type error
+    let type_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-argument-type".to_string())))
+        .collect();
+    
+    assert!(!type_errors.is_empty(), "Should detect invalid argument type in url() function");
+    assert!(type_errors[0].message.contains("url() function requires a string argument"));
+}
+
+#[test]
+fn test_resource_function_invalid_argument_type() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: resource(123); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect invalid argument type error
+    let type_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-argument-type".to_string())))
+        .collect();
+    
+    assert!(!type_errors.is_empty(), "Should detect invalid argument type in resource() function");
+    assert!(type_errors[0].message.contains("resource() function requires a string argument"));
+}
+
+#[test]
+fn test_resource_function_empty_path() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: resource(\"\"); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect empty resource path warning
+    let empty_path_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("empty-resource-path".to_string())))
+        .collect();
+    
+    assert!(!empty_path_warnings.is_empty(), "Should detect empty resource path in resource() function");
+    assert!(empty_path_warnings[0].message.contains("Empty resource path"));
+}
+
+#[test]
+fn test_url_function_with_single_quotes() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: url('path/to/image.png'); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should not have any errors for valid url function with single quotes
+    assert!(results.is_empty(), "Valid url() function with single quotes should not produce any errors. Found: {:?}", 
+        results.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_resource_function_with_single_quotes() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    let content = "Button { background-image: resource('UI/Textures/button-bg'); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should not have any errors for valid resource function with single quotes
+    assert!(results.is_empty(), "Valid resource() function with single quotes should not produce any errors. Found: {:?}", 
+        results.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
