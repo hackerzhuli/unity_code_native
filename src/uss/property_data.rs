@@ -3,7 +3,7 @@
 //! Contains the actual property definitions for USS properties.
 //! This module is separated from definitions.rs to improve maintainability.
 
-use crate::uss::definitions::{PropertyInfo, ValueType, ValueSpec, ValueFormat};
+use crate::uss::definitions::{PropertyInfo, ValueType, ValueSpec, ValueFormat, ValueEntry};
 use std::collections::HashMap;
 
 /// Create all standard CSS properties supported by USS
@@ -18,8 +18,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-
+            value_spec: ValueSpec::keywords(&["flex-start", "flex-end", "center", "space-between", "space-around", "stretch"]),
+            
         },
         PropertyInfo {
             name: "align-items",
@@ -27,15 +27,17 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            },
+            value_spec: ValueSpec::keywords(&["flex-start", "flex-end", "center", "baseline", "stretch"]),
+            
+        },
         PropertyInfo {
             name: "align-self",
             description: "Similar to align-items, but only for this specific element.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["auto", "flex-start", "flex-end", "center", "baseline", "stretch"]),
+            
         },
         PropertyInfo {
             name: "all",
@@ -43,7 +45,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#all".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["initial"]),
+            
         },
         PropertyInfo {
             name: "background-color",
@@ -52,7 +55,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: false,
             animatable: true,
             value_spec: ValueSpec::color(),
-            value_types: vec![ValueType::Color], // Legacy compatibility
+            
         },
         PropertyInfo {
             name: "background-image",
@@ -60,7 +63,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-background".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Resource, ValueType::Keyword],
+            value_spec: ValueSpec::one_of(vec![ValueType::Resource, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "background-position",
@@ -68,7 +72,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://developer.mozilla.org/en-US/docs/Web/CSS/background-position".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
+            value_spec: ValueSpec::sequence(vec![ValueType::Length, ValueType::Length]),
+            
         },
         PropertyInfo {
             name: "background-position-x",
@@ -76,15 +81,17 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://developer.mozilla.org/en-US/docs/Web/CSS/background-position-x".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-            },
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
+        },
         PropertyInfo {
             name: "background-position-y",
             description: "Background image y position value.",
             documentation_url: "https://developer.mozilla.org/en-US/docs/Web/CSS/background-position-y".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "background-repeat",
@@ -92,7 +99,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://developer.mozilla.org/en-US/docs/Web/CSS/background-repeat".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["repeat", "repeat-x", "repeat-y", "no-repeat", "space", "round"]),
+            
         },
         PropertyInfo {
             name: "background-size",
@@ -100,7 +108,15 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://developer.mozilla.org/en-US/docs/Web/CSS/background-size".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
+            value_spec: ValueSpec::multiple_formats(vec![
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword], is_optional: false }] }, // cover, contain, auto
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Length], is_optional: false }] }, // single length
+                ValueFormat { entries: vec![
+                    ValueEntry { types: vec![ValueType::Length], is_optional: false },
+                    ValueEntry { types: vec![ValueType::Length], is_optional: false }
+                ] }, // width height
+            ]),
+            
         },
         PropertyInfo {
             name: "border-bottom-color",
@@ -108,7 +124,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#border-color".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Color],
+            value_spec: ValueSpec::color(),
+            
         },
         PropertyInfo {
             name: "border-bottom-left-radius",
@@ -116,7 +133,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#drawing-borders".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
+            value_spec: ValueSpec::single(ValueType::Length),
+            
         },
         PropertyInfo {
             name: "border-bottom-right-radius",
@@ -124,7 +142,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#drawing-borders".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
+            value_spec: ValueSpec::single(ValueType::Length),
+            
         },
         PropertyInfo {
             name: "border-bottom-width",
@@ -132,7 +151,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
+            value_spec: ValueSpec::single(ValueType::Length),
+            
         },
         PropertyInfo {
             name: "border-color",
@@ -140,8 +160,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#border-color".to_string(),
             inherited: false,
             animatable: true,
-            value_spec: ValueSpec::shorthand(ValueFormat::Single(ValueType::Color), 1, 4),
-            value_types: vec![ValueType::Color], // Legacy compatibility
+            value_spec: ValueSpec::shorthand(ValueType::Color, 1, 4),
+            
         },
         PropertyInfo {
             name: "border-left-color",
@@ -149,7 +169,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#border-color".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Color],
+            value_spec: ValueSpec::color(),
             
         },
         PropertyInfo {
@@ -158,7 +178,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
+            value_spec: ValueSpec::single(ValueType::Length),
+            
         },
         PropertyInfo {
             name: "border-radius",
@@ -166,8 +187,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#drawing-borders".to_string(),
             inherited: false,
             animatable: true,
-            value_spec: ValueSpec::shorthand(ValueFormat::Single(ValueType::Length), 1, 4),
-            value_types: vec![ValueType::Length], // Legacy compatibility
+            value_spec: ValueSpec::shorthand(ValueType::Length, 1, 4),
+            
         },
         PropertyInfo {
             name: "border-right-color",
@@ -175,7 +196,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#border-color".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Color],
+            value_spec: ValueSpec::color(),
+            
         },
         PropertyInfo {
             name: "border-right-width",
@@ -183,7 +205,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
+            value_spec: ValueSpec::single(ValueType::Length),
+            
         },
         PropertyInfo {
             name: "border-top-color",
@@ -191,7 +214,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#border-color".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Color],
+            value_spec: ValueSpec::color(),
             
         },
         PropertyInfo {
@@ -200,7 +223,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#drawing-borders".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
+            value_spec: ValueSpec::single(ValueType::Length),
+            
         },
         PropertyInfo {
             name: "border-top-right-radius",
@@ -208,7 +232,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#drawing-borders".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
+            value_spec: ValueSpec::single(ValueType::Length),
+            
         },
         PropertyInfo {
             name: "border-top-width",
@@ -216,7 +241,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
+            value_spec: ValueSpec::single(ValueType::Length),
+            
         },
         PropertyInfo {
             name: "border-width",
@@ -224,8 +250,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
-
+            value_spec: ValueSpec::shorthand(ValueType::Length, 1, 4),
+            
         },
         PropertyInfo {
             name: "bottom",
@@ -233,8 +259,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#positioning".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "color",
@@ -243,7 +269,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: true,
             animatable: true,
             value_spec: ValueSpec::color(),
-            value_types: vec![ValueType::Color], // Legacy compatibility
+            
         },
         PropertyInfo {
             name: "cursor",
@@ -251,7 +277,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#cursor".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Resource, ValueType::Keyword],
+            value_spec: ValueSpec::one_of(vec![ValueType::Resource, ValueType::Keyword]),
             
         },
         PropertyInfo {
@@ -260,7 +286,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#display".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["flex", "none"]),
             
         },
         PropertyInfo {
@@ -269,13 +295,20 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: false,
-            value_spec: ValueSpec::one_of(vec![
-                ValueFormat::Single(ValueType::Keyword), // auto, none, initial, etc.
-                ValueFormat::Sequence(vec![ValueType::Number]), // flex-grow only
-                ValueFormat::Sequence(vec![ValueType::Number, ValueType::Number]), // flex-grow flex-shrink
-                ValueFormat::Sequence(vec![ValueType::Number, ValueType::Number, ValueType::Length]), // flex-grow flex-shrink flex-basis
+            value_spec: ValueSpec::multiple_formats(vec![
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword], is_optional: false }] }, // auto, none, initial, etc.
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Number], is_optional: false }] }, // flex-grow only
+                ValueFormat { entries: vec![
+                    ValueEntry { types: vec![ValueType::Number], is_optional: false },
+                    ValueEntry { types: vec![ValueType::Number], is_optional: false }
+                ] }, // flex-grow flex-shrink
+                ValueFormat { entries: vec![
+                    ValueEntry { types: vec![ValueType::Number], is_optional: false },
+                    ValueEntry { types: vec![ValueType::Number], is_optional: false },
+                    ValueEntry { types: vec![ValueType::Length], is_optional: false }
+                ] }, // flex-grow flex-shrink flex-basis
             ]),
-            value_types: vec![ValueType::Number, ValueType::Length, ValueType::Keyword], // Legacy compatibility
+            
         },
         PropertyInfo {
             name: "flex-basis",
@@ -283,8 +316,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "flex-direction",
@@ -292,7 +325,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["row", "row-reverse", "column", "column-reverse"]),
             
         },
         PropertyInfo {
@@ -301,7 +334,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Number],
+            value_spec: ValueSpec::single(ValueType::Number),
             
         },
         PropertyInfo {
@@ -310,7 +343,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Number],
+            value_spec: ValueSpec::single(ValueType::Number),
             
         },
         PropertyInfo {
@@ -319,7 +352,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["nowrap", "wrap", "wrap-reverse"]),
             
         },
         PropertyInfo {
@@ -329,7 +362,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: true,
             animatable: true,
             value_spec: ValueSpec::single(ValueType::Length),
-            value_types: vec![ValueType::Length], // Legacy compatibility
+            
         },
         PropertyInfo {
             name: "height",
@@ -337,8 +370,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "justify-content",
@@ -346,7 +379,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#flex-layout".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["flex-start", "flex-end", "center", "space-between", "space-around"]),
             
         },
         PropertyInfo {
@@ -355,8 +388,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#positioning".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "letter-spacing",
@@ -364,8 +397,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
-            value_types: vec![ValueType::Length],
-
+            value_spec: ValueSpec::single(ValueType::Length),
+            
         },
         PropertyInfo {
             name: "margin",
@@ -373,8 +406,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_spec: ValueSpec::shorthand(ValueFormat::OneOf(vec![ValueType::Length, ValueType::Keyword]), 1, 4),
-            value_types: vec![ValueType::Length, ValueType::Keyword], // Legacy compatibility
+            value_spec: ValueSpec::shorthand(ValueType::Length, 1, 4),
+            
         },
         PropertyInfo {
             name: "margin-bottom",
@@ -382,8 +415,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "margin-left",
@@ -391,8 +424,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "margin-right",
@@ -400,8 +433,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "margin-top",
@@ -409,8 +442,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "max-height",
@@ -418,8 +451,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "max-width",
@@ -427,8 +460,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "min-height",
@@ -436,8 +469,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "min-width",
@@ -445,8 +478,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "opacity",
@@ -454,7 +487,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#opacity".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Number],
+            value_spec: ValueSpec::single(ValueType::Number),
             
         },
         PropertyInfo {
@@ -463,7 +496,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#appearance".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["visible", "hidden", "scroll"]),
             
         },
         PropertyInfo {
@@ -472,8 +505,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::shorthand(ValueType::Length, 1, 4),
+            
         },
         PropertyInfo {
             name: "padding-bottom",
@@ -481,8 +514,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "padding-left",
@@ -490,8 +523,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "padding-right",
@@ -499,8 +532,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "padding-top",
@@ -508,8 +541,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "position",
@@ -517,7 +550,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#positioning".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["relative", "absolute"]),
             
         },
         PropertyInfo {
@@ -526,8 +559,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#positioning".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "rotate",
@@ -535,8 +568,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transform.html".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Angle],
-
+            value_spec: ValueSpec::single(ValueType::Angle),
+            
         },
         PropertyInfo {
             name: "scale",
@@ -544,7 +577,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transform.html".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Number],
+            value_spec: ValueSpec::single(ValueType::Number),
             
         },
         PropertyInfo {
@@ -553,7 +586,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
+            value_spec: ValueSpec::keywords(&["clip", "ellipsis"]),
             
         },
         PropertyInfo {
@@ -562,8 +595,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Color],
-
+            value_spec: ValueSpec::sequence(vec![ValueType::Length, ValueType::Length, ValueType::Length, ValueType::Color]),
+            
         },
         PropertyInfo {
             name: "top",
@@ -571,8 +604,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#positioning".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword]),
+            
         },
         PropertyInfo {
             name: "transform-origin",
@@ -580,8 +613,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transform.html".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::sequence(vec![ValueType::Length, ValueType::Length]),
+            
         },
         PropertyInfo {
             name: "transition",
@@ -589,8 +622,13 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Number],
-
+            value_spec: ValueSpec::multiple_formats(vec![
+                ValueFormat::Sequence(vec![ValueType::Keyword, ValueType::Time, ValueType::Keyword, ValueType::Time]),
+                ValueFormat::Sequence(vec![ValueType::Keyword, ValueType::Time, ValueType::Keyword]),
+                ValueFormat::Sequence(vec![ValueType::Keyword, ValueType::Time]),
+                ValueFormat::Single(ValueType::Keyword)
+            ]),
+            
         },
         PropertyInfo {
             name: "transition-delay",
@@ -598,7 +636,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Number],
+            value_spec: ValueSpec::single(ValueType::Time),
             
         },
         PropertyInfo {
@@ -607,8 +645,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Number],
-            
+            value_spec: ValueSpec::single(ValueType::Time),
         },
         PropertyInfo {
             name: "transition-property",
@@ -616,8 +653,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["all", "none"]),
         },
         PropertyInfo {
             name: "transition-timing-function",
@@ -625,8 +661,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["ease", "ease-in", "ease-out", "ease-in-out", "linear"]),
         },
         PropertyInfo {
             name: "translate",
@@ -634,8 +669,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transform.html".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length],
-
+            value_spec: ValueSpec::sequence(vec![ValueType::Length, ValueType::Length]),
         },
         PropertyInfo {
             name: "visibility",
@@ -643,8 +677,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#appearance".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["visible", "hidden"]),
         },
         PropertyInfo {
             name: "white-space",
@@ -652,8 +685,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["normal", "nowrap"]),
         },
         PropertyInfo {
             name: "width",
@@ -661,8 +693,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Length, ValueType::Keyword],
-
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
         },
         PropertyInfo {
             name: "word-spacing",
@@ -670,8 +701,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
-            value_types: vec![ValueType::Length],
-
+            value_spec: ValueSpec::single(ValueType::Length),
         },
     ];
     
@@ -694,8 +724,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-background".to_string(),
             inherited: false,
             animatable: true,
-            value_types: vec![ValueType::Color],
-            
+            value_spec: ValueSpec::color(),
         },
         PropertyInfo {
             name: "-unity-background-scale-mode",
@@ -703,8 +732,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-background".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["stretch-to-fill", "scale-and-crop", "scale-to-fit"]),
         },
         PropertyInfo {
             name: "-unity-editor-text-rendering-mode",
@@ -712,8 +740,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["legacy", "distance-field"]),
         },
         PropertyInfo {
             name: "-unity-font",
@@ -721,8 +748,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-font".to_string(),
             inherited: true,
             animatable: false,
-            value_types: vec![ValueType::Resource],
-            
+            value_spec: ValueSpec::single(ValueType::Resource),
         },
         PropertyInfo {
             name: "-unity-font-definition",
@@ -730,8 +756,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-font".to_string(),
             inherited: true,
             animatable: false,
-            value_types: vec![ValueType::Resource],
-            
+            value_spec: ValueSpec::single(ValueType::Resource),
         },
         PropertyInfo {
             name: "-unity-font-style",
@@ -739,8 +764,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-font".to_string(),
             inherited: true,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["normal", "bold", "italic", "bold-and-italic"]),
         },
         PropertyInfo {
             name: "-unity-overflow-clip-box",
@@ -748,8 +772,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#appearance".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["padding-box", "content-box"]),
         },
         PropertyInfo {
             name: "-unity-paragraph-spacing",
@@ -757,8 +780,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#appearance".to_string(),
             inherited: true,
             animatable: true,
-            value_types: vec![ValueType::Length],
-
+            value_spec: ValueSpec::single(ValueType::Length),
         },
         PropertyInfo {
             name: "-unity-slice-bottom",
@@ -766,8 +788,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Number],
-            
+            value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
             name: "-unity-slice-left",
@@ -775,8 +796,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Number],
-            
+            value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
             name: "-unity-slice-right",
@@ -784,8 +804,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Number],
-            
+            value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
             name: "-unity-slice-scale",
@@ -793,8 +812,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Number],
-            
+            value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
             name: "-unity-slice-top",
@@ -802,8 +820,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Number],
-            
+            value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
             name: "-unity-slice-type",
@@ -811,8 +828,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["stretch", "tile", "mirror"]),
         },
         PropertyInfo {
             name: "-unity-text-align",
@@ -820,8 +836,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["upper-left", "middle-left", "lower-left", "upper-center", "middle-center", "lower-center", "upper-right", "middle-right", "lower-right"]),
         },
         PropertyInfo {
             name: "-unity-text-generator",
@@ -829,8 +844,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
-            
+            value_spec: ValueSpec::keywords(&["legacy", "advanced"]),
         },
         PropertyInfo {
             name: "-unity-text-outline",
@@ -838,7 +852,6 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
-            value_types: vec![ValueType::Length],
 
         },
         PropertyInfo {
@@ -847,7 +860,6 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
-            value_types: vec![ValueType::Color],
             
         },
         PropertyInfo {
@@ -856,7 +868,6 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
-            value_types: vec![ValueType::Length],
 
         },
         PropertyInfo {
@@ -865,7 +876,6 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: false,
-            value_types: vec![ValueType::Keyword],
             
         },
     ];

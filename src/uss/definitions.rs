@@ -53,6 +53,91 @@ pub struct ValueSpec {
     pub formats: Vec<ValueFormat>
 }
 
+impl ValueSpec {
+    /// Create a ValueSpec for a single value type
+    pub fn single(value_type: ValueType) -> Self {
+        Self {
+            formats: vec![ValueFormat {
+                entries: vec![ValueEntry {
+                    types: vec![value_type],
+                    is_optional: false,
+                }],
+            }],
+        }
+    }
+
+    /// Create a ValueSpec for color values (hex, keywords, rgb, rgba)
+    pub fn color() -> Self {
+        Self {
+            formats: vec![ValueFormat {
+                entries: vec![ValueEntry {
+                    types: vec![ValueType::Color],
+                    is_optional: false,
+                }],
+            }],
+        }
+    }
+
+    /// Create a ValueSpec for shorthand properties (1-4 values of the same type)
+    pub fn shorthand(value_type: ValueType, min_count: usize, max_count: usize) -> Self {
+        let mut formats = Vec::new();
+        
+        for count in min_count..=max_count {
+            let mut entries = Vec::new();
+            for i in 0..count {
+                entries.push(ValueEntry {
+                    types: vec![value_type],
+                    is_optional: i >= min_count,
+                });
+            }
+            formats.push(ValueFormat { entries });
+        }
+        
+        Self { formats }
+    }
+
+    /// Create a ValueSpec that accepts one of multiple value types
+    pub fn one_of(value_types: Vec<ValueType>) -> Self {
+        Self {
+            formats: vec![ValueFormat {
+                entries: vec![ValueEntry {
+                    types: value_types,
+                    is_optional: false,
+                }],
+            }],
+        }
+    }
+
+    /// Create a ValueSpec for keywords only
+    pub fn keywords(keywords: &[&'static str]) -> Self {
+        Self {
+            formats: vec![ValueFormat {
+                entries: vec![ValueEntry {
+                    types: keywords.iter().map(|&k| ValueType::Keyword(k)).collect(),
+                    is_optional: false,
+                }],
+            }],
+        }
+    }
+
+    /// Create a ValueSpec for a sequence of specific value types
+    pub fn sequence(value_types: Vec<ValueType>) -> Self {
+        Self {
+            formats: vec![ValueFormat {
+                entries: value_types.into_iter().map(|vt| ValueEntry {
+                    types: vec![vt],
+                    is_optional: false,
+                }).collect(),
+            }],
+        }
+    }
+
+    /// Create a ValueSpec with multiple possible formats
+    pub fn multiple_formats(formats: Vec<ValueFormat>) -> Self {
+        Self { formats }
+    }
+}
+
 /// Property documentation information
 #[derive(Debug, Clone)]
 pub struct PropertyInfo {
@@ -68,8 +153,6 @@ pub struct PropertyInfo {
     pub animatable: bool,
     /// Complete value specification for this property
     pub value_spec: ValueSpec,
-    /// Legacy: Expected value types for this property (for backward compatibility)
-    pub value_types: Vec<ValueType>,
 }
 
 /// USS language definitions and validation data
