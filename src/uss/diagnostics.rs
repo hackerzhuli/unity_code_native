@@ -76,18 +76,67 @@ impl UssDiagnostics {
     fn get_precise_error_range(&self, node: Node, content: &str) -> Range {
         // If the node is an ERROR node, try to find the actual problematic token
         if node.kind() == "ERROR" {
-            // Look for the first non-whitespace, non-comment child that might be the issue
-            for i in 0..node.child_count() {
+            // First, try to find the deepest ERROR node or MISSING node
+            let mut deepest_error = None;
+            let mut cursor = node.walk();
+            
+            // Walk through all descendants to find the most specific error
+            if cursor.goto_first_child() {
+                loop {
+                    let current_node = cursor.node();
+                    
+                    // Prioritize MISSING nodes as they indicate exactly what's wrong
+                    if current_node.is_missing() {
+                        deepest_error = Some(current_node);
+                        break;
+                    }
+                    
+                    // Also consider ERROR nodes, but MISSING takes priority
+                    if current_node.kind() == "ERROR" && deepest_error.is_none() {
+                        deepest_error = Some(current_node);
+                    }
+                    
+                    // Continue traversing
+                    if !cursor.goto_next_sibling() {
+                        if !cursor.goto_parent() {
+                            break;
+                        }
+                        if !cursor.goto_next_sibling() {
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // If we found a specific error node, use it
+            if let Some(error_node) = deepest_error {
+                let error_range = self.node_to_range(error_node, content);
+                // Still limit to single line if it spans multiple lines
+                if error_range.end.line > error_range.start.line {
+                    let line_end_position = self.find_line_end_position(error_range.start.line, content);
+                    return Range {
+                        start: error_range.start,
+                        end: line_end_position,
+                    };
+                }
+                return error_range;
+            }
+            
+            // Fallback: look for the last non-whitespace token before the error
+            for i in (0..node.child_count()).rev() {
                 if let Some(child) = node.child(i) {
                     let child_text = child.utf8_text(content.as_bytes()).unwrap_or("");
-                    // Skip whitespace and comments
+                    // Find the last meaningful token
                     if !child_text.trim().is_empty() && !child_text.starts_with("/*") && !child_text.starts_with("//") {
-                        // If this child also has an error, recurse
-                        if child.has_error() {
-                            return self.get_precise_error_range(child, content);
-                        }
-                        // Otherwise, this might be the problematic token
-                        return self.node_to_range(child, content);
+                        let child_range = self.node_to_range(child, content);
+                        // Create a small range at the end of this token to indicate where the error is
+                        return Range {
+                            start: child_range.end,
+                            end: Position {
+                                line: child_range.end.line,
+                                character: child_range.end.character + 1,
+                            },
+                        };
                     }
                 }
             }
@@ -447,7 +496,7 @@ mod tests {
         let diagnostics = UssDiagnostics::new();
         let mut parser = UssParser::new().unwrap();
         
-        // Test case with syntax error - a simple invalid token
+        // Test case with syntax error - a simple invalid token on line 4
         let content = ".valid-rule {\n    background-color: red;\n}\n\na;\n\n.another-valid-rule {\n    color: blue;\n}";
         
         let tree = parser.parse(content, None).unwrap();
@@ -459,6 +508,8 @@ mod tests {
             .collect();
         
         assert!(!syntax_errors.is_empty(), "Should detect syntax error");
+        
+        // Verify that we have syntax errors to test
         
         // Test that errors don't span the entire file (which was the original problem)
         // Each error should be limited to a reasonable range
@@ -478,7 +529,14 @@ mod tests {
                 error.range.end.line, error.range.end.character);
         }
         
-        // At least one error should be detected for the "a;" token
+        // Check that at least one error is on line 4 (where "a;" is located)
+        let has_error_on_line_4 = syntax_errors.iter().any(|error| {
+            error.range.start.line == 4 // Line 4 is where "a;" is located
+        });
+        
+        assert!(has_error_on_line_4, "Should have at least one error on line 4 where 'a;' is located");
+        
+        // At least one error should be small and precise
         let has_small_error = syntax_errors.iter().any(|error| {
             let line_span = error.range.end.line - error.range.start.line;
             let char_span = if error.range.start.line == error.range.end.line {
