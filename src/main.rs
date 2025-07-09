@@ -1,11 +1,14 @@
 mod logging;
 mod monitor;
 mod server;
+mod unity_project_manager;
 mod uss;
 
 use std::env;
+use std::path::PathBuf;
 use std::process;
 use server::Server;
+use unity_project_manager::UnityProjectManager;
 use uss::server::start_uss_language_server;
 use log::{error, info};
 
@@ -34,6 +37,11 @@ async fn main() {
 
     let target_project_path = monitor::normalize_path(&args[1]);
     info!("Monitoring project path: {}", target_project_path);
+    
+    // Create Unity project manager instance
+    let unity_project_manager = UnityProjectManager::new(PathBuf::from(&target_project_path));
+    let unity_version = unity_project_manager.detect_unity_version();
+    info!("Detected Unity version: {}", unity_version);
 
     // Start UDP server first
     let target_project_path_clone = target_project_path.clone();
