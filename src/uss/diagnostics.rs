@@ -5,6 +5,7 @@
 
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
+use std::collections::HashSet;
 use crate::uss::definitions::UssDefinitions;
 
 /// USS diagnostic analyzer
@@ -449,12 +450,15 @@ impl UssDiagnostics {
         let value_text = value_node.utf8_text(content.as_bytes()).unwrap_or("");
         
         // Check if the value is valid for this specific property
-        if let Some(valid_values) = self.definitions.get_valid_values_for_property(property_name) {
+        if let Some(valid_values) = self.definitions.get_valid_keyword_values_for_property(property_name) {
             if !self.definitions.is_valid_value_for_property(property_name, value_text) {
                 let expected = valid_values.join(", ");
                 self.add_invalid_value_diagnostic(value_node, content, property_name, &format!("Expected: {}", expected), diagnostics);
             }
         } else {
+            // Validate units for length values
+            self.validate_value_units(value_node, content, property_name, diagnostics);
+            
             // For color properties, validate color values
             if property_name.contains("color") && value_node.kind() == "plain_value" {
                 if !self.definitions.is_valid_color_keyword(value_text) && !value_text.starts_with('#') {
@@ -464,6 +468,81 @@ impl UssDiagnostics {
         }
     }
     
+    /// Validate units for property values
+    fn validate_value_units(&self, value_node: Node, content: &str, property_name: &str, diagnostics: &mut Vec<Diagnostic>) {
+        // Get property info to check expected value types
+        if let Some(property_info) = self.definitions.get_property_info(property_name) {
+            // Determine valid units based on value types
+            let mut valid_units = HashSet::new();
+            
+            for value_type in &property_info.value_types {
+                match value_type {
+                    crate::uss::definitions::ValueType::Length => {
+                        valid_units.insert("px");
+                        valid_units.insert("%");
+                    }
+                    crate::uss::definitions::ValueType::Angle => {
+                        valid_units.insert("deg");
+                        valid_units.insert("rad");
+                    }
+                    _ => {}
+                }
+            }
+            
+            if !valid_units.is_empty() {
+                // Look for numeric values with units in the value
+                self.validate_units_in_node(value_node, content, property_name, Some(&valid_units), diagnostics);
+            }
+        }
+    }
+    
+    /// Recursively validate units in a node and its children
+    fn validate_units_in_node(&self, node: Node, content: &str, property_name: &str, valid_units: Option<&HashSet<&str>>, diagnostics: &mut Vec<Diagnostic>) {
+        // Check if this node is a numeric value with a unit
+        if node.kind() == "integer_value" || node.kind() == "float_value" {
+            // Look for a unit child node
+            if let Some(unit_node) = node.child_by_field_name("unit") {
+                let unit_text = unit_node.utf8_text(content.as_bytes()).unwrap_or("");
+                
+                if let Some(valid_units) = valid_units {
+                    if !valid_units.contains(unit_text) {
+                        let mut expected_vec: Vec<&str> = valid_units.iter().copied().collect();
+                        expected_vec.sort(); // Sort for consistent output
+                        let expected = expected_vec.join(", ");
+                        self.add_invalid_unit_diagnostic(unit_node, content, property_name, unit_text, &expected, diagnostics);
+                    }
+                } else {
+                    // No valid units specified, check against USS supported units
+                    let uss_length_units: HashSet<&str> = ["px", "%"].iter().copied().collect();
+                    if !uss_length_units.contains(unit_text) {
+                        self.add_invalid_unit_diagnostic(unit_node, content, property_name, unit_text, "px, %", diagnostics);
+                    }
+                }
+            }
+        }
+        
+        // Recursively check child nodes
+        for i in 0..node.child_count() {
+            if let Some(child) = node.child(i) {
+                self.validate_units_in_node(child, content, property_name, valid_units, diagnostics);
+            }
+        }
+    }
+    
+    /// Add invalid unit diagnostic
+    fn add_invalid_unit_diagnostic(&self, unit_node: Node, content: &str, property_name: &str, unit: &str, expected: &str, diagnostics: &mut Vec<Diagnostic>) {
+        let range = self.node_to_range(unit_node, content);
+        
+        diagnostics.push(Diagnostic {
+            range,
+            severity: Some(DiagnosticSeverity::ERROR),
+            code: Some(NumberOrString::String("invalid-unit".to_string())),
+            source: Some("uss".to_string()),
+            message: format!("Invalid unit '{}' for property '{}'. Expected: {}", unit, property_name, expected),
+            ..Default::default()
+        });
+    }
+
     /// Validate function arguments
     fn validate_function_arguments(&self, function_name: &str, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
         if let Some(args_node) = node.child(1) {

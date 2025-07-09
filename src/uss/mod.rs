@@ -10,3 +10,4 @@ pub mod diagnostics;
 pub mod highlighting;
 pub mod definitions;
 pub mod hover;
+pub mod property_data;

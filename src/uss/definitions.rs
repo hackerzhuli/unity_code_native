@@ -4,8 +4,27 @@
 //! and other validation data that can be shared across different features
 //! like diagnostics and autocomplete.
 
-
-use std::collections::{HashMap, HashSet};
+use crate::uss::property_data::{create_standard_properties, create_unity_properties};
+use std::collections::{HashMap, HashSet};/// Value type that a property accepts
+#[derive(Debug, Clone, PartialEq)]
+pub enum ValueType {
+    /// Length values (px, %, auto)
+    Length,
+    /// Numeric values (unitless numbers)
+    Number,
+    /// Color values (hex, keywords, functions)
+    Color,
+    /// Angle values (deg, rad, grad, turn)
+    Angle,
+    /// Keyword values from a predefined list
+    Keyword,
+    /// Resource references (url(), resource())
+    Resource,
+    /// Custom CSS variables (var())
+    Variable,
+    /// Multiple value types allowed
+    Multiple(Vec<ValueType>),
+}
 
 /// Property documentation information
 #[derive(Debug, Clone)]
@@ -20,6 +39,8 @@ pub struct PropertyInfo {
     pub inherited: bool,
     /// Whether this property is animatable
     pub animatable: bool,
+    /// Expected value types for this property
+    pub value_types: Vec<ValueType>,
 }
 
 /// USS language definitions and validation data
@@ -41,140 +62,18 @@ impl UssDefinitions {
     pub fn new() -> Self {
         let mut properties = HashMap::new();
         
-        // Standard CSS properties supported by USS with Unity documentation
-        let standard_properties = [
-            ("align-content", "Alignment of the whole area of children on the cross axis if they span over multiple lines in this container.", false, false, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("align-items", "Alignment of children on the cross axis of this container.", false, false, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("align-self", "Similar to align-items, but only for this specific element.", false, false, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("all", "Allows resetting all properties with the initial keyword. Does not apply to custom USS properties.", false, true, "UIE-USS-SupportedProperties.html#all"),
-            ("background-color", "Background color to paint in the element's box.", false, true, "UIE-USS-SupportedProperties.html#unity-background"),
-            ("background-image", "Background image to paint in the element's box.", false, false, "UIE-USS-SupportedProperties.html#unity-background"),
-            ("background-position", "Background image position value.", false, true, "https://developer.mozilla.org/en-US/docs/Web/CSS/background-position"),
-            ("background-position-x", "Background image x position value.", false, false, "https://developer.mozilla.org/en-US/docs/Web/CSS/background-position-x"),
-            ("background-position-y", "Background image y position value.", false, false, "https://developer.mozilla.org/en-US/docs/Web/CSS/background-position-y"),
-            ("background-repeat", "Background image repeat value.", false, false, "https://developer.mozilla.org/en-US/docs/Web/CSS/background-repeat"),
-            ("background-size", "Background image size value. Transitions are fully supported only when using size in pixels or percentages.", false, true, "https://developer.mozilla.org/en-US/docs/Web/CSS/background-size"),
-            ("border-bottom-color", "Color of the element's bottom border.", false, true, "UIE-USS-SupportedProperties.html#border-color"),
-            ("border-bottom-left-radius", "The radius of the bottom-left corner when a rounded rectangle is drawn in the element's box.", false, true, "UIE-USS-SupportedProperties.html#drawing-borders"),
-            ("border-bottom-right-radius", "The radius of the bottom-right corner when a rounded rectangle is drawn in the element's box.", false, true, "UIE-USS-SupportedProperties.html#drawing-borders"),
-            ("border-bottom-width", "Space reserved for the bottom edge of the border during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("border-color", "Shorthand for border-top-color, border-right-color, border-bottom-color, border-left-color", false, true, "UIE-USS-SupportedProperties.html#border-color"),
-            ("border-left-color", "Color of the element's left border.", false, true, "UIE-USS-SupportedProperties.html#border-color"),
-            ("border-left-width", "Space reserved for the left edge of the border during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("border-radius", "Shorthand for border-top-left-radius, border-top-right-radius, border-bottom-right-radius, border-bottom-left-radius", false, true, "UIE-USS-SupportedProperties.html#drawing-borders"),
-            ("border-right-color", "Color of the element's right border.", false, true, "UIE-USS-SupportedProperties.html#border-color"),
-            ("border-right-width", "Space reserved for the right edge of the border during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("border-top-color", "Color of the element's top border.", false, true, "UIE-USS-SupportedProperties.html#border-color"),
-            ("border-top-left-radius", "The radius of the top-left corner when a rounded rectangle is drawn in the element's box.", false, true, "UIE-USS-SupportedProperties.html#drawing-borders"),
-            ("border-top-right-radius", "The radius of the top-right corner when a rounded rectangle is drawn in the element's box.", false, true, "UIE-USS-SupportedProperties.html#drawing-borders"),
-            ("border-top-width", "Space reserved for the top edge of the border during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("border-width", "Shorthand for border-top-width, border-right-width, border-bottom-width, border-left-width", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("bottom", "Bottom distance from the element's box during layout.", false, true, "UIE-USS-SupportedProperties.html#positioning"),
-            ("color", "Color to use when drawing the text of an element.", true, true, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("cursor", "Mouse cursor to display when the mouse pointer is over an element.", false, false, "UIE-USS-SupportedProperties.html#cursor"),
-            ("display", "Defines how an element is displayed in the layout.", false, false, "UIE-USS-SupportedProperties.html#appearance"),
-            ("flex", "Shorthand for flex-grow, flex-shrink, flex-basis", false, true, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("flex-basis", "Initial main size of a flex item, on the main flex axis.", false, true, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("flex-direction", "Direction of the main axis to layout children in a container.", false, false, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("flex-grow", "Specifies how the item will grow relative to the rest of the flexible items inside the same container.", false, true, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("flex-shrink", "Specifies how the item will shrink relative to the rest of the flexible items inside the same container.", false, true, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("flex-wrap", "Placement of children over multiple lines if not enough space is available in this container.", false, false, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("font-size", "Font size to draw the element's text, specified in point size.", true, true, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("height", "Fixed height of an element for the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("justify-content", "Alignment of children on the main axis of this container.", false, false, "UIE-USS-SupportedProperties.html#flex-layout"),
-            ("left", "Left distance from the element's box during layout.", false, true, "UIE-USS-SupportedProperties.html#positioning"),
-            ("letter-spacing", "Increases or decreases the space between characters in text.", true, true, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("margin", "Shorthand for margin-top, margin-right, margin-bottom, margin-left", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("margin-bottom", "Space reserved for the bottom edge of the margin during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("margin-left", "Space reserved for the left edge of the margin during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("margin-right", "Space reserved for the right edge of the margin during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("margin-top", "Space reserved for the top edge of the margin during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("max-height", "Maximum height for an element, when it is flexible or measures its own size.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("max-width", "Maximum width for an element, when it is flexible or measures its own size.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("min-height", "Minimum height for an element, when it is flexible or measures its own size.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("min-width", "Minimum width for an element, when it is flexible or measures its own size.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("opacity", "Specifies the transparency of an element.", false, true, "UIE-USS-SupportedProperties.html#opacity"),
-            ("overflow", "How a container behaves if its content overflows its own box.", false, false, "UIE-USS-SupportedProperties.html#appearance"),
-            ("padding", "Shorthand for padding-top, padding-right, padding-bottom, padding-left", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("padding-bottom", "Space reserved for the bottom edge of the padding during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("padding-left", "Space reserved for the left edge of the padding during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("padding-right", "Space reserved for the right edge of the padding during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("padding-top", "Space reserved for the top edge of the padding during the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("position", "Element positioning type during layout.", false, false, "UIE-USS-SupportedProperties.html#positioning"),
-            ("right", "Right distance from the element's box during layout.", false, true, "UIE-USS-SupportedProperties.html#positioning"),
-            ("rotate", "Rotation to apply to the element.", false, true, "UIE-Transform.html"),
-            ("scale", "Scaling to apply to the element.", false, true, "UIE-Transform.html"),
-            ("text-overflow", "How hidden overflow content is signaled to users.", false, false, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("text-shadow", "Adds shadow effects around a text.", false, true, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("top", "Top distance from the element's box during layout.", false, true, "UIE-USS-SupportedProperties.html#positioning"),
-            ("transform-origin", "Origin for the rotate, translate, and scale transforms.", false, true, "UIE-Transform.html"),
-            ("transition", "Shorthand for transition-delay, transition-duration, transition-property, transition-timing-function", false, false, "UIE-Transitions.html"),
-            ("transition-delay", "Delay before a transition starts.", false, false, "UIE-Transitions.html"),
-            ("transition-duration", "Duration of a transition.", false, false, "UIE-Transitions.html"),
-            ("transition-property", "CSS properties that should transition.", false, false, "UIE-Transitions.html"),
-            ("transition-timing-function", "Timing function for a transition.", false, false, "UIE-Transitions.html"),
-            ("translate", "Translation to apply to the element.", false, true, "UIE-Transform.html"),
-            ("visibility", "Specifies whether or not an element is visible.", false, false, "UIE-USS-SupportedProperties.html#appearance"),
-            ("white-space", "How white space inside an element is handled.", true, false, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("width", "Fixed width of an element for the layout phase.", false, true, "UIE-USS-SupportedProperties.html#box-model"),
-            ("word-spacing", "Increases or decreases the space between words in text.", true, true, "UIE-USS-SupportedProperties.html#unity-text"),
-        ];
+        // Load standard CSS properties
+        let standard_props = create_standard_properties();
+        for (name, prop_info) in standard_props {
+            properties.insert(name, prop_info);
+        }
         
-        // Unity-specific properties
-        let unity_properties = [
-            ("-unity-background-image-tint-color", "Tinting color for the background image.", false, true, "UIE-USS-SupportedProperties.html#unity-background"),
-            ("-unity-background-scale-mode", "How the background image is scaled in the element's box.", false, false, "UIE-USS-SupportedProperties.html#unity-background"),
-            ("-unity-editor-text-rendering-mode", "Text rendering mode for the editor.", true, false, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("-unity-font", "Font to use to display text.", true, false, "UIE-USS-SupportedProperties.html#unity-font"),
-            ("-unity-font-definition", "Font asset to use to display text.", true, false, "UIE-USS-SupportedProperties.html#unity-font"),
-            ("-unity-font-style", "Font style and weight (normal, bold, italic, or bold-and-italic).", true, false, "UIE-USS-SupportedProperties.html#unity-font"),
-            ("-unity-overflow-clip-box", "How content overflows are clipped.", false, false, "UIE-USS-SupportedProperties.html#appearance"),
-            ("-unity-paragraph-spacing", "Space between paragraphs.", true, true, "UIE-USS-SupportedProperties.html#appearance"),
-            ("-unity-slice-bottom", "Size of the 9-slice's bottom edge when painting an element's background image.", false, false, "UIE-USS-SupportedProperties.html#unity-slice"),
-            ("-unity-slice-left", "Size of the 9-slice's left edge when painting an element's background image.", false, false, "UIE-USS-SupportedProperties.html#unity-slice"),
-            ("-unity-slice-right", "Size of the 9-slice's right edge when painting an element's background image.", false, false, "UIE-USS-SupportedProperties.html#unity-slice"),
-            ("-unity-slice-scale", "Scaling of the 9-slice's edges when painting an element's background image.", false, false, "UIE-USS-SupportedProperties.html#unity-slice"),
-            ("-unity-slice-top", "Size of the 9-slice's top edge when painting an element's background image.", false, false, "UIE-USS-SupportedProperties.html#unity-slice"),
-            ("-unity-slice-type", "Type of 9-slice when painting an element's background image.", false, false, "UIE-USS-SupportedProperties.html#unity-slice"),
-            ("-unity-text-align", "Horizontal and vertical text alignment in the element's box.", true, false, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("-unity-text-generator", "Internal property that specifies the text generator.", true, false, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("-unity-text-outline", "Size of the text outline.", true, true, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("-unity-text-outline-color", "Color of the text outline.", true, true, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("-unity-text-outline-width", "Width of the text outline.", true, true, "UIE-USS-SupportedProperties.html#unity-text"),
-            ("-unity-text-overflow-position", "Which part of the text that the Element displays when the text overflows the element's box.", true, false, "UIE-USS-SupportedProperties.html#unity-text"),
-        ];
-        
+        // Load Unity-specific properties
+        let unity_props = create_unity_properties();
+        for (name, prop_info) in unity_props {
+            properties.insert(name, prop_info);
+        }
 
-        
-        // Add standard properties
-        for (name, description, inherited, animatable, url_path) in standard_properties {
-            let url = if url_path.starts_with("https://") {
-                url_path.to_string()
-            } else {
-                format!("https://docs.unity3d.com/{{version}}/Documentation/Manual/{}", url_path)
-            };
-            
-            properties.insert(name, PropertyInfo {
-                name,
-                description,
-                documentation_url: url,
-                inherited,
-                animatable,
-            });
-        }
-        
-        // Add Unity-specific properties
-        for (name, description, inherited, animatable, url_path) in unity_properties {
-            let url = format!("https://docs.unity3d.com/{{version}}/Documentation/Manual/{}", url_path);
-            
-            properties.insert(name, PropertyInfo {
-                name,
-                description,
-                documentation_url: url,
-                inherited,
-                animatable,
-            });
-        }
         
         let mut valid_pseudo_classes = HashSet::new();
         let pseudo_classes = [
@@ -402,8 +301,8 @@ impl UssDefinitions {
         self.valid_at_rules.contains(at_rule)
     }
     
-    /// Get valid values for a specific property
-    pub fn get_valid_values_for_property(&self, property_name: &str) -> Option<&'static [&'static str]> {
+    /// Get valid keyword values for a specific property
+    pub fn get_valid_keyword_values_for_property(&self, property_name: &str) -> Option<&'static [&'static str]> {
         match property_name {
             "display" => Some(&["flex", "none", "initial"]),
             "position" => Some(&["absolute", "relative", "initial"]),
@@ -425,7 +324,7 @@ impl UssDefinitions {
     
     /// Check if a value is valid for a specific property
     pub fn is_valid_value_for_property(&self, property_name: &str, value: &str) -> bool {
-        if let Some(valid_values) = self.get_valid_values_for_property(property_name) {
+        if let Some(valid_values) = self.get_valid_keyword_values_for_property(property_name) {
             valid_values.contains(&value)
         } else {
             // For properties without specific validation, allow any value
