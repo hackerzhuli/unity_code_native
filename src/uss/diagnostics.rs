@@ -34,6 +34,8 @@ impl UssDiagnostics {
     
     /// Recursively walk the syntax tree and validate nodes
     fn walk_node(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
+
+        
         // Check for syntax errors - only report for ERROR nodes directly, not for nodes that contain errors
         if node.kind() == "ERROR" {
             self.add_syntax_error(node, content, diagnostics);
@@ -41,12 +43,47 @@ impl UssDiagnostics {
         
         match node.kind() {
             "rule_set" => self.validate_rule_set(node, content, diagnostics),
-            "declaration" => self.validate_declaration(node, content, diagnostics),
+            "declaration" => {
+                self.validate_declaration(node, content, diagnostics);
+            },
             "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
             "at_rule" => self.validate_at_rule(node, content, diagnostics),
             "call_expression" => self.validate_function_arguments_wrapper(node, content, diagnostics),
             "color_value" => self.validate_color_value(node, content, diagnostics),
-            _ => {}
+            "integer_value" | "float_value" => {
+                // Numeric values are handled when we encounter their unit children
+            },
+            "unit" => {
+                // Check if this unit is part of a declaration
+                if let Some(parent) = node.parent() {
+                    if parent.kind() == "integer_value" || parent.kind() == "float_value" {
+                        // Find the declaration this numeric value belongs to
+                        let mut current = parent;
+                        while let Some(p) = current.parent() {
+                            if p.kind() == "declaration" {
+                                // Found the declaration, get the property name
+                                if let Some(property_node) = p.child(0) {
+                                    if property_node.kind() == "property_name" {
+                                        let property_name = property_node.utf8_text(content.as_bytes()).unwrap_or("");
+                                        let unit_text = node.utf8_text(content.as_bytes()).unwrap_or("");
+                                        
+                                        // Simple validation - check against common USS units
+                                        let valid_units = ["px", "%", "deg", "rad"];
+                                        if !valid_units.contains(&unit_text) {
+                                            self.add_invalid_unit_diagnostic(node, content, property_name, unit_text, "px, %, deg, rad", diagnostics);
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                            current = p;
+                        }
+                    }
+                }
+            },
+            _ => {
+                // Other node types don't need special handling
+            }
         }
         
         // Recursively check children
@@ -492,12 +529,15 @@ impl UssDiagnostics {
             if !valid_units.is_empty() {
                 // Look for numeric values with units in the value
                 self.validate_units_in_node(value_node, content, property_name, Some(&valid_units), diagnostics);
+            } else {
+                self.validate_units_in_node(value_node, content, property_name, None, diagnostics);
             }
         }
     }
     
     /// Recursively validate units in a node and its children
     fn validate_units_in_node(&self, node: Node, content: &str, property_name: &str, valid_units: Option<&HashSet<&str>>, diagnostics: &mut Vec<Diagnostic>) {
+        
         // Check if this node is a numeric value with a unit
         if node.kind() == "integer_value" || node.kind() == "float_value" {
             // Look for a unit child node
@@ -676,178 +716,5 @@ impl UssDiagnostics {
 impl Default for UssDiagnostics {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::uss::parser::UssParser;
-
-    #[test]
-    fn test_precise_syntax_error_range() {
-        let diagnostics = UssDiagnostics::new();
-        let mut parser = UssParser::new().unwrap();
-        
-        // Test case with syntax error - a simple invalid token on line 4
-        let content = ".valid-rule {\n    background-color: red;\n}\n\na;\n\n.another-valid-rule {\n    color: blue;\n}";
-        
-        let tree = parser.parse(content, None).unwrap();
-        let results = diagnostics.analyze(&tree, content);
-        
-        // Debug: Check diagnostic details
-        // Uncomment the following lines for debugging:
-        // for (i, diagnostic) in results.iter().enumerate() {
-        //     println!("  {}: Line {}:{}-{}:{} - {} - {}", 
-        //         i, 
-        //         diagnostic.range.start.line, diagnostic.range.start.character,
-        //         diagnostic.range.end.line, diagnostic.range.end.character,
-        //         diagnostic.code.as_ref().map(|c| match c {
-        //             tower_lsp::lsp_types::NumberOrString::String(s) => s.as_str(),
-        //             tower_lsp::lsp_types::NumberOrString::Number(_) => "number",
-        //         }).unwrap_or("no-code"),
-        //         diagnostic.message
-        //     );
-        // }
-        
-        // Should have at least one syntax error
-        let syntax_errors: Vec<_> = results.iter()
-            .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("syntax-error".to_string())))
-            .collect();
-        
-        assert!(!syntax_errors.is_empty(), "Should detect syntax error");
-        
-        // Verify that we have syntax errors to test
-        
-        // Test that errors don't span the entire file (which was the original problem)
-        // Each error should be limited to a reasonable range
-        for error in &syntax_errors {
-            let line_span = error.range.end.line - error.range.start.line;
-            let char_span = if error.range.start.line == error.range.end.line {
-                error.range.end.character - error.range.start.character
-            } else {
-                100 // If it spans multiple lines, we'll check line span instead
-            };
-            
-            // Error should not span more than 1 line or more than 50 characters on a single line
-            assert!(line_span <= 1 && char_span <= 50, 
-                "Error range too large: spans {} lines and {} chars. Range: {}:{}-{}:{}",
-                line_span, char_span, 
-                error.range.start.line, error.range.start.character,
-                error.range.end.line, error.range.end.character);
-        }
-        
-        // Check that at least one error is on line 4 (where "a;" is located)
-        let has_error_on_line_4 = syntax_errors.iter().any(|error| {
-            error.range.start.line == 4 // Line 4 is where "a;" is located
-        });
-        
-        assert!(has_error_on_line_4, "Should have at least one error on line 4 where 'a;' is located");
-        
-        // At least one error should be small and precise
-        let has_small_error = syntax_errors.iter().any(|error| {
-            let line_span = error.range.end.line - error.range.start.line;
-            let char_span = if error.range.start.line == error.range.end.line {
-                error.range.end.character - error.range.start.character
-            } else {
-                100
-            };
-            line_span == 0 && char_span <= 10 // Small, precise error
-        });
-        
-        assert!(has_small_error, "Should have at least one small, precise error range");
-    }
-    
-    #[test]
-    fn test_missing_semicolon_detection() {
-        let diagnostics = UssDiagnostics::new();
-        let mut parser = UssParser::new().unwrap();
-        
-        // Test case with missing semicolon after background-color: red
-        let content = r#"@import url("a.css");
-
-a {
-    background-color: red
-    border-radius:10px;
-}"#;
-        
-        let tree = parser.parse(content, None).unwrap();
-        let results = diagnostics.analyze(&tree, content);
-        
-        // Check if missing semicolon is detected
-        let missing_semicolon_errors: Vec<_> = results.iter()
-            .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("missing-semicolon".to_string())))
-            .collect();
-        
-        assert!(!missing_semicolon_errors.is_empty(), "Should detect missing semicolon");
-        
-        // Verify the error is reported at the correct location (before 'border-radius')
-        let has_border_radius_error = missing_semicolon_errors.iter().any(|error| {
-            error.message.contains("border-radius")
-        });
-        
-        assert!(has_border_radius_error, "Should detect missing semicolon before 'border-radius' property");
-    }
-
-    #[test]
-    fn test_nested_rule_missing_semicolon() {
-        let diagnostics = UssDiagnostics::new();
-        let mut parser = UssParser::new().unwrap();
-        
-        // Test case with missing semicolon before nested rule
-        let content = r#"@import url("a.css");
-
-a {
-    background-color: red;
-    border-radius:10px
-    c{
-        
-    }
-}"#;
-        
-        let tree = parser.parse(content, None).unwrap();
-        let results = diagnostics.analyze(&tree, content);
-        
-
-        
-        // Should detect missing semicolon before nested rule, not pseudo-class error
-        let missing_semicolon_errors: Vec<_> = results.iter()
-            .filter(|e| e.message.contains("Missing semicolon after property"))
-            .collect();
-        
-        assert!(!missing_semicolon_errors.is_empty(), "Should detect missing semicolon before nested rule");
-        
-        // Verify the specific error message
-        let semicolon_error = &missing_semicolon_errors[0];
-        assert!(semicolon_error.message.contains("border-radius"), "Should identify the correct property name");
-        assert_eq!(semicolon_error.code, Some(NumberOrString::String("missing-semicolon".to_string())));
-    }
-    
-    #[test]
-    fn test_multiline_error_limitation() {
-        let diagnostics = UssDiagnostics::new();
-        let mut parser = UssParser::new().unwrap();
-        
-        // Test case with a syntax error that might span multiple lines
-        let content = r#"
-.rule {
-    background-color: red
-    /* missing semicolon */
-    color: blue;
-}
-"#;
-        
-        let tree = parser.parse(content, None);
-        if let Some(tree) = tree {
-            let results = diagnostics.analyze(&tree, content);
-            
-            // Check that any syntax errors don't span too many lines
-            for diagnostic in results {
-                if diagnostic.code == Some(tower_lsp::lsp_types::NumberOrString::String("syntax-error".to_string())) {
-                    let line_span = diagnostic.range.end.line - diagnostic.range.start.line;
-                    assert!(line_span <= 1, "Syntax error should not span more than 1 line, but spans {} lines", line_span);
-                }
-            }
-        }
     }
 }

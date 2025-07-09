@@ -11,3 +11,6 @@ pub mod highlighting;
 pub mod definitions;
 pub mod hover;
 pub mod property_data;
+
+#[cfg(test)]
+mod diagnostics_tests;
