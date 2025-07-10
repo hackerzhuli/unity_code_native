@@ -54,7 +54,7 @@ impl UssDocument {
         self.invalidate_diagnostics();
         // Extract and resolve variables after parsing
         if let Some(tree) = &self.tree {
-            self.variable_resolver.extract_and_resolve(tree.root_node(), &self.content);
+            self.variable_resolver.add_variables_from_tree(tree.root_node(), &self.content);
         }
     }
     
@@ -84,7 +84,7 @@ impl UssDocument {
                 
                 // Re-extract and resolve variables after full document change
                 if let Some(tree) = &self.tree {
-                    self.variable_resolver.extract_and_resolve(tree.root_node(), &self.content);
+                    self.variable_resolver.add_variables_from_tree(tree.root_node(), &self.content);
                 }
             }
         }
@@ -157,7 +157,7 @@ impl UssDocument {
         
         // Re-extract and resolve variables after incremental parsing
         if let Some(tree) = &self.tree {
-            self.variable_resolver.extract_and_resolve(tree.root_node(), &self.content);
+            self.variable_resolver.add_variables_from_tree(tree.root_node(), &self.content);
         }
     }
     

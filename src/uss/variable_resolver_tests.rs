@@ -15,7 +15,7 @@ fn test_variable_extraction() {
     
     let tree = create_test_tree(content).unwrap();
     let mut resolver = VariableResolver::new();
-    resolver.extract_and_resolve(tree.root_node(), content);
+    resolver.add_variables_from_tree(tree.root_node(), content);
     
     let variables = resolver.get_variables();
     assert_eq!(variables.len(), 3);
@@ -35,7 +35,7 @@ fn test_variable_resolution_simple() {
     
     let tree = create_test_tree(content).unwrap();
     let mut resolver = VariableResolver::new();
-    resolver.extract_and_resolve(tree.root_node(), content);
+    resolver.add_variables_from_tree(tree.root_node(), content);
     
     let variables = resolver.get_variables();
     // Check that we have the expected variables
@@ -65,7 +65,7 @@ fn test_variable_resolution_circular() {
     
     let tree = create_test_tree(content).unwrap();
     let mut resolver = VariableResolver::new();
-    resolver.extract_and_resolve(tree.root_node(), content);
+    resolver.add_variables_from_tree(tree.root_node(), content);
     
     let color_a = resolver.get_variable("color-a").unwrap();
     let color_b = resolver.get_variable("color-b").unwrap();
@@ -88,7 +88,7 @@ fn test_variable_resolution_ambiguous() {
     
     let tree = create_test_tree(content).unwrap();
     let mut resolver = VariableResolver::new();
-    resolver.extract_and_resolve(tree.root_node(), content);
+    resolver.add_variables_from_tree(tree.root_node(), content);
     
     let primary_var = resolver.get_variable("primary-color").unwrap();
     assert!(matches!(primary_var.status, VariableResolutionStatus::Ambiguous));
@@ -109,7 +109,7 @@ fn test_complex_variable_dependencies() {
     
     let tree = create_test_tree(content).unwrap();
     let mut resolver = VariableResolver::new();
-    resolver.extract_and_resolve(tree.root_node(), content);
+    resolver.add_variables_from_tree(tree.root_node(), content);
     
     let variables = resolver.get_variables();
     assert_eq!(variables.len(), 3);
@@ -147,4 +147,33 @@ fn test_complex_variable_dependencies() {
           assert_eq!(values[7], UssValue::Color("#aabbcc".to_string()));
           assert_eq!(values[8], UssValue::Numeric { value: 1.0, unit: Some("px".to_string()), has_fractional: false });
       }
+}
+
+#[test]
+fn test_variable_parsing_errors() {
+    let content = r#"
+            :root {
+                --valid-var: #ff0000;
+                --invalid-var: ;
+                --another-invalid: #invalid-color;
+            }
+        "#;
+    
+    let tree = create_test_tree(content).unwrap();
+    let mut resolver = VariableResolver::new();
+    resolver.add_variables_from_tree(tree.root_node(), content);
+    
+    let variables = resolver.get_variables();
+    
+    // Should have variables that can be parsed as declarations, including ones with parsing errors
+    assert_eq!(variables.len(), 2);
+    
+    // Valid variable should be resolved
+    let valid_var = resolver.get_variable("valid-var").unwrap();
+    assert!(matches!(valid_var.status, VariableResolutionStatus::Resolved(_)));
+    
+    // Invalid variable should be marked as Error
+    let invalid_var = resolver.get_variable("invalid-var").unwrap();
+    assert!(matches!(invalid_var.status, VariableResolutionStatus::Error));
+    assert!(invalid_var.values.is_empty()); // Should have empty values
 }

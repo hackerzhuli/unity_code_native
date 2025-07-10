@@ -34,6 +34,8 @@ pub enum VariableResolutionStatus {
     Unresolved,
     /// Multiple definitions exist for this variable name
     Ambiguous,
+    /// Variable declaration has parsing errors
+    Error,
 }
 
 /// Definition of a CSS custom property variable
@@ -45,13 +47,7 @@ pub struct VariableDefinition {
     pub status: VariableResolutionStatus,
 }
 
-/// Temporary storage for declaration information during extraction
-#[derive(Debug, Clone)]
-struct DeclarationInfo<'a> {
-    name: String,
-    node: Node<'a>,
-    range: Range,
-}
+
 
 /// Handles variable extraction and resolution for USS documents
 #[derive(Clone, Debug)]
@@ -76,15 +72,14 @@ impl VariableResolver {
     }
 
     /// Extract variables from a syntax tree and resolve them
-    pub fn extract_and_resolve(&mut self, root_node: Node, content: &str) {
+    pub fn add_variables_from_tree(&mut self, root_node: Node, content: &str) {
         self.variables.clear();
         
-        // Step 1: Extract declaration nodes into a temporary hashmap
-        let mut declarations = HashMap::<String, Vec<DeclarationInfo>>::new();
-        Self::extract_variables_from_node(root_node, content, &mut declarations);
+        // Extract variables and their values in a single pass
+        self.extract_variables_from_node(root_node, content);
         
-        // Step 2: Resolve variables and create VariableDefinitions
-        self.resolve_variables(declarations, content);
+        // Resolve all variable dependencies
+        self.resolve_all_variables();
         self.resolved = true;
     }
 
@@ -103,8 +98,8 @@ impl VariableResolver {
         self.resolved
     }
 
-    /// Step 1: Recursively extract variable declaration nodes from a syntax tree
-    fn extract_variables_from_node<'a>(node: Node<'a>, content: &str, declarations: &mut HashMap<String, Vec<DeclarationInfo<'a>>>) {
+    /// Extract variable declarations and their values from a syntax tree in a single pass
+    fn extract_variables_from_node(&mut self, node: Node, content: &str) {
         // Look for CSS custom property declarations (--variable-name: value;)
         if node.kind() == "declaration" {
             // Try different ways to find the property name
@@ -121,67 +116,51 @@ impl VariableResolver {
                 let variable_name = property_text[2..].to_string(); // Remove -- prefix
                 let range = Self::node_to_range(node);
                 
-                let declaration_info = DeclarationInfo {
-                    name: variable_name.clone(),
-                    node,
-                    range,
-                };
-                
-                declarations.entry(variable_name)
-                    .or_insert_with(Vec::new)
-                    .push(declaration_info);
+                // Check if this variable already exists (ambiguous case)
+                if self.variables.contains_key(&variable_name) {
+                    // Mark existing variable as ambiguous
+                    if let Some(existing_var) = self.variables.get_mut(&variable_name) {
+                        existing_var.status = VariableResolutionStatus::Ambiguous;
+                        existing_var.values.clear(); // Clear values for ambiguous variables
+                    }
+                } else {
+                    // Extract values immediately during traversal
+                    match self.extract_values_from_declaration_node(node, content) {
+                        Ok(values) => {
+                            let definition = VariableDefinition {
+                                name: variable_name.clone(),
+                                values,
+                                range,
+                                status: VariableResolutionStatus::Unresolved,
+                            };
+                            self.variables.insert(variable_name, definition);
+                        }
+                        Err(_) => {
+                            // If extraction fails, record this variable with error status
+                            // This allows tracking of all variable declarations even when they have parsing errors
+                            let definition = VariableDefinition {
+                                name: variable_name.clone(),
+                                values: Vec::new(), // Empty values for error cases
+                                range,
+                                status: VariableResolutionStatus::Error,
+                            };
+                            self.variables.insert(variable_name, definition);
+                        }
+                    }
+                }
             }
         }
         
         // Recursively process child nodes
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            Self::extract_variables_from_node(child, content, declarations);
+            self.extract_variables_from_node(child, content);
         }
     }
 
     /// Get text content of a node with content
     pub fn node_text(node: Node, content: &str) -> String {
         content[node.start_byte()..node.end_byte()].to_string()
-    }
-
-    /// Step 2: Resolve variables from declaration nodes and create VariableDefinitions
-    fn resolve_variables(&mut self, declarations: HashMap<String, Vec<DeclarationInfo>>, content: &str) {
-        for (var_name, declaration_infos) in declarations {
-            // If multiple declarations exist, mark as ambiguous
-            if declaration_infos.len() > 1 {
-                // Use the first declaration for the definition but mark as ambiguous
-                let first_decl = &declaration_infos[0];
-                let definition = VariableDefinition {
-                    name: var_name.clone(),
-                    values: Vec::new(),
-                    range: first_decl.range,
-                    status: VariableResolutionStatus::Ambiguous,
-                };
-                self.variables.insert(var_name, definition);
-            } else if let Some(decl_info) = declaration_infos.first() {
-                // Single declaration - extract values and resolve
-                match self.extract_values_from_declaration_node(decl_info.node, content) {
-                    Ok(values) => {
-                        let definition = VariableDefinition {
-                            name: var_name.clone(),
-                            values,
-                            range: decl_info.range,
-                            status: VariableResolutionStatus::Unresolved,
-                        };
-                        self.variables.insert(var_name, definition);
-                    }
-                    Err(_) => {
-                        // If extraction fails, skip this variable entirely
-                        // This means the variable cannot be resolved due to parsing errors
-                        continue;
-                    }
-                }
-            }
-        }
-        
-        // Now resolve all variables
-        self.resolve_all_variables();
     }
     
     /// Extract UssValues from a declaration node using proper tree-sitter parsing
@@ -285,8 +264,8 @@ impl VariableResolver {
             None => return None,
         };
         
-        // Skip if already marked as ambiguous
-        if matches!(var_def.status, VariableResolutionStatus::Ambiguous) {
+        // Skip if already marked as ambiguous or has errors
+        if matches!(var_def.status, VariableResolutionStatus::Ambiguous | VariableResolutionStatus::Error) {
             resolved.insert(var_name.to_string());
             return None;
         }
