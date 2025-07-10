@@ -30,3 +30,6 @@ mod document_tests;
 
 #[cfg(test)]
 mod value_tests;
+
+#[cfg(test)]
+mod variable_resolver_tests;
