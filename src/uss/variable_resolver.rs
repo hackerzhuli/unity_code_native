@@ -176,8 +176,16 @@ impl VariableResolver {
                     continue;
                 }
                 
-                // Since we no longer have Variable variants, no dependency checking needed
-                // All values are now concrete
+                // Check if this variable depends on any invalidated variable
+                for value in &var_def.values {
+                    if let UssValue::VariableReference(ref_var_name) = value {
+                        if to_invalidate.contains(ref_var_name) {
+                            to_invalidate.insert(name.clone());
+                            changed = true;
+                            break;
+                        }
+                    }
+                }
             }
         }
         

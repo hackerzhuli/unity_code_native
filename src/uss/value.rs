@@ -66,66 +66,109 @@ impl UssValue {
         }
     }
 
-    /// Validate that a color function has the expected number of numeric arguments
+    /// Validate general function argument structure and extract argument nodes
     /// 
     /// Expected structure: function_name(arg1, arg2, ..., argN)
     /// Where args_node contains: (, arg1, ,, arg2, ,, ..., ,, argN, )
-    fn validate_color_function_args(node: Node, expected_arg_count: usize) -> bool {
-        if let Some(args_node) = node.child(1) {
-            // Calculate expected child count: ( + args + commas + )
-            // For N arguments: 1 (open paren) + N (args) + (N-1) (commas) + 1 (close paren) = 2*N + 1
-            let expected_child_count = 2 * expected_arg_count + 1;
+    /// 
+    /// Returns a vector of argument nodes if structure is valid
+    fn validate_function_args_structure<'a>(node: Node<'a>, content: &'a str) -> Result<Vec<Node<'a>>, UssValueError> {
+        let args_node = node.child(1)
+            .ok_or_else(|| UssValueError::new(node, content, "Function missing arguments".to_string()))?;
+        
+        if args_node.child_count() == 0 {
+            return Err(UssValueError::new(args_node, content, "Function has no arguments".to_string()));
+        }
+        
+        // Check if child count is odd (should be: ( + args + commas + ))
+        if args_node.child_count() % 2 == 0 {
+            return Err(UssValueError::new(args_node, content, "Invalid argument structure".to_string()));
+        }
+        
+        let children: Vec<_> = (0..args_node.child_count()).map(|i| args_node.child(i)).collect();
+        
+        // Check opening parenthesis
+        if let Some(Some(open)) = children.first() {
+            if open.kind() != "(" {
+                return Err(UssValueError::new(*open, content, "Expected opening parenthesis '('".to_string()));
+            }
+        } else {
+            return Err(UssValueError::new(args_node, content, "Missing opening parenthesis".to_string()));
+        }
+        
+        // Check closing parenthesis
+        if let Some(Some(close)) = children.last() {
+            if close.kind() != ")" {
+                return Err(UssValueError::new(*close, content, "Expected closing parenthesis ')'".to_string()));
+            }
+        } else {
+            return Err(UssValueError::new(args_node, content, "Missing closing parenthesis".to_string()));
+        }
+        
+        let mut arg_nodes = Vec::new();
+        
+        // Extract argument nodes (skip first and last which are parentheses)
+        for i in (1..children.len() - 1).step_by(2) {
+            let arg_node = if let Some(Some(arg_node)) = children.get(i) {
+                *arg_node
+            } else {
+                return Err(UssValueError::new(args_node, content, format!("Missing argument at position {}", (i + 1) / 2)));
+            };
             
-            if args_node.child_count() == expected_child_count {
-                let children: Vec<_> = (0..expected_child_count).map(|i| args_node.child(i)).collect();
-                
-                // Check opening parenthesis
-                if let Some(Some(open)) = children.first() {
-                    if open.kind() != "(" {
-                        return false;
+            arg_nodes.push(arg_node);
+            
+            // Check comma (except for the last argument)
+            if i < children.len() - 2 {
+                let comma_index = i + 1;
+                if let Some(Some(comma_node)) = children.get(comma_index) {
+                    if comma_node.kind() != "," {
+                        return Err(UssValueError::new(*comma_node, content, "Expected comma separator".to_string()));
                     }
                 } else {
-                    return false;
+                    return Err(UssValueError::new(args_node, content, format!("Missing comma after argument {}", (i + 1) / 2)));
                 }
-                
-                // Check closing parenthesis
-                if let Some(Some(close)) = children.last() {
-                    if close.kind() != ")" {
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
-                
-                // Check arguments and commas
-                for i in 0..expected_arg_count {
-                    let arg_index = 1 + i * 2; // Arguments are at indices 1, 3, 5, ...
-                    
-                    if let Some(Some(arg_node)) = children.get(arg_index) {
-                        if !matches!(arg_node.kind(), "integer_value" | "float_value") {
-                            return false;
-                        }
-                    } else {
-                        return false;
-                    }
-                    
-                    // Check comma (except for the last argument)
-                    if i < expected_arg_count - 1 {
-                        let comma_index = 2 + i * 2; // Commas are at indices 2, 4, 6, ...
-                        if let Some(Some(comma_node)) = children.get(comma_index) {
-                            if comma_node.kind() != "," {
-                                return false;
-                            }
-                        } else {
-                            return false;
-                        }
-                    }
-                }
-                
-                return true;
             }
         }
-        false
+        
+        Ok(arg_nodes)
+    }
+    
+    /// Parse and validate color function arguments structure
+    /// 
+    /// Expected structure: function_name(arg1, arg2, ..., argN)
+    /// Where args_node contains: (, arg1, ,, arg2, ,, ..., ,, argN, )
+    /// 
+    /// Returns a vector of parsed numeric values if all arguments are valid
+    fn parse_color_function_args(node: Node, content: &str) -> Result<Vec<f32>, UssValueError> {
+        let arg_nodes = Self::validate_function_args_structure(node, content)?;
+        
+        let mut parsed_args = Vec::new();
+        
+        for (i, arg_node) in arg_nodes.iter().enumerate() {
+            if !matches!(arg_node.kind(), "integer_value" | "float_value") {
+                return Err(UssValueError::new(*arg_node, content, format!("Argument {} must be a number, found {}", i + 1, arg_node.kind())));
+            }
+            
+            // Check if the numeric value has a unit - color functions expect unitless numbers
+            if arg_node.child_count() > 0 {
+                let child = arg_node.child(0).unwrap();
+                if child.kind() == "unit" {
+                    let unit_text = child.utf8_text(content.as_bytes())
+                        .map_err(|_| UssValueError::new(child, content, "Invalid UTF-8 in unit text".to_string()))?;
+                    return Err(UssValueError::new(*arg_node, content, format!("Argument {} must be a unitless number, found number with unit '{}'", i + 1, unit_text)));
+                }
+            }
+            
+            // Parse the argument value
+            let arg_text = arg_node.utf8_text(content.as_bytes())
+                .map_err(|_| UssValueError::new(*arg_node, content, "Invalid UTF-8 in argument".to_string()))?;
+            let arg_value = arg_text.parse::<f32>()
+                .map_err(|_| UssValueError::new(*arg_node, content, format!("Cannot parse '{}' as numeric value", arg_text)))?;
+            
+            parsed_args.push(arg_value);
+        }
+        
+        Ok(parsed_args)
     }
 
     /// Parse a USS value from a tree-sitter node
@@ -209,28 +252,13 @@ impl UssValue {
                 match function_name_text.as_str() {
                     "var" => {
                         // Extract variable name from var(--variable-name)
-                        // Structure: arguments -> "(" + plain_value + ")"
-                        let args_node = node.child(1)
-                            .ok_or_else(|| UssValueError::new(node, content, "var() function missing arguments".to_string()))?;
+                        let arg_nodes = Self::validate_function_args_structure(node, content)?;
                         
-                        // var() must have exactly 3 children: (, variable, )
-                        if args_node.child_count() != 3 {
-                            return Err(UssValueError::new(args_node, content, format!("var() arguments have {} children, expected 3", args_node.child_count())));
+                        if arg_nodes.len() != 1 {
+                            return Err(UssValueError::new(node, content, format!("var() function expects 1 argument, found {}", arg_nodes.len())));
                         }
                         
-                        let open_paren = args_node.child(0)
-                            .ok_or_else(|| UssValueError::new(args_node, content, "var() missing opening parenthesis".to_string()))?;
-                        let var_node = args_node.child(1)
-                            .ok_or_else(|| UssValueError::new(args_node, content, "var() missing variable argument".to_string()))?;
-                        let close_paren = args_node.child(2)
-                            .ok_or_else(|| UssValueError::new(args_node, content, "var() missing closing parenthesis".to_string()))?;
-                        
-                        if open_paren.kind() != "(" {
-                            return Err(UssValueError::new(open_paren, content, format!("Expected '(', found {}", open_paren.kind())));
-                        }
-                        if close_paren.kind() != ")" {
-                            return Err(UssValueError::new(close_paren, content, format!("Expected ')', found {}", close_paren.kind())));
-                        }
+                        let var_node = arg_nodes[0];
                         if var_node.kind() != "plain_value" {
                             return Err(UssValueError::new(var_node, content, format!("Expected plain_value for variable name, found {}", var_node.kind())));
                         }
@@ -256,46 +284,82 @@ impl UssValue {
                     }
                     "url" | "resource" => {
                         // Validate that url/resource functions have exactly one string argument
-                        let args_node = node.child(1)
-                            .ok_or_else(|| UssValueError::new(node, content, format!("{}() function missing arguments", function_name_text)))?;
+                        let arg_nodes = Self::validate_function_args_structure(node, content)?;
                         
-                        // Should have exactly 3 children: (, string_value, )
-                        if args_node.child_count() != 3 {
-                            return Err(UssValueError::new(args_node, content, format!("{}() arguments have {} children, expected 3", function_name_text, args_node.child_count())));
+                        if arg_nodes.len() != 1 {
+                            return Err(UssValueError::new(node, content, format!("{}() function expects 1 argument, found {}", function_name_text, arg_nodes.len())));
                         }
                         
-                        let open_paren = args_node.child(0)
-                            .ok_or_else(|| UssValueError::new(args_node, content, format!("{}() missing opening parenthesis", function_name_text)))?;
-                        let string_node = args_node.child(1)
-                            .ok_or_else(|| UssValueError::new(args_node, content, format!("{}() missing string argument", function_name_text)))?;
-                        let close_paren = args_node.child(2)
-                            .ok_or_else(|| UssValueError::new(args_node, content, format!("{}() missing closing parenthesis", function_name_text)))?;
-                        
-                        if open_paren.kind() != "(" {
-                            return Err(UssValueError::new(open_paren, content, format!("Expected '(', found {}", open_paren.kind())));
-                        }
-                        if close_paren.kind() != ")" {
-                            return Err(UssValueError::new(close_paren, content, format!("Expected ')', found {}", close_paren.kind())));
-                        }
+                        let string_node = arg_nodes[0];
                         if string_node.kind() != "string_value" {
                             return Err(UssValueError::new(string_node, content, format!("Expected string_value for {}() argument, found {}", function_name_text, string_node.kind())));
                         }
                         
                         Ok(UssValue::Asset(node_text.to_string()))
                     }
-                    "rgb" | "hsl" => {
-                        if Self::validate_color_function_args(node, 3) {
-                            Ok(UssValue::Color(node_text.to_string()))
-                        } else {
-                            Err(UssValueError::new(node, content, format!("Invalid arguments for {}() function, expected 3 numeric arguments", function_name_text)))
+                    "rgb" => {
+                        let args = Self::parse_color_function_args(node, content)?;
+                        if args.len() != 3 {
+                            return Err(UssValueError::new(node, content, format!("rgb() function expects 3 arguments, found {}", args.len())));
                         }
+                        // Validate RGB range (0-255)
+                        for (i, &value) in args.iter().enumerate() {
+                            if value < 0.0 || value > 255.0 {
+                                return Err(UssValueError::new(node, content, format!("rgb() argument {} value {} is out of range (0-255)", i + 1, value)));
+                            }
+                        }
+                        Ok(UssValue::Color(node_text.to_string()))
                     }
-                    "rgba" | "hsla" => {
-                        if Self::validate_color_function_args(node, 4) {
-                            Ok(UssValue::Color(node_text.to_string()))
-                        } else {
-                            Err(UssValueError::new(node, content, format!("Invalid arguments for {}() function, expected 4 numeric arguments", function_name_text)))
+                    "hsl" => {
+                        let args = Self::parse_color_function_args(node, content)?;
+                        if args.len() != 3 {
+                            return Err(UssValueError::new(node, content, format!("hsl() function expects 3 arguments, found {}", args.len())));
                         }
+                        // Validate HSL ranges: hue (0-360), saturation/lightness (0-100)
+                        if args[0] < 0.0 || args[0] > 360.0 {
+                            return Err(UssValueError::new(node, content, format!("hsl() hue value {} is out of range (0-360)", args[0])));
+                        }
+                        for i in 1..3 {
+                            if args[i] < 0.0 || args[i] > 100.0 {
+                                return Err(UssValueError::new(node, content, format!("hsl() saturation/lightness value {} is out of range (0-100)", args[i])));
+                            }
+                        }
+                        Ok(UssValue::Color(node_text.to_string()))
+                    }
+                    "rgba" => {
+                        let args = Self::parse_color_function_args(node, content)?;
+                        if args.len() != 4 {
+                            return Err(UssValueError::new(node, content, format!("rgba() function expects 4 arguments, found {}", args.len())));
+                        }
+                        // Validate RGBA ranges: RGB (0-255), alpha (0-1)
+                        for i in 0..3 {
+                            if args[i] < 0.0 || args[i] > 255.0 {
+                                return Err(UssValueError::new(node, content, format!("rgba() RGB component {} value {} is out of range (0-255)", i + 1, args[i])));
+                            }
+                        }
+                        if args[3] < 0.0 || args[3] > 1.0 {
+                            return Err(UssValueError::new(node, content, format!("rgba() alpha value {} is out of range (0-1)", args[3])));
+                        }
+                        Ok(UssValue::Color(node_text.to_string()))
+                    }
+                    "hsla" => {
+                        let args = Self::parse_color_function_args(node, content)?;
+                        if args.len() != 4 {
+                            return Err(UssValueError::new(node, content, format!("hsla() function expects 4 arguments, found {}", args.len())));
+                        }
+                        // Validate HSLA ranges: hue (0-360), saturation/lightness (0-100), alpha (0-1)
+                        if args[0] < 0.0 || args[0] > 360.0 {
+                            return Err(UssValueError::new(node, content, format!("hsla() hue value {} is out of range (0-360)", args[0])));
+                        }
+                        for i in 1..3 {
+                            if args[i] < 0.0 || args[i] > 100.0 {
+                                return Err(UssValueError::new(node, content, format!("hsla() saturation/lightness value {} is out of range (0-100)", args[i])));
+                            }
+                        }
+                        if args[3] < 0.0 || args[3] > 1.0 {
+                            return Err(UssValueError::new(node, content, format!("hsla() alpha value {} is out of range (0-1)", args[3])));
+                        }
+                        Ok(UssValue::Color(node_text.to_string()))
                     }
                     _ => {
                         // Unknown function
@@ -306,6 +370,4 @@ impl UssValue {
             _ => Err(UssValueError::new(node, content, format!("Unsupported node type '{}'", node_kind))),
         }
     }
-    
-
 }
