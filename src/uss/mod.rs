@@ -17,6 +17,7 @@ pub mod tree_printer;
 pub mod value_spec;
 pub mod color_provider;
 pub mod variable_resolver;
+pub mod value;
 
 #[cfg(test)]
 mod diagnostics_tests;
