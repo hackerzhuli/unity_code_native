@@ -12,12 +12,10 @@ pub enum UssValue {
     String(String),
     /// Color values (hex, named colors, rgb functions)
     Color(String),
-    /// Keyword values
-    Keyword(String),
+    /// Keyword values or property names
+    Identifier(String),
     /// Asset references (url(), resource()) - kept as-is
     Asset(String),
-    /// Property names for animations
-    PropertyName(String),
     /// Variable references (var(--variable-name))
     VariableReference(String),
 }
@@ -35,9 +33,8 @@ impl UssValue {
             }
             UssValue::String(s) => s.clone(),
             UssValue::Color(c) => c.clone(),
-            UssValue::Keyword(k) => k.clone(),
+            UssValue::Identifier(k) => k.clone(),
             UssValue::Asset(a) => a.clone(),
-            UssValue::PropertyName(p) => p.clone(),
             UssValue::VariableReference(var_name) => format!("var(--{})", var_name),
         }
     }
@@ -96,7 +93,7 @@ impl UssValue {
                             Some(UssValue::Color(node_text.to_string()))
                         } else if node_text.chars().all(|c| c.is_alphanumeric() || c == '-') {
                             // Could be a keyword or property name
-                            Some(UssValue::Keyword(node_text.to_string()))
+                            Some(UssValue::Identifier(node_text.to_string()))
                         } else {
                             None
                         }
@@ -139,7 +136,7 @@ impl UssValue {
                     }
                     "url" | "resource" => Some(UssValue::Asset(node_text.to_string())),
                     "rgb" | "rgba" | "hsl" | "hsla" => Some(UssValue::Color(node_text.to_string())),
-                    _ => Some(UssValue::Keyword(node_text.to_string())),
+                    _ => Some(UssValue::Identifier(node_text.to_string())),
                 }
             }
             _ => None,
