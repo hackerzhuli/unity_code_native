@@ -27,3 +27,6 @@ mod value_spec_tests;
 
 #[cfg(test)]
 mod document_tests;
+
+#[cfg(test)]
+mod value_tests;

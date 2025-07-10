@@ -40,7 +40,17 @@ impl UssValue {
     }
 
     /// Parse a USS value from a tree-sitter node
+    /// 
+    /// Returns None if:
+    /// - The node contains parsing errors (detected via node.has_error())
+    /// - The node text cannot be extracted
+    /// - The value format is invalid (e.g., malformed hex colors, invalid numeric values)
+    /// - Required child nodes are missing for complex structures
     pub fn from_node(node: Node, content: &str) -> Option<Self> {
+        // Return None immediately if the node has parsing errors
+        if node.has_error() {
+            return None;
+        }
         let node_kind = node.kind();
         let node_text = node.utf8_text(content.as_bytes()).ok()?;
         
@@ -72,12 +82,13 @@ impl UssValue {
             "plain_value" => {
                 // Handle various plain value types
                 if node_text.starts_with('#') {
-                    // Hex color
+                    // Hex color - validate format strictly
                     let hex_part = &node_text[1..];
                     if (hex_part.len() == 3 || hex_part.len() == 6) && 
                        hex_part.chars().all(|c| c.is_ascii_hexdigit()) {
                         Some(UssValue::Color(node_text.to_string()))
                     } else {
+                        // Invalid hex color format
                         None
                     }
                 } else {
@@ -91,10 +102,11 @@ impl UssValue {
                         let definitions = UssDefinitions::new();
                         if definitions.is_valid_color_keyword(node_text) {
                             Some(UssValue::Color(node_text.to_string()))
-                        } else if node_text.chars().all(|c| c.is_alphanumeric() || c == '-') {
-                            // Could be a keyword or property name
+                        } else if node_text.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+                            // Could be a keyword or property name (allow alphanumeric, hyphens, underscores)
                             Some(UssValue::Identifier(node_text.to_string()))
                         } else {
+                            // Contains invalid characters for an identifier
                             None
                         }
                     }
@@ -110,7 +122,10 @@ impl UssValue {
                 // Handle function calls like url(), rgb(), var(), etc.
                 // Structure: call_expression -> function_name + arguments
                 let function_name_text = if let Some(function_name_node) = node.child(0) {
-                    function_name_node.utf8_text(content.as_bytes()).unwrap_or("").to_string()
+                    if function_name_node.has_error() {
+                        return None;
+                    }
+                    function_name_node.utf8_text(content.as_bytes()).ok()?.to_string()
                 } else {
                     return None;
                 };
@@ -120,14 +135,23 @@ impl UssValue {
                         // Extract variable name from var(--variable-name)
                         // Structure: arguments -> "(" + plain_value + ")"
                         if let Some(args_node) = node.child(1) { // arguments node
+                            if args_node.has_error() {
+                                return None;
+                            }
                             let mut cursor = args_node.walk();
                             for arg_child in args_node.children(&mut cursor) {
                                 if arg_child.kind() == "plain_value" {
+                                    if arg_child.has_error() {
+                                        return None;
+                                    }
                                     let var_name_text = arg_child.utf8_text(content.as_bytes()).ok()?;
-                                    if var_name_text.starts_with("--") {
+                                    if var_name_text.starts_with("--") && var_name_text.len() > 2 {
                                         // Remove the -- prefix for internal storage
                                         let var_name = &var_name_text[2..];
-                                        return Some(UssValue::VariableReference(var_name.to_string()));
+                                        // Validate variable name contains only valid characters
+                                        if var_name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+                                            return Some(UssValue::VariableReference(var_name.to_string()));
+                                        }
                                     }
                                 }
                             }
@@ -144,7 +168,7 @@ impl UssValue {
     }
     
     /// Extract numeric value and unit from a string like "10px" -> ("10", Some("px"))
-    fn extract_value_and_unit(text: &str) -> (&str, Option<String>) {
+    pub fn extract_value_and_unit(text: &str) -> (&str, Option<String>) {
         // Find where the numeric part ends and unit begins
         let mut split_pos = 0;
         
