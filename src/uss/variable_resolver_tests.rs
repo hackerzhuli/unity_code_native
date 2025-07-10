@@ -95,37 +95,6 @@ fn test_variable_resolution_ambiguous() {
 }
 
 #[test]
-fn test_variable_invalidation() {
-    let content = r#"
-            :root {
-                --primary-color: #ff0000;
-                --text-color: var(--primary-color);
-            }
-        "#;
-    
-    let tree = create_test_tree(content).unwrap();
-    let mut resolver = VariableResolver::new();
-    resolver.extract_and_resolve(tree.root_node(), content);
-    
-    // Initially both should be resolved
-    let primary_var = resolver.get_variable("primary-color").unwrap();
-    assert!(matches!(primary_var.status, VariableResolutionStatus::Resolved(_)));
-    
-    let text_var = resolver.get_variable("text-color").unwrap();
-    assert!(matches!(text_var.status, VariableResolutionStatus::Resolved(_)));
-    
-    // Invalidate primary-color
-    resolver.invalidate_variable("primary-color");
-    
-    // primary-color should be unresolved, text-color should also be unresolved
-    let primary_var = resolver.get_variable("primary-color").unwrap();
-    assert!(matches!(primary_var.status, VariableResolutionStatus::Unresolved));
-    
-    let text_var = resolver.get_variable("text-color").unwrap();
-    assert!(matches!(text_var.status, VariableResolutionStatus::Unresolved));
-}
-
-#[test]
 fn test_complex_variable_dependencies() {
     let content = r#"
             .test-var2 {

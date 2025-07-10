@@ -145,58 +145,6 @@ impl VariableResolver {
         content[node.start_byte()..node.end_byte()].to_string()
     }
 
-    /// Extract value and unit from a text string
-    pub fn extract_value_and_unit(text: &str) -> (&str, Option<String>) {
-        // Common units to check for
-        let units = ["px", "em", "rem", "vh", "vw", "vmin", "vmax", "%", 
-                     "deg", "rad", "grad", "turn", "s", "ms"];
-        
-        for unit in &units {
-            if text.ends_with(unit) {
-                let value_str = &text[..text.len() - unit.len()];
-                return (value_str, Some(unit.to_string()));
-            }
-        }
-        
-        // No unit found
-        (text, None)
-    }
-
-    /// Invalidate a variable and all variables that depend on it
-    pub fn invalidate_variable(&mut self, var_name: &str) {
-        let mut to_invalidate = HashSet::new();
-        to_invalidate.insert(var_name.to_string());
-        
-        // Find all variables that depend on the invalidated variable
-        let mut changed = true;
-        while changed {
-            changed = false;
-            for (name, var_def) in &self.variables {
-                if to_invalidate.contains(name) {
-                    continue;
-                }
-                
-                // Check if this variable depends on any invalidated variable
-                for value in &var_def.values {
-                    if let UssValue::VariableReference(ref_var_name) = value {
-                        if to_invalidate.contains(ref_var_name) {
-                            to_invalidate.insert(name.clone());
-                            changed = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Mark all identified variables as unresolved
-        for var_name in to_invalidate {
-            if let Some(var_def) = self.variables.get_mut(&var_name) {
-                var_def.status = VariableResolutionStatus::Unresolved;
-            }
-        }
-    }
-
     /// Step 2: Resolve variables from declaration nodes and create VariableDefinitions
     fn resolve_variables(&mut self, declarations: HashMap<String, Vec<DeclarationInfo>>, content: &str) {
         for (var_name, declaration_infos) in declarations {
@@ -213,14 +161,22 @@ impl VariableResolver {
                 self.variables.insert(var_name, definition);
             } else if let Some(decl_info) = declaration_infos.first() {
                 // Single declaration - extract values and resolve
-                let values = self.extract_values_from_declaration_node(decl_info.node, content);
-                let definition = VariableDefinition {
-                    name: var_name.clone(),
-                    values,
-                    range: decl_info.range,
-                    status: VariableResolutionStatus::Unresolved,
-                };
-                self.variables.insert(var_name, definition);
+                match self.extract_values_from_declaration_node(decl_info.node, content) {
+                    Ok(values) => {
+                        let definition = VariableDefinition {
+                            name: var_name.clone(),
+                            values,
+                            range: decl_info.range,
+                            status: VariableResolutionStatus::Unresolved,
+                        };
+                        self.variables.insert(var_name, definition);
+                    }
+                    Err(_) => {
+                        // If extraction fails, skip this variable entirely
+                        // This means the variable cannot be resolved due to parsing errors
+                        continue;
+                    }
+                }
             }
         }
         
@@ -229,32 +185,45 @@ impl VariableResolver {
     }
     
     /// Extract UssValues from a declaration node using proper tree-sitter parsing
-    fn extract_values_from_declaration_node(&self, declaration_node: Node, content: &str) -> Vec<UssValue> {
-        let mut values = Vec::new();
+    /// Validates strict CSS declaration structure: property : values ;
+    fn extract_values_from_declaration_node(&self, declaration_node: Node, content: &str) -> Result<Vec<UssValue>, ()> {
+        let child_count = declaration_node.child_count();
         
-        // Find the value part of the declaration by looking for nodes after the colon
-        let mut cursor = declaration_node.walk();
-        let mut found_colon = false;
+        // Validate minimum structure: property + colon + at least one value
+        if child_count < 3 {
+            return Err(());
+        }
         
-        for child in declaration_node.children(&mut cursor) {
-            if child.kind() == ":" {
-                found_colon = true;
-                continue;
+        // Second child must be colon
+        if let Some(colon_node) = declaration_node.child(1) {
+            if colon_node.kind() != ":" {
+                return Err(());
             }
-            
-            if found_colon && child.kind() != ";" {
+        } else {
+            return Err(());
+        }
+        
+        // Check if semicolon exists as last child
+        let has_semicolon = declaration_node.child(child_count - 1)
+            .map(|n| n.kind()) == Some(";");
+        let value_end_index = if has_semicolon { child_count - 1 } else { child_count };
+        
+        // Extract values between colon and semicolon (or end)
+        let mut values = Vec::new();
+        for i in 2..value_end_index {
+            if let Some(child) = declaration_node.child(i) {
                 // Skip whitespace and other non-value nodes
-                if child.kind() == "" || child.kind().is_empty() {
+                if child.kind().is_empty() {
                     continue;
                 }
                 
-                if let Ok(value) = UssValue::from_node(child, content) {
-                    values.push(value);
-                }
+                // If any value fails to parse, return the error
+                let value = UssValue::from_node(child, content).map_err(|_| ())?;
+                values.push(value);
             }
         }
         
-        values
+        Ok(values)
     }
 
     /// Convert a tree-sitter node to LSP range
