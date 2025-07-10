@@ -240,7 +240,7 @@ impl VariableResolver {
                     continue;
                 }
                 
-                if let Some(value) = UssValue::from_node(child, content) {
+                if let Ok(value) = UssValue::from_node(child, content) {
                     values.push(value);
                 }
             }

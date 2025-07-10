@@ -32,8 +32,8 @@ mod tests {
         
         if let Some(node) = find_node_by_type(root, "integer_value") {
              let result = UssValue::from_node(node, source);
-             assert!(result.is_some());
-             if let Some(UssValue::Numeric { value, unit, has_fractional }) = result {
+             assert!(result.is_ok());
+             if let Ok(UssValue::Numeric { value, unit, has_fractional }) = result {
                  assert_eq!(value, 100.0);
                  assert_eq!(unit, Some("px".to_string()));
                  assert_eq!(has_fractional, false);
@@ -56,8 +56,8 @@ mod tests {
         
         if let Some(node) = find_node_by_type(root, "float_value") {
              let result = UssValue::from_node(node, source);
-             assert!(result.is_some());
-             if let Some(UssValue::Numeric { value, unit, has_fractional }) = result {
+             assert!(result.is_ok());
+             if let Ok(UssValue::Numeric { value, unit, has_fractional }) = result {
                  assert_eq!(value, 0.75);
                  assert_eq!(unit, None);
                  assert_eq!(has_fractional, true);
@@ -77,8 +77,8 @@ mod tests {
         
         if let Some(node) = find_node_by_type(root, "string_value") {
              let result = UssValue::from_node(node, source);
-             assert!(result.is_some());
-             if let Some(UssValue::String(s)) = result {
+             assert!(result.is_ok());
+             if let Ok(UssValue::String(s)) = result {
                  assert_eq!(s, "\"Arial\"");
              } else {
                  panic!("Expected String value");
@@ -96,8 +96,8 @@ mod tests {
         
         if let Some(node) = find_node_by_type(root, "plain_value") {
              let result = UssValue::from_node(node, source);
-             assert!(result.is_some());
-             if let Some(UssValue::Identifier(id)) = result {
+             assert!(result.is_ok());
+             if let Ok(UssValue::Identifier(id)) = result {
                  assert_eq!(id, "flex");
              } else {
                  panic!("Expected Identifier value");
@@ -116,8 +116,8 @@ mod tests {
         
         if let Some(node) = find_node_by_type(root, "color_value") {
              let result = UssValue::from_node(node, source);
-             assert!(result.is_some());
-             if let Some(UssValue::Color(color)) = result {
+             assert!(result.is_ok());
+             if let Ok(UssValue::Color(color)) = result {
                  assert_eq!(color, "#ff0000");
              } else {
                  panic!("Expected Color value");
@@ -135,8 +135,8 @@ mod tests {
         
         if let Some(node) = find_node_by_type(root, "call_expression") {
              let result = UssValue::from_node(node, source);
-             assert!(result.is_some());
-             if let Some(UssValue::VariableReference(var_name)) = result {
+             assert!(result.is_ok());
+             if let Ok(UssValue::VariableReference(var_name)) = result {
                  assert_eq!(var_name, "primary-color");
              } else {
                  panic!("Expected VariableReference value");
@@ -158,8 +158,9 @@ mod tests {
              let node_text = node.utf8_text(source.as_bytes()).unwrap();
              if node_text.starts_with('#') {
                  let result = UssValue::from_node(node, source);
-                 // Invalid hex color should return None due to invalid hex digits
-                 assert!(result.is_none());
+                 // Invalid hex color should be treated as identifier (Ok result)
+                 // since tree-sitter classified it as plain_value, not color_value
+                 assert!(result.is_ok());
              }
          }
     }

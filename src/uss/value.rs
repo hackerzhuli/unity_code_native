@@ -2,6 +2,33 @@ use tree_sitter::Node;
 
 use crate::uss::definitions::UssDefinitions;
 
+/// Error type for USS value parsing
+#[derive(Debug, Clone, PartialEq)]
+pub struct UssValueError {
+    /// The node that caused the error
+    pub node_kind: String,
+    /// The text content of the problematic node
+    pub node_text: String,
+    /// The byte range of the node in the source
+    pub byte_range: (usize, usize),
+    /// Descriptive error message
+    pub message: String,
+}
+
+impl UssValueError {
+    fn new(node: Node, content: &str, message: String) -> Self {
+        let node_text = node.utf8_text(content.as_bytes())
+            .unwrap_or("<invalid utf8>")
+            .to_string();
+        
+        Self {
+            node_kind: node.kind().to_string(),
+            node_text,
+            byte_range: (node.start_byte(), node.end_byte()),
+            message,
+        }
+    }
+}
 
 /// A concrete USS value that represents a single valid value in USS
 #[derive(Debug, Clone, PartialEq)]
@@ -103,15 +130,18 @@ impl UssValue {
 
     /// Parse a USS value from a tree-sitter node
     /// 
-    /// Returns None if:
-    /// - There is any error detected, ideally all errors should be detected by this function
-    pub fn from_node(node: Node, content: &str) -> Option<Self> {
-        // Return None immediately if the node has parsing errors
+    /// Returns an error with specific details if:
+    /// - There is any parsing error detected
+    /// - The node structure is invalid
+    /// - The content cannot be parsed as a valid USS value
+    pub fn from_node(node: Node, content: &str) -> Result<Self, UssValueError> {
+        // Return error immediately if the node has parsing errors
         if node.has_error() {
-            return None;
+            return Err(UssValueError::new(node, content, "Node has parsing errors".to_string()));
         }
         let node_kind = node.kind();
-        let node_text = node.utf8_text(content.as_bytes()).ok()?;
+        let node_text = node.utf8_text(content.as_bytes())
+            .map_err(|_| UssValueError::new(node, content, "Invalid UTF-8 in node text".to_string()))?;
         
         match node_kind {
             "integer_value" | "float_value" => {
@@ -123,12 +153,15 @@ impl UssValue {
                     1 => {
                         let child = node.child(0).unwrap();
                         if child.kind() == "unit" {
-                            child.utf8_text(content.as_bytes()).ok().map(|s| s.to_string())
+                            child.utf8_text(content.as_bytes())
+                                .map_err(|_| UssValueError::new(child, content, "Invalid UTF-8 in unit text".to_string()))?
+                                .to_string()
+                                .into()
                         } else {
-                            return None; // Invalid child type
+                            return Err(UssValueError::new(child, content, format!("Expected unit child, found {}", child.kind())));
                         }
                     }
-                    _ => return None, // More than 1 child is an error
+                    _ => return Err(UssValueError::new(node, content, format!("Numeric value has {} children, expected 0 or 1", node.child_count()))),
                 };
                 
                 // Tree-sitter provides the full text (e.g., "32px") in the parent node
@@ -143,100 +176,134 @@ impl UssValue {
                 };
                 
                 // Parse the numeric value
-                value_text.parse::<f64>()
-                    .ok()
-                    .map(|value| UssValue::Numeric { value, unit, has_fractional })
+                let value = value_text.parse::<f64>()
+                    .map_err(|_| UssValueError::new(node, content, format!("Cannot parse '{}' as numeric value", value_text)))?;
+                
+                Ok(UssValue::Numeric { value, unit, has_fractional })
             }
             "plain_value" => {
                 // Handle plain value types - tree-sitter already classified valid colors as color_value
                 // If we're here with a # prefix, it's an invalid color that should be treated as identifier
-                Some(UssValue::Identifier(node_text.to_string()))
+                Ok(UssValue::Identifier(node_text.to_string()))
             }
             "string_value" => {
-                Some(UssValue::String(node_text.to_string()))
+                Ok(UssValue::String(node_text.to_string()))
             }
             "color_value" => {
-                Some(UssValue::Color(node_text.to_string()))
+                Ok(UssValue::Color(node_text.to_string()))
             }
             "call_expression" => {
                 // Handle function calls like url(), rgb(), var(), etc.
                 // Structure: call_expression -> function_name + arguments
-                let function_name_text = if let Some(function_name_node) = node.child(0) {
-                    if function_name_node.has_error() {
-                        return None;
-                    }
-                    function_name_node.utf8_text(content.as_bytes()).ok()?.to_string()
-                } else {
-                    return None;
-                };
+                let function_name_node = node.child(0)
+                    .ok_or_else(|| UssValueError::new(node, content, "Call expression missing function name".to_string()))?;
+                
+                if function_name_node.has_error() {
+                    return Err(UssValueError::new(function_name_node, content, "Function name has parsing errors".to_string()));
+                }
+                
+                let function_name_text = function_name_node.utf8_text(content.as_bytes())
+                    .map_err(|_| UssValueError::new(function_name_node, content, "Invalid UTF-8 in function name".to_string()))?
+                    .to_string();
                 
                 match function_name_text.as_str() {
                     "var" => {
                         // Extract variable name from var(--variable-name)
                         // Structure: arguments -> "(" + plain_value + ")"
-                        if let Some(args_node) = node.child(1) { // arguments node
-                            // var() must have exactly 3 children: (, variable, )
-                            if args_node.child_count() == 3 {
-                                let open_paren = args_node.child(0);
-                                let var_node = args_node.child(1);
-                                let close_paren = args_node.child(2);
-                                
-                                if let (Some(open), Some(var), Some(close)) = (open_paren, var_node, close_paren) {
-                                    if open.kind() == "(" && close.kind() == ")" && var.kind() == "plain_value" {
-                                        let var_name_text = var.utf8_text(content.as_bytes()).ok()?;
-                                        if var_name_text.starts_with("--") && var_name_text.len() > 2 {
-                                            // Remove the -- prefix for internal storage
-                                            let var_name = &var_name_text[2..];
-                                            // Validate variable name contains only valid characters
-                                            if var_name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-                                                return Some(UssValue::VariableReference(var_name.to_string()));
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                        let args_node = node.child(1)
+                            .ok_or_else(|| UssValueError::new(node, content, "var() function missing arguments".to_string()))?;
+                        
+                        // var() must have exactly 3 children: (, variable, )
+                        if args_node.child_count() != 3 {
+                            return Err(UssValueError::new(args_node, content, format!("var() arguments have {} children, expected 3", args_node.child_count())));
                         }
-                        None
+                        
+                        let open_paren = args_node.child(0)
+                            .ok_or_else(|| UssValueError::new(args_node, content, "var() missing opening parenthesis".to_string()))?;
+                        let var_node = args_node.child(1)
+                            .ok_or_else(|| UssValueError::new(args_node, content, "var() missing variable argument".to_string()))?;
+                        let close_paren = args_node.child(2)
+                            .ok_or_else(|| UssValueError::new(args_node, content, "var() missing closing parenthesis".to_string()))?;
+                        
+                        if open_paren.kind() != "(" {
+                            return Err(UssValueError::new(open_paren, content, format!("Expected '(', found {}", open_paren.kind())));
+                        }
+                        if close_paren.kind() != ")" {
+                            return Err(UssValueError::new(close_paren, content, format!("Expected ')', found {}", close_paren.kind())));
+                        }
+                        if var_node.kind() != "plain_value" {
+                            return Err(UssValueError::new(var_node, content, format!("Expected plain_value for variable name, found {}", var_node.kind())));
+                        }
+                        
+                        let var_name_text = var_node.utf8_text(content.as_bytes())
+                            .map_err(|_| UssValueError::new(var_node, content, "Invalid UTF-8 in variable name".to_string()))?;
+                        
+                        if !var_name_text.starts_with("--") {
+                            return Err(UssValueError::new(var_node, content, "Variable name must start with '--'".to_string()));
+                        }
+                        if var_name_text.len() <= 2 {
+                            return Err(UssValueError::new(var_node, content, "Variable name cannot be empty after '--'".to_string()));
+                        }
+                        
+                        // Remove the -- prefix for internal storage
+                        let var_name = &var_name_text[2..];
+                        // Validate variable name contains only valid characters
+                        if !var_name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+                            return Err(UssValueError::new(var_node, content, format!("Invalid characters in variable name '{}'", var_name)));
+                        }
+                        
+                        Ok(UssValue::VariableReference(var_name.to_string()))
                     }
                     "url" | "resource" => {
                         // Validate that url/resource functions have exactly one string argument
-                        if let Some(args_node) = node.child(1) {
-                            // Should have exactly 3 children: (, string_value, )
-                            if args_node.child_count() == 3 {
-                                let open_paren = args_node.child(0);
-                                let string_node = args_node.child(1);
-                                let close_paren = args_node.child(2);
-                                
-                                if let (Some(open), Some(string), Some(close)) = (open_paren, string_node, close_paren) {
-                                    if open.kind() == "(" && close.kind() == ")" && string.kind() == "string_value" {
-                                        return Some(UssValue::Asset(node_text.to_string()));
-                                    }
-                                }
-                            }
+                        let args_node = node.child(1)
+                            .ok_or_else(|| UssValueError::new(node, content, format!("{}() function missing arguments", function_name_text)))?;
+                        
+                        // Should have exactly 3 children: (, string_value, )
+                        if args_node.child_count() != 3 {
+                            return Err(UssValueError::new(args_node, content, format!("{}() arguments have {} children, expected 3", function_name_text, args_node.child_count())));
                         }
-                        None
+                        
+                        let open_paren = args_node.child(0)
+                            .ok_or_else(|| UssValueError::new(args_node, content, format!("{}() missing opening parenthesis", function_name_text)))?;
+                        let string_node = args_node.child(1)
+                            .ok_or_else(|| UssValueError::new(args_node, content, format!("{}() missing string argument", function_name_text)))?;
+                        let close_paren = args_node.child(2)
+                            .ok_or_else(|| UssValueError::new(args_node, content, format!("{}() missing closing parenthesis", function_name_text)))?;
+                        
+                        if open_paren.kind() != "(" {
+                            return Err(UssValueError::new(open_paren, content, format!("Expected '(', found {}", open_paren.kind())));
+                        }
+                        if close_paren.kind() != ")" {
+                            return Err(UssValueError::new(close_paren, content, format!("Expected ')', found {}", close_paren.kind())));
+                        }
+                        if string_node.kind() != "string_value" {
+                            return Err(UssValueError::new(string_node, content, format!("Expected string_value for {}() argument, found {}", function_name_text, string_node.kind())));
+                        }
+                        
+                        Ok(UssValue::Asset(node_text.to_string()))
                     }
                     "rgb" | "hsl" => {
                         if Self::validate_color_function_args(node, 3) {
-                            Some(UssValue::Color(node_text.to_string()))
+                            Ok(UssValue::Color(node_text.to_string()))
                         } else {
-                            None
+                            Err(UssValueError::new(node, content, format!("Invalid arguments for {}() function, expected 3 numeric arguments", function_name_text)))
                         }
                     }
                     "rgba" | "hsla" => {
                         if Self::validate_color_function_args(node, 4) {
-                            Some(UssValue::Color(node_text.to_string()))
+                            Ok(UssValue::Color(node_text.to_string()))
                         } else {
-                            None
+                            Err(UssValueError::new(node, content, format!("Invalid arguments for {}() function, expected 4 numeric arguments", function_name_text)))
                         }
                     }
                     _ => {
-                        // Unknown function - return None instead of treating as identifier
-                        None
+                        // Unknown function
+                        Err(UssValueError::new(node, content, format!("Unknown function '{}'", function_name_text)))
                     }
                 }
             }
-            _ => None,
+            _ => Err(UssValueError::new(node, content, format!("Unsupported node type '{}'", node_kind))),
         }
     }
     
