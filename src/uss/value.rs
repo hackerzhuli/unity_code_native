@@ -56,31 +56,40 @@ impl UssValue {
         
         match node_kind {
             "integer_value" | "float_value" => {
-                let has_fractional = node_kind == "float_value" || node_text.contains('.');
+                let has_fractional = node_kind == "float_value";
                 
-                // Check if it has a unit child
+                // Check if it has a unit child - trust tree-sitter's parsing
                 let mut unit = None;
+                let mut value_text = node_text;
+                
                 if node.child_count() > 0 {
+                    // Look for unit child and extract numeric part
                     for i in 0..node.child_count() {
                         if let Some(child) = node.child(i) {
                             if child.kind() == "unit" {
                                 unit = Some(child.utf8_text(content.as_bytes()).ok()?.to_string());
-                                break;
+                                // Extract just the numeric part by removing the unit
+                                let unit_text = child.utf8_text(content.as_bytes()).ok()?;
+                                if node_text.ends_with(unit_text) {
+                                    value_text = &node_text[..node_text.len() - unit_text.len()];
+                                }
                             }
                         }
                     }
+                } else {
+                    // No children, the entire text should be the numeric value
+                    value_text = node_text;
                 }
                 
-                // Extract the numeric part from the full text
-                let (value_str, _) = Self::extract_value_and_unit(node_text);
-                if let Ok(value) = value_str.parse::<f64>() {
+                // Parse the numeric value
+                if let Ok(value) = value_text.parse::<f64>() {
                     Some(UssValue::Numeric { value, unit, has_fractional })
                 } else {
                     None
                 }
             }
             "plain_value" => {
-                // Handle various plain value types
+                // Handle various plain value types - trust tree-sitter's classification
                 if node_text.starts_with('#') {
                     // Hex color - validate format strictly
                     let hex_part = &node_text[1..];
@@ -92,23 +101,16 @@ impl UssValue {
                         None
                     }
                 } else {
-                    // Try to parse as numeric value with optional unit
-                    let (value_str, unit) = Self::extract_value_and_unit(&node_text);
-                    if let Ok(value) = value_str.parse::<f64>() {
-                        let has_fractional = value_str.contains('.');
-                        Some(UssValue::Numeric { value, unit, has_fractional })
+                    // Check if it's a color keyword
+                    let definitions = UssDefinitions::new();
+                    if definitions.is_valid_color_keyword(node_text) {
+                        Some(UssValue::Color(node_text.to_string()))
+                    } else if node_text.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+                        // Could be a keyword or property name (allow alphanumeric, hyphens, underscores)
+                        Some(UssValue::Identifier(node_text.to_string()))
                     } else {
-                        // Check if it's a color keyword
-                        let definitions = UssDefinitions::new();
-                        if definitions.is_valid_color_keyword(node_text) {
-                            Some(UssValue::Color(node_text.to_string()))
-                        } else if node_text.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-                            // Could be a keyword or property name (allow alphanumeric, hyphens, underscores)
-                            Some(UssValue::Identifier(node_text.to_string()))
-                        } else {
-                            // Contains invalid characters for an identifier
-                            None
-                        }
+                        // Contains invalid characters for an identifier
+                        None
                     }
                 }
             }
@@ -167,26 +169,5 @@ impl UssValue {
         }
     }
     
-    /// Extract numeric value and unit from a string like "10px" -> ("10", Some("px"))
-    pub fn extract_value_and_unit(text: &str) -> (&str, Option<String>) {
-        // Find where the numeric part ends and unit begins
-        let mut split_pos = 0;
-        
-        for (i, ch) in text.char_indices() {
-            if ch.is_ascii_digit() || ch == '.' || ch == '-' || ch == '+' {
-                split_pos = i + ch.len_utf8();
-            } else {
-                break;
-            }
-        }
-        
-        if split_pos == text.len() {
-            // No unit found
-            (text, None)
-        } else {
-            // Split into value and unit parts
-            let (value_part, unit_part) = text.split_at(split_pos);
-            (value_part, Some(unit_part.to_string()))
-        }
-    }
+
 }
