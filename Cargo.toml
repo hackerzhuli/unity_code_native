@@ -20,3 +20,18 @@ thiserror = "1.0"
 
 [dev-dependencies]
 tempfile = "3.0"
+
+# development release build for fast builds during iterative development
+[profile.release-fast]
+inherits = "release"
+opt-level = 1
+incremental = true
+debug = false
+lto = false
+
+# release build
+[profile.release]
+opt-level = 3
+incremental = false
+debug = false
+lto = false

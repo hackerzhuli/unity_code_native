@@ -18,12 +18,12 @@ Make sure you update your Rust toolchain to the latest version if needed. Run th
 
 ```bash
 cargo build --release 
-
 ```
 
 ```powershell
-# use this line to quicly build and copy to target directory with powershell
-cargo build --release; Copy-Item -Path target\release\unity_code_native.exe -Destination F:\projects\js\UnityCode\bin\win_x64 
+# use this line to quicly build and copy to target directory with powershell during development
+# no debug symbols, no optimizations, just the build the binary as quickly as possible
+cargo build --profile release-fast; Copy-Item -Path target\release-fast\unity_code_native.exe -Destination F:\projects\js\UnityCode\bin\win_x64
 ```
 
 That's it, find the binary in `target/release/`, it is a single file, copy it to where you need it.
