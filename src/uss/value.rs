@@ -39,6 +39,68 @@ impl UssValue {
         }
     }
 
+    /// Validate that a color function has the expected number of numeric arguments
+    /// 
+    /// Expected structure: function_name(arg1, arg2, ..., argN)
+    /// Where args_node contains: (, arg1, ,, arg2, ,, ..., ,, argN, )
+    fn validate_color_function_args(node: Node, expected_arg_count: usize) -> bool {
+        if let Some(args_node) = node.child(1) {
+            // Calculate expected child count: ( + args + commas + )
+            // For N arguments: 1 (open paren) + N (args) + (N-1) (commas) + 1 (close paren) = 2*N + 1
+            let expected_child_count = 2 * expected_arg_count + 1;
+            
+            if args_node.child_count() == expected_child_count {
+                let children: Vec<_> = (0..expected_child_count).map(|i| args_node.child(i)).collect();
+                
+                // Check opening parenthesis
+                if let Some(Some(open)) = children.first() {
+                    if open.kind() != "(" {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+                
+                // Check closing parenthesis
+                if let Some(Some(close)) = children.last() {
+                    if close.kind() != ")" {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+                
+                // Check arguments and commas
+                for i in 0..expected_arg_count {
+                    let arg_index = 1 + i * 2; // Arguments are at indices 1, 3, 5, ...
+                    
+                    if let Some(Some(arg_node)) = children.get(arg_index) {
+                        if !matches!(arg_node.kind(), "integer_value" | "float_value") {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
+                    
+                    // Check comma (except for the last argument)
+                    if i < expected_arg_count - 1 {
+                        let comma_index = 2 + i * 2; // Commas are at indices 2, 4, 6, ...
+                        if let Some(Some(comma_node)) = children.get(comma_index) {
+                            if comma_node.kind() != "," {
+                                return false;
+                            }
+                        } else {
+                            return false;
+                        }
+                    }
+                }
+                
+                return true;
+            }
+        }
+        false
+    }
+
     /// Parse a USS value from a tree-sitter node
     /// 
     /// Returns None if:
@@ -136,9 +198,42 @@ impl UssValue {
                         }
                         None
                     }
-                    "url" | "resource" => Some(UssValue::Asset(node_text.to_string())),
-                    "rgb" | "rgba" | "hsl" | "hsla" => Some(UssValue::Color(node_text.to_string())),
-                    _ => Some(UssValue::Identifier(node_text.to_string())),
+                    "url" | "resource" => {
+                        // Validate that url/resource functions have exactly one string argument
+                        if let Some(args_node) = node.child(1) {
+                            // Should have exactly 3 children: (, string_value, )
+                            if args_node.child_count() == 3 {
+                                let open_paren = args_node.child(0);
+                                let string_node = args_node.child(1);
+                                let close_paren = args_node.child(2);
+                                
+                                if let (Some(open), Some(string), Some(close)) = (open_paren, string_node, close_paren) {
+                                    if open.kind() == "(" && close.kind() == ")" && string.kind() == "string_value" {
+                                        return Some(UssValue::Asset(node_text.to_string()));
+                                    }
+                                }
+                            }
+                        }
+                        None
+                    }
+                    "rgb" | "hsl" => {
+                        if Self::validate_color_function_args(node, 3) {
+                            Some(UssValue::Color(node_text.to_string()))
+                        } else {
+                            None
+                        }
+                    }
+                    "rgba" | "hsla" => {
+                        if Self::validate_color_function_args(node, 4) {
+                            Some(UssValue::Color(node_text.to_string()))
+                        } else {
+                            None
+                        }
+                    }
+                    _ => {
+                        // Unknown function - return None instead of treating as identifier
+                        None
+                    }
                 }
             }
             _ => None,
