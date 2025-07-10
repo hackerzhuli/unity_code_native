@@ -154,7 +154,7 @@ fn test_variable_parsing_errors() {
     let content = r#"
             :root {
                 --valid-var: #ff0000;
-                --invalid-var: ;
+                --invalid-var: boom();
                 --another-invalid: #invalid-color;
             }
         "#;
@@ -166,7 +166,7 @@ fn test_variable_parsing_errors() {
     let variables = resolver.get_variables();
     
     // Should have variables that can be parsed as declarations, including ones with parsing errors
-    assert_eq!(variables.len(), 2);
+    assert_eq!(variables.len(), 3);
     
     // Valid variable should be resolved
     let valid_var = resolver.get_variable("valid-var").unwrap();
