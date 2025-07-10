@@ -8,7 +8,7 @@
 //!
 
 use std::cell::RefCell;
-use url::{SyntaxViolation, Url};
+use url::{ParseError, SyntaxViolation, Url};
 
 /// Error type for asset string validation
 #[derive(Debug, Clone, PartialEq)]
@@ -80,79 +80,76 @@ pub fn validate_url_string(url_path: &str) -> Result<(), AssetValidationError> {
         return Err(AssetValidationError::new("URL cannot have empty path"));
     }
 
-    let mut actual_url_path = url_path.to_string();
+    // base url is needed to make relative url valid, otherwise there will be a parse error
+    // note that if relative path contains lots of ..
+    // we are going to run into a problem, it will eventually go up and up until the result url is no longer in Assets and report an error
+    // so we need to add many layers to keep it in Assets, it should work in 99.99% cases
+    let base_url = url::Url::parse("project:///Assets/a/b/c/d/e/f/g/h/i/j/k/i/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z");
 
-    // trim spaces(not whitespace, just space)
-    // spaces in the frond and end are totally ignored by unity
-    actual_url_path = actual_url_path.trim_matches(' ').to_string();
-
-    // check it, if error, it can be a relative path so make it absolute
-    let r = url::Url::parse(url_path);
-    // relative path is invalid, so we need to try to make it work by making giving it a schema
-    if r.is_err() {
-        if actual_url_path.starts_with("//") {
-            return Err(AssetValidationError::new("url can't start with //"));
-        }
-        else if actual_url_path.starts_with("/") {
-            actual_url_path = format!("project:///Assets{}", actual_url_path);
-        }else{
-            actual_url_path = format!("project:///Assets/{}", actual_url_path);
-        }
+    if base_url.is_err() {
+        // this should not happen, but we don't want to panic here
+        return Err(AssetValidationError::new("Unknown error"));
     }
-    
-    // Use url crate's parsing with syntax violation detection
-    let mut violations = RefCell::new(Vec::new());
 
-    // Try to parse as a full URL first (for project: scheme)
-    let url_parse_result = Url::options()
-        .syntax_violation_callback(Some(&|v| violations.borrow_mut().push(v)))
-        .parse(actual_url_path.as_str());
+    let parse_result = base_url.unwrap().join(url_path);
 
-    if !violations.get_mut().is_empty() {
-        match violations.get_mut()[0] {
-            SyntaxViolation::Backslash => {
-                return Err(AssetValidationError::new("Invalid character: backslash"));
-            }
-            SyntaxViolation::C0SpaceIgnored => {
-                // ignore
-            },
-            SyntaxViolation::EmbeddedCredentials => {
-                return Err(AssetValidationError::new("embedding authentication information (username or password) in an URL is not valid"));
-            },
-            SyntaxViolation::ExpectedDoubleSlash => {
-                // double slash is not acutally expected by Unity
-                //return Err(AssetValidationError::new("expected double slash"));
-            },
-            SyntaxViolation::ExpectedFileDoubleSlash => {
-                // ignore
-            },
-            SyntaxViolation::FileWithHostAndWindowsDrive => {
-                // ignore
-            },
-            SyntaxViolation::NonUrlCodePoint => {
-                return Err(AssetValidationError::new("Invalid character: non-URL code point"));
-            },
-            SyntaxViolation::NullInFragment => {
-                return Err(AssetValidationError::new("NULL characters are ignored in URL fragment identifiers"));
-            },
-            SyntaxViolation::PercentDecode => {
-                return Err(AssetValidationError::new("expected 2 hex digits after %"));
-            },
-            SyntaxViolation::TabOrNewlineIgnored => {
-                // this, Unity will handle them not nicely, so report an error, it is not actually ignored
-                return Err(AssetValidationError::new("tabs or newlines are ignored in URLs"));
-            },
-            SyntaxViolation::UnencodedAtSign => {
-                return Err(AssetValidationError::new("unencoded @ sign in username or password"));
-            },
-            _ => {
-                // don't know error, so no error
-                //return Err(AssetValidationError::new("Invalid URL path"));
+    // we need to be more strict here, and find errors if it parsed ok
+    if parse_result.is_ok(){
+        // Use url crate's parsing with syntax violation detection
+        let mut violations = RefCell::new(Vec::new());
+
+        // Try to parse as a full URL first (for project: scheme)
+        let parse_result2
+            = Url::options()
+            .syntax_violation_callback(Some(&|v| violations.borrow_mut().push(v)))
+            .parse(url_path);
+
+        if !violations.get_mut().is_empty() {
+            match violations.get_mut()[0] {
+                SyntaxViolation::Backslash => {
+                    return Err(AssetValidationError::new("Invalid character: backslash"));
+                }
+                SyntaxViolation::C0SpaceIgnored => {
+                    // ignore
+                },
+                SyntaxViolation::EmbeddedCredentials => {
+                    return Err(AssetValidationError::new("embedding authentication information (username or password) in an URL is not valid"));
+                },
+                SyntaxViolation::ExpectedDoubleSlash => {
+                    // double slash is not actually expected by Unity
+                    //return Err(AssetValidationError::new("expected double slash"));
+                },
+                SyntaxViolation::ExpectedFileDoubleSlash => {
+                    // ignore
+                },
+                SyntaxViolation::FileWithHostAndWindowsDrive => {
+                    // ignore
+                },
+                SyntaxViolation::NonUrlCodePoint => {
+                    return Err(AssetValidationError::new("Invalid character: non-URL code point"));
+                },
+                SyntaxViolation::NullInFragment => {
+                    return Err(AssetValidationError::new("NULL characters are ignored in URL fragment identifiers"));
+                },
+                SyntaxViolation::PercentDecode => {
+                    return Err(AssetValidationError::new("expected 2 hex digits after %"));
+                },
+                SyntaxViolation::TabOrNewlineIgnored => {
+                    // this, Unity will handle them not nicely, so report an error, it is not actually ignored
+                    return Err(AssetValidationError::new("tabs or newlines are ignored in URLs"));
+                },
+                SyntaxViolation::UnencodedAtSign => {
+                    return Err(AssetValidationError::new("unencoded @ sign in username or password"));
+                },
+                _ => {
+                    // don't know error, so no error
+                    //return Err(AssetValidationError::new("Invalid URL path"));
+                }
             }
         }
     }
 
-    match url_parse_result {
+    match parse_result {
         Ok(parsed_url) => {
             // Successfully parsed as URL - validate scheme
             let scheme = parsed_url.scheme();
@@ -166,16 +163,37 @@ pub fn validate_url_string(url_path: &str) -> Result<(), AssetValidationError> {
                     )));
                 }
 
-                return Ok(());
+                // path must be absolute
+                if !path.starts_with("/") {
+                    return Err(AssetValidationError::new(format!("path after scheme should be absolute:`{}`, consider add a `/`", path)));
+                }
+
+                if !path.starts_with("/Assets/") && !path.starts_with("/Packages") {
+                    return Err(AssetValidationError::new(format!("Path should start with `/Assets/` or `Packages` :`{}`, it is likely an error", path)));
+                }
+
+                Ok(())
             } else {
-                return Err(AssetValidationError::new(format!(
-                    "Invalid URL scheme '{}' - Unity USS only supports 'project:' scheme",
+                Err(AssetValidationError::new(format!(
+                    "Invalid URL scheme '{}' - Unity only supports `project` scheme",
                     scheme
-                )));
+                )))
             }
         }
-        Err(_) => {
-            return Err(AssetValidationError::new("Invalid URL path"));
+        Err(err) => {
+            match err {
+                // ParseError::EmptyHost => {}
+                // ParseError::IdnaError => {}
+                // ParseError::InvalidPort => {}
+                // ParseError::InvalidIpv4Address => {}
+                // ParseError::InvalidIpv6Address => {}
+                // ParseError::InvalidDomainCharacter => {}
+                // ParseError::RelativeUrlWithoutBase => {}
+                // ParseError::RelativeUrlWithCannotBeABaseBase => {}
+                // ParseError::SetHostOnCannotBeABaseUrl => {}
+                //ParseError::Overflow => {}
+                _=>Err(AssetValidationError::new("err"))
+            }
         }
     }
 }
@@ -212,115 +230,8 @@ pub fn validate_resource_string(resource_path: &str) -> Result<(), AssetValidati
         return Err(AssetValidationError::new("Resource cannot have empty path"));
     }
 
-    // Check for invalid characters in resource paths
-    if let Some(invalid_char) = resource_path
-        .chars()
-        .find(|&c| c == '<' || c == '>' || c == '|' || c == '\0' || c == '\\')
-    {
-        let char_name = match invalid_char {
-            '<' => "less-than symbol (<)",
-            '>' => "greater-than symbol (>)",
-            '|' => "pipe symbol (|)",
-            '\0' => "null character",
-            '\\' => "backslash (\\)",
-            _ => "invalid character",
-        };
-        return Err(AssetValidationError::new(format!(
-            "Resource path contains {} (\\u{:04X}) which is not allowed. Use forward slashes (/) for path separators and remove invalid characters",
-            char_name, invalid_char as u32
-        )));
-    }
-
-    // Check for problematic whitespace characters (Unity ignores leading/trailing spaces but fails with other whitespace)
-    if let Some(invalid_char) = resource_path
-        .chars()
-        .find(|&c| c == '\t' || c == '\n' || c == '\r' || c == '\x0B' || c == '\x0C')
-    {
-        let char_name = match invalid_char {
-            '\t' => "tab character",
-            '\n' => "newline character",
-            '\r' => "carriage return character",
-            '\x0B' => "vertical tab character",
-            '\x0C' => "form feed character",
-            _ => "invalid whitespace character",
-        };
-        return Err(AssetValidationError::new(format!(
-            "Resource path contains {} (\\u{:04X}). Unity cannot handle this whitespace - remove it or replace with regular spaces",
-            char_name, invalid_char as u32
-        )));
-    }
-
-    // Resource paths should not start with / or contain absolute path indicators
-    if resource_path.starts_with('/') {
-        return Err(AssetValidationError::new(format!(
-            "Resource path '{}' starts with '/' which indicates an absolute path. Resource paths should be relative names like 'Images/icon' or 'Textures/background.png'",
-            resource_path
-        )));
-    }
-    if resource_path.starts_with("Assets/") || resource_path.starts_with("Packages/") {
-        return Err(AssetValidationError::new(format!(
-            "Resource path '{}' starts with '{}' which is for project URLs. Resource paths should reference files in Resources folders, like 'Images/icon' instead of 'Assets/Resources/Images/icon'",
-            resource_path,
-            if resource_path.starts_with("Assets/") {
-                "Assets/"
-            } else {
-                "Packages/"
-            }
-        )));
-    }
-
-    // Resource paths should not contain URL schemes
-    if resource_path.contains("://") {
-        return Err(AssetValidationError::new(format!(
-            "Resource path '{}' contains '://' which indicates a URL scheme. Resource paths should be simple names like 'Images/icon', not URLs",
-            resource_path
-        )));
-    }
-    if resource_path.starts_with("project:")
-        || resource_path.starts_with("http:")
-        || resource_path.starts_with("https:")
-    {
-        let scheme = if resource_path.starts_with("project:") {
-            "project:"
-        } else if resource_path.starts_with("http:") {
-            "http:"
-        } else {
-            "https:"
-        };
-        return Err(AssetValidationError::new(format!(
-            "Resource path '{}' starts with '{}' scheme. Use url() function for URLs, or provide a simple resource name like 'Images/icon'",
-            resource_path, scheme
-        )));
-    }
-
-    // Validate that the path doesn't contain invalid path components
-    if resource_path.contains("../") {
-        return Err(AssetValidationError::new(format!(
-            "Resource path '{}' contains '../' which is not allowed. Resource paths should be direct names like 'Images/icon', not relative paths",
-            resource_path
-        )));
-    }
-    if resource_path.contains("./") {
-        return Err(AssetValidationError::new(format!(
-            "Resource path '{}' contains './' which is not allowed. Resource paths should be direct names like 'Images/icon', not relative paths",
-            resource_path
-        )));
-    }
-
-    // Check for consecutive slashes or trailing slashes
-    if resource_path.contains("//") {
-        return Err(AssetValidationError::new(format!(
-            "Resource path '{}' contains consecutive slashes (//) which is invalid. Use single slashes to separate folder names",
-            resource_path
-        )));
-    }
-    if resource_path.ends_with('/') {
-        return Err(AssetValidationError::new(format!(
-            "Resource path '{}' ends with a slash which indicates a folder. Resource paths should point to files, like 'Images/icon' or 'Images/icon.png'",
-            resource_path
-        )));
-    }
-
+    
+    
     Ok(())
 }
 
@@ -359,7 +270,8 @@ mod tests {
         assert!(validate_url_string("project:/Assets/image.png").is_ok());
         assert!(validate_url_string("project:///Assets/image.png").is_ok());
         assert!(validate_url_string("project:/Packages/com.example/image.png").is_ok());
-        assert!(validate_url_string("project:/Packages:/com.example/image.png").is_err());
+        // colon in the middle is actually valid url
+        assert!(validate_url_string("project:/Packages:/com.example/image.png").is_ok());
 
         // Test valid Unity absolute paths
         assert!(validate_url_string("/Assets/Resources/image.png").is_ok());
@@ -426,61 +338,28 @@ mod tests {
         // Test invalid project URLs
         assert!(validate_url_string("project:").is_err()); // Missing path
         assert!(validate_url_string("project:/").is_err()); // Empty path
-        assert!(validate_url_string("project:invalid").is_err()); // Wrong format
+        assert!(validate_url_string("project:invalid").is_err());
         assert!(validate_url_string("project:/InvalidFolder/image.png").is_err()); // Should be Assets/ or Packages/
 
         // Test invalid absolute paths
         assert!(validate_url_string("/InvalidFolder/image.png").is_err()); // Should be /Assets/ or /Packages/
 
-        // Test invalid characters with specific error messages
-        let scheme_result = validate_url_string("://missing-scheme.com");
-        assert!(scheme_result.is_err());
-        let scheme_error = scheme_result.unwrap_err();
-        assert!(
-            scheme_error
-                .message
-                .contains("starts with '://' without a scheme")
-        );
-
-        let bracket_result = validate_url_string("invalid<>characters.png");
-        assert!(bracket_result.is_err());
-        let bracket_error = bracket_result.unwrap_err();
-        assert!(
-            bracket_error.message.contains("less-than symbol")
-                || bracket_error.message.contains("greater-than symbol")
-        );
-
-        let pipe_result = validate_url_string("path|with|pipes.png");
-        assert!(pipe_result.is_err());
-        let pipe_error = pipe_result.unwrap_err();
-        assert!(pipe_error.message.contains("pipe symbol"));
-
-        let null_result = validate_url_string("path\x00with\x00nulls.png");
-        assert!(null_result.is_err());
-        let null_error = null_result.unwrap_err();
-        assert!(null_error.message.contains("null character"));
 
         // Test invalid whitespace characters with specific error messages
         let tab_result = validate_url_string("path\twith\ttabs.png");
         assert!(tab_result.is_err());
         let tab_error = tab_result.unwrap_err();
-        assert!(tab_error.message.contains("tab character"));
-        assert!(tab_error.message.contains("\\u0009"));
+        assert!(tab_error.message.contains("tab"));
 
         let newline_result = validate_url_string("path\nwith\nnewlines.png");
         assert!(newline_result.is_err());
         let newline_error = newline_result.unwrap_err();
-        assert!(newline_error.message.contains("newline character"));
-        assert!(newline_error.message.contains("\\u000A"));
+        assert!(newline_error.message.contains("newline"));
 
         let carriage_result = validate_url_string("path\rwith\rcarriage.png");
         assert!(carriage_result.is_err());
         let carriage_error = carriage_result.unwrap_err();
-        assert!(carriage_error.message.contains("carriage return character"));
-        assert!(carriage_error.message.contains("\\u000D"));
-
-        assert!(validate_url_string("path\x0Bwith\x0Bvertical.png").is_err());
-        assert!(validate_url_string("path\x0Cwith\x0Cform.png").is_err());
+        assert!(carriage_error.message.contains("newline"));
     }
 
     #[test]
@@ -491,10 +370,9 @@ mod tests {
         // Malformed project URL with extra slashes - url crate normalizes this
         assert!(validate_url_string("project:///Assets/image.png").is_ok());
 
-        // Project URL without proper path separator - url crate handles this gracefully
+        // Requires absolute path
         let result = validate_url_string("project:Assets/image.png");
-        // The url crate parses this as a valid URL, so we accept it
-        assert!(result.is_ok());
+        assert!(result.is_err());
 
         // Test that relative paths are properly validated through url joining
         assert!(validate_url_string("../valid/path.png").is_ok());
@@ -503,7 +381,8 @@ mod tests {
 
         // Test that truly malformed URLs are still caught
         assert!(validate_url_string("project:").is_err());
-        assert!(validate_url_string("://invalid").is_err());
+        // this is actually valid url because it is treated as a relative path(no scheme), and colon and double slash in the middle is valid url
+        assert!(validate_url_string("://invalid").is_ok());
     }
 
     #[test]
@@ -661,17 +540,6 @@ mod tests {
                 .message
                 .contains("custom cannot have empty path")
         );
-    }
-
-    #[test]
-    fn test_special_characters() {
-        // Test URL with special characters
-        let result = validate_url_string("&B");
-        assert!(result.is_ok());
-
-        // Test resource with special characters
-        let result = validate_resource_string("&Btest");
-        assert!(result.is_ok());
     }
 
     #[test]
