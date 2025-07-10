@@ -58,35 +58,35 @@ impl UssValue {
             "integer_value" | "float_value" => {
                 let has_fractional = node_kind == "float_value";
                 
-                // Check if it has a unit child - trust tree-sitter's parsing
-                let mut unit = None;
-                let mut value_text = node_text;
-                
-                if node.child_count() > 0 {
-                    // Look for unit child and extract numeric part
-                    for i in 0..node.child_count() {
-                        if let Some(child) = node.child(i) {
-                            if child.kind() == "unit" {
-                                unit = Some(child.utf8_text(content.as_bytes()).ok()?.to_string());
-                                // Extract just the numeric part by removing the unit
-                                let unit_text = child.utf8_text(content.as_bytes()).ok()?;
-                                if node_text.ends_with(unit_text) {
-                                    value_text = &node_text[..node_text.len() - unit_text.len()];
-                                }
-                            }
+                // Check for unit child - must have 0 or 1 child, otherwise it's malformed
+                let unit = match node.child_count() {
+                    0 => None,
+                    1 => {
+                        let child = node.child(0).unwrap();
+                        if child.kind() == "unit" {
+                            child.utf8_text(content.as_bytes()).ok().map(|s| s.to_string())
+                        } else {
+                            return None; // Invalid child type
                         }
                     }
+                    _ => return None, // More than 1 child is an error
+                };
+                
+                // Tree-sitter provides the full text (e.g., "32px") in the parent node
+                // and the unit (e.g., "px") as a separate child node
+                // We need to extract just the numeric part
+                let value_text = if let Some(unit_str) = &unit {
+                    // Remove the unit suffix to get just the numeric part
+                    &node_text[..node_text.len() - unit_str.len()]
                 } else {
-                    // No children, the entire text should be the numeric value
-                    value_text = node_text;
-                }
+                    // No unit, the entire text is the numeric value
+                    node_text
+                };
                 
                 // Parse the numeric value
-                if let Ok(value) = value_text.parse::<f64>() {
-                    Some(UssValue::Numeric { value, unit, has_fractional })
-                } else {
-                    None
-                }
+                value_text.parse::<f64>()
+                    .ok()
+                    .map(|value| UssValue::Numeric { value, unit, has_fractional })
             }
             "plain_value" => {
                 // Handle various plain value types - trust tree-sitter's classification
