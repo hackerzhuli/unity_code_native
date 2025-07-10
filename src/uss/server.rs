@@ -2,14 +2,12 @@
 //!
 //! Provides Language Server Protocol features for USS files using tower-lsp.
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-use tree_sitter::Tree;
 
-use crate::uss::parser::UssParser;
+use crate::uss::document::UssDocumentManager;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::diagnostics::UssDiagnostics;
 use crate::uss::hover::UssHoverProvider;
@@ -28,28 +26,24 @@ pub struct UssLanguageServer {
 
 /// Internal state for the USS language server
 struct UssServerState {
-    parser: UssParser,
+    document_manager: UssDocumentManager,
     highlighter: UssHighlighter,
     diagnostics: UssDiagnostics,
     hover_provider: UssHoverProvider,
     color_provider: UssColorProvider,
     unity_manager: UnityProjectManager,
-    document_trees: HashMap<Url, Tree>,
-    document_content: HashMap<Url, String>,
 }
 
 impl UssLanguageServer {
     /// Create a new USS language server
     pub fn new(client: Client, project_path: std::path::PathBuf) -> Self {
         let state = UssServerState {
-            parser: UssParser::new().expect("Failed to create USS parser"),
+            document_manager: UssDocumentManager::new().expect("Failed to create USS document manager"),
             highlighter: UssHighlighter::new(),
             diagnostics: UssDiagnostics::new(),
             hover_provider: UssHoverProvider::new(),
             color_provider: UssColorProvider::new(),
             unity_manager: UnityProjectManager::new(project_path),
-            document_trees: HashMap::new(),
-            document_content: HashMap::new(),
         };
         
         Self {
@@ -58,31 +52,26 @@ impl UssLanguageServer {
         }
     }
     
-    /// Parse document and store the syntax tree
-    async fn parse_document(&self, uri: &Url, content: &str) {
-        // Parse without incremental parsing for now to avoid borrowing conflicts
-        let new_tree = {
-            if let Ok(mut state) = self.state.lock() {
-                state.parser.parse(content, None)
-            } else {
-                None
-            }
-        };
-        
-        // Store the result - diagnostics will be provided via the diagnostic() method
-        if let Some(tree) = new_tree {
-            if let Ok(mut state) = self.state.lock() {
-                state.document_trees.insert(uri.clone(), tree.clone());
-                state.document_content.insert(uri.clone(), content.to_string());
-            }
+    /// Open a document and parse it
+    async fn open_document(&self, uri: &Url, content: &str, version: i32) {
+        if let Ok(mut state) = self.state.lock() {
+            state.document_manager.open_document(uri.clone(), content.to_string(), version);
+        }
+    }
+    
+    /// Update a document with incremental changes
+    async fn update_document(&self, uri: &Url, changes: Vec<TextDocumentContentChangeEvent>, version: i32) {
+        if let Ok(mut state) = self.state.lock() {
+            state.document_manager.update_document(uri, changes, version);
         }
     }
     
     /// Generate semantic tokens for syntax highlighting
     fn generate_semantic_tokens(&self, uri: &Url) -> Option<Vec<SemanticToken>> {
         let state = self.state.lock().ok()?;
-        let tree = state.document_trees.get(uri)?;
-        let content = state.document_content.get(uri)?;
+        let document = state.document_manager.get_document(uri)?;
+        let tree = document.tree()?;
+        let content = document.content();
         
         Some(state.highlighter.generate_tokens(tree, content))
     }
@@ -101,7 +90,7 @@ impl LanguageServer for UssLanguageServer {
         Ok(InitializeResult {
             capabilities: ServerCapabilities {
                 text_document_sync: Some(TextDocumentSyncCapability::Kind(
-                    TextDocumentSyncKind::FULL,
+                    TextDocumentSyncKind::INCREMENTAL,
                 )),
                 semantic_tokens_provider: Some(
                     SemanticTokensServerCapabilities::SemanticTokensOptions(
@@ -142,9 +131,10 @@ impl LanguageServer for UssLanguageServer {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri;
         let content = params.text_document.text;
+        let version = params.text_document.version;
         
-        // Parse the document and generate diagnostics
-        self.parse_document(&uri, &content).await;
+        // Open and parse the document
+        self.open_document(&uri, &content, version).await;
         
         self.client
             .log_message(MessageType::INFO, format!("Opened USS document: {}", uri))
@@ -153,11 +143,23 @@ impl LanguageServer for UssLanguageServer {
     
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
         let uri = params.text_document.uri;
+        let version = params.text_document.version;
+        let changes = params.content_changes;
         
-        if let Some(change) = params.content_changes.into_iter().next() {
-            // Re-parse the document with new content and generate diagnostics
-            self.parse_document(&uri, &change.text).await;
+        // Update the document with incremental changes
+        self.update_document(&uri, changes, version).await;
+    }
+    
+    async fn did_close(&self, params: DidCloseTextDocumentParams) {
+        let uri = params.text_document.uri;
+        
+        if let Ok(mut state) = self.state.lock() {
+            state.document_manager.close_document(&uri);
         }
+        
+        self.client
+            .log_message(MessageType::INFO, format!("Closed USS document: {}", uri))
+            .await;
     }
     
     async fn semantic_tokens_full(
@@ -182,17 +184,16 @@ impl LanguageServer for UssLanguageServer {
         
         let state = self.state.lock().ok();
         if let Some(state) = state {
-            if let (Some(tree), Some(content)) = (
-                state.document_trees.get(&uri),
-                state.document_content.get(&uri)
-            ) {
-                let hover = state.hover_provider.hover(
-                    tree,
-                    content,
-                    position,
-                    &state.unity_manager
-                );
-                return Ok(hover);
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                if let Some(tree) = document.tree() {
+                    let hover = state.hover_provider.hover(
+                        tree,
+                        document.content(),
+                        position,
+                        &state.unity_manager
+                    );
+                    return Ok(hover);
+                }
             }
         }
         
@@ -206,11 +207,12 @@ impl LanguageServer for UssLanguageServer {
         let uri = params.text_document.uri;
         
         let diagnostics = if let Ok(state) = self.state.lock() {
-            if let (Some(tree), Some(content)) = (
-                state.document_trees.get(&uri),
-                state.document_content.get(&uri)
-            ) {
-                state.diagnostics.analyze(tree, content)
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                if let Some(tree) = document.tree() {
+                    state.diagnostics.analyze(tree, document.content())
+                } else {
+                    Vec::new()
+                }
             } else {
                 Vec::new()
             }
@@ -235,11 +237,12 @@ impl LanguageServer for UssLanguageServer {
         let uri = params.text_document.uri;
         
         let colors = if let Ok(state) = self.state.lock() {
-            if let (Some(tree), Some(content)) = (
-                state.document_trees.get(&uri),
-                state.document_content.get(&uri)
-            ) {
-                state.color_provider.provide_document_colors(tree, content)
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                if let Some(tree) = document.tree() {
+                    state.color_provider.provide_document_colors(tree, document.content())
+                } else {
+                    Vec::new()
+                }
             } else {
                 Vec::new()
             }

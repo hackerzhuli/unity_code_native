@@ -6,6 +6,7 @@
 
 pub mod server;
 pub mod parser;
+pub mod document;
 pub mod diagnostics;
 pub mod highlighting;
 pub mod definitions;
@@ -20,3 +21,6 @@ mod diagnostics_tests;
 
 #[cfg(test)]
 mod value_spec_tests;
+
+#[cfg(test)]
+mod document_tests;
