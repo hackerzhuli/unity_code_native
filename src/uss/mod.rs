@@ -18,6 +18,7 @@ pub mod value_spec;
 pub mod color_provider;
 pub mod variable_resolver;
 pub mod value;
+pub mod uss_utils;
 
 #[cfg(test)]
 mod diagnostics_tests;
