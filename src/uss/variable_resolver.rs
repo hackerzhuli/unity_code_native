@@ -47,10 +47,9 @@ pub struct VariableDefinition {
 
 /// Temporary storage for declaration information during extraction
 #[derive(Debug, Clone)]
-struct DeclarationInfo {
+struct DeclarationInfo<'a> {
     name: String,
-    start_byte: usize,
-    end_byte: usize,
+    node: Node<'a>,
     range: Range,
 }
 
@@ -105,7 +104,7 @@ impl VariableResolver {
     }
 
     /// Step 1: Recursively extract variable declaration nodes from a syntax tree
-    fn extract_variables_from_node(node: Node, content: &str, declarations: &mut HashMap<String, Vec<DeclarationInfo>>) {
+    fn extract_variables_from_node<'a>(node: Node<'a>, content: &str, declarations: &mut HashMap<String, Vec<DeclarationInfo<'a>>>) {
         // Look for CSS custom property declarations (--variable-name: value;)
         if node.kind() == "declaration" {
             // Try different ways to find the property name
@@ -124,8 +123,7 @@ impl VariableResolver {
                 
                 let declaration_info = DeclarationInfo {
                     name: variable_name.clone(),
-                    start_byte: node.start_byte(),
-                    end_byte: node.end_byte(),
+                    node,
                     range,
                 };
                 
@@ -207,7 +205,7 @@ impl VariableResolver {
                 self.variables.insert(var_name, definition);
             } else if let Some(decl_info) = declaration_infos.first() {
                 // Single declaration - extract values and resolve
-                let values = self.extract_values_from_declaration_bytes(decl_info.start_byte, decl_info.end_byte, content);
+                let values = self.extract_values_from_declaration_node(decl_info.node, content);
                 let definition = VariableDefinition {
                     name: var_name.clone(),
                     values,
@@ -222,36 +220,28 @@ impl VariableResolver {
         self.resolve_all_variables();
     }
     
-    /// Extract UssValues from a declaration using byte positions
-    fn extract_values_from_declaration_bytes(&self, start_byte: usize, end_byte: usize, content: &str) -> Vec<UssValue> {
+    /// Extract UssValues from a declaration node using proper tree-sitter parsing
+    fn extract_values_from_declaration_node(&self, declaration_node: Node, content: &str) -> Vec<UssValue> {
         let mut values = Vec::new();
         
-        // Extract the declaration text
-        let decl_text = &content[start_byte..end_byte];
+        // Find the value part of the declaration by looking for nodes after the colon
+        let mut cursor = declaration_node.walk();
+        let mut found_colon = false;
         
-        // Find the colon and extract everything after it until semicolon
-        if let Some(colon_pos) = decl_text.find(':') {
-            let value_part = &decl_text[colon_pos + 1..];
-            let value_text = if let Some(semicolon_pos) = value_part.find(';') {
-                &value_part[..semicolon_pos]
-            } else {
-                value_part
-            }.trim();
+        for child in declaration_node.children(&mut cursor) {
+            if child.kind() == ":" {
+                found_colon = true;
+                continue;
+            }
             
-            // Parse the value text - this is a simplified approach
-            // In a real implementation, you'd want to properly parse this
-            if value_text.starts_with('#') && value_text.len() > 1 {
-                // Color value
-                values.push(UssValue::Color(value_text.to_string()));
-            } else {
-                // Try to parse as numeric value with optional unit
-                let (value_str, unit) = Self::extract_value_and_unit(value_text);
-                if let Ok(value) = value_str.parse::<f64>() {
-                    let has_fractional = value_str.contains('.');
-                    values.push(UssValue::Numeric { value, unit, has_fractional });
-                } else {
-                    // Keyword or other value
-                    values.push(UssValue::Keyword(value_text.to_string()));
+            if found_colon && child.kind() != ";" {
+                // Skip whitespace and other non-value nodes
+                if child.kind() == "" || child.kind().is_empty() {
+                    continue;
+                }
+                
+                if let Some(value) = UssValue::from_node(child, content) {
+                    values.push(value);
                 }
             }
         }
@@ -330,8 +320,25 @@ impl VariableResolver {
         let mut resolved_values = Vec::new();
         
         for value in &var_def.values {
-            // All values are now concrete, add as-is
-            resolved_values.push(value.clone());
+            match value {
+                UssValue::VariableReference(ref_var_name) => {
+                    // Recursively resolve the referenced variable
+                    if let Some(ref_values) = self.resolve_variable_recursive(ref_var_name, visiting, resolved) {
+                        resolved_values.extend(ref_values);
+                    } else {
+                        // If we can't resolve the reference, mark as unresolved
+                        visiting.remove(var_name);
+                        if let Some(var_def) = self.variables.get_mut(var_name) {
+                            var_def.status = VariableResolutionStatus::Unresolved;
+                        }
+                        return None;
+                    }
+                }
+                _ => {
+                    // Concrete value, add as-is
+                    resolved_values.push(value.clone());
+                }
+            }
         }
         
         visiting.remove(var_name);
@@ -376,7 +383,10 @@ mod tests {
         resolver.extract_and_resolve(tree.root_node(), content);
         
         let variables = resolver.get_variables();
-        assert!(variables.len() > 0, "Should find at least one variable, found: {}", variables.len());
+        assert_eq!(variables.len(), 3);
+        assert!(variables.contains_key("primary-color"));
+        assert!(variables.contains_key("secondary-color"));
+        assert!(variables.contains_key("margin"));
     }
 
     #[test]
@@ -391,6 +401,10 @@ mod tests {
         let tree = create_test_tree(content).unwrap();
         let mut resolver = VariableResolver::new();
         resolver.extract_and_resolve(tree.root_node(), content);
+        
+        let variables = resolver.get_variables();
+        // Check that we have the expected variables
+        assert_eq!(variables.len(), 2);
         
         let primary_var = resolver.get_variable("primary-color").unwrap();
         assert!(matches!(primary_var.status, VariableResolutionStatus::Resolved(_)));

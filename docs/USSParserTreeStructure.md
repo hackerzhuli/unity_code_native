@@ -130,9 +130,51 @@ declaration
   call_expression
   ├── function_name
   └── arguments
-      └── [argument values]
+      ├── "(" (opening parenthesis)
+      ├── [argument values]
+      └── ")" (closing parenthesis)
   ```
-- **Example**: `resource("Arial")`, `url("image.png")`
+- **Examples**: 
+  - `resource("Arial")` - Unity resource reference
+  - `url("image.png")` - URL reference
+  - `var(--variable-name)` - CSS variable reference
+  - `rgba(255, 0, 0, 0.5)` - RGBA color function
+
+##### CSS Variable References (var() function)
+```
+call_expression[3:19] 'var(--primary-color)'
+├── function_name[3:19] 'var'
+└── arguments[3:22] '(--primary-color)'
+    ├── ([3:22] '('
+    ├── plain_value[3:23] '--primary-color'
+    └── )[3:38] ')'
+```
+
+##### RGBA Color Functions
+```
+call_expression[8:23] 'rgba(255, 0, 0, 0.5)'
+├── function_name[8:23] 'rgba'
+└── arguments[8:27] '(255, 0, 0, 0.5)'
+    ├── ([8:27] '('
+    ├── integer_value[8:28] '255'
+    ├── ,[8:31] ','
+    ├── integer_value[8:33] '0'
+    ├── ,[8:34] ','
+    ├── integer_value[8:36] '0'
+    ├── ,[8:37] ','
+    ├── float_value[8:39] '0.5'
+    └── )[8:42] ')'
+```
+
+##### Unity Resource Functions
+```
+call_expression
+├── function_name "resource"
+└── arguments
+    ├── "("
+    ├── string_value "\"Arial\""
+    └── ")"
+```
 
 ## Unity-Specific Properties
 
@@ -229,8 +271,12 @@ declaration[16:5]
 └── call_expression[16:23]
     ├── function_name[16:23] "var"
     └── arguments[16:26]
-        └── plain_value[16:27] "--primary-color"
+        ├── "(" (opening parenthesis)
+        ├── plain_value[16:27] "--primary-color"
+        └── ")" (closing parenthesis)
 ```
+
+**Important**: When parsing `var()` functions, the variable name is contained within a `plain_value` node inside the `arguments` node, not directly as a child of `call_expression`. Always traverse: `call_expression` → `arguments` → `plain_value` to extract the variable name.
 
 ### Child Combinator Selectors
 ```

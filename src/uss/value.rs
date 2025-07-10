@@ -18,9 +18,30 @@ pub enum UssValue {
     Asset(String),
     /// Property names for animations
     PropertyName(String),
+    /// Variable references (var(--variable-name))
+    VariableReference(String),
 }
 
 impl UssValue {
+    /// Convert the UssValue back to a string representation
+    pub fn to_string(&self) -> String {
+        match self {
+            UssValue::Numeric { value, unit, .. } => {
+                if let Some(unit) = unit {
+                    format!("{}{}", value, unit)
+                } else {
+                    value.to_string()
+                }
+            }
+            UssValue::String(s) => s.clone(),
+            UssValue::Color(c) => c.clone(),
+            UssValue::Keyword(k) => k.clone(),
+            UssValue::Asset(a) => a.clone(),
+            UssValue::PropertyName(p) => p.clone(),
+            UssValue::VariableReference(var_name) => format!("var(--{})", var_name),
+        }
+    }
+
     /// Parse a USS value from a tree-sitter node
     pub fn from_node(node: Node, content: &str) -> Option<Self> {
         let node_kind = node.kind();
@@ -30,22 +51,23 @@ impl UssValue {
             "integer_value" | "float_value" => {
                 let has_fractional = node_kind == "float_value" || node_text.contains('.');
                 
-                // Check if it has a unit
-                if node.child_count() > 1 {
-                    if let Some(unit_child) = node.child(1) {
-                        if unit_child.kind() == "unit" {
-                            let unit = unit_child.utf8_text(content.as_bytes()).ok()?.to_string();
-                            let value_text = node.child(0)?.utf8_text(content.as_bytes()).ok()?;
-                            let value: f64 = value_text.parse().ok()?;
-                            
-                            return Some(UssValue::Numeric { value, unit: Some(unit), has_fractional });
+                // Check if it has a unit child
+                let mut unit = None;
+                if node.child_count() > 0 {
+                    for i in 0..node.child_count() {
+                        if let Some(child) = node.child(i) {
+                            if child.kind() == "unit" {
+                                unit = Some(child.utf8_text(content.as_bytes()).ok()?.to_string());
+                                break;
+                            }
                         }
                     }
                 }
                 
-                // No unit - parse as numeric value
-                if let Ok(value) = node_text.parse::<f64>() {
-                    Some(UssValue::Numeric { value, unit: None, has_fractional })
+                // Extract the numeric part from the full text
+                let (value_str, _) = Self::extract_value_and_unit(node_text);
+                if let Ok(value) = value_str.parse::<f64>() {
+                    Some(UssValue::Numeric { value, unit, has_fractional })
                 } else {
                     None
                 }
@@ -88,11 +110,33 @@ impl UssValue {
                 Some(UssValue::Color(node_text.to_string()))
             }
             "call_expression" => {
-                // Handle function calls like url(), rgb(), etc.
-                let function_name = node.child(0)?.child(0)?; // function_name node
-                let function_name_text = content[function_name.start_byte()..function_name.end_byte()].to_string();
+                // Handle function calls like url(), rgb(), var(), etc.
+                // Structure: call_expression -> function_name + arguments
+                let function_name_text = if let Some(function_name_node) = node.child(0) {
+                    function_name_node.utf8_text(content.as_bytes()).unwrap_or("").to_string()
+                } else {
+                    return None;
+                };
                 
                 match function_name_text.as_str() {
+                    "var" => {
+                        // Extract variable name from var(--variable-name)
+                        // Structure: arguments -> "(" + plain_value + ")"
+                        if let Some(args_node) = node.child(1) { // arguments node
+                            let mut cursor = args_node.walk();
+                            for arg_child in args_node.children(&mut cursor) {
+                                if arg_child.kind() == "plain_value" {
+                                    let var_name_text = arg_child.utf8_text(content.as_bytes()).ok()?;
+                                    if var_name_text.starts_with("--") {
+                                        // Remove the -- prefix for internal storage
+                                        let var_name = &var_name_text[2..];
+                                        return Some(UssValue::VariableReference(var_name.to_string()));
+                                    }
+                                }
+                            }
+                        }
+                        None
+                    }
                     "url" | "resource" => Some(UssValue::Asset(node_text.to_string())),
                     "rgb" | "rgba" | "hsl" | "hsla" => Some(UssValue::Color(node_text.to_string())),
                     _ => Some(UssValue::Keyword(node_text.to_string())),
@@ -122,24 +166,6 @@ impl UssValue {
             // Split into value and unit parts
             let (value_part, unit_part) = text.split_at(split_pos);
             (value_part, Some(unit_part.to_string()))
-        }
-    }
-    
-    /// Convert the UssValue back to a string representation
-    pub fn to_string(&self) -> String {
-        match self {
-            UssValue::Numeric { value, unit, .. } => {
-                if let Some(unit) = unit {
-                    format!("{}{}", value, unit)
-                } else {
-                    value.to_string()
-                }
-            }
-            UssValue::String(s) => s.clone(),
-            UssValue::Color(c) => c.clone(),
-            UssValue::Keyword(k) => k.clone(),
-            UssValue::Asset(a) => a.clone(),
-            UssValue::PropertyName(p) => p.clone(),
         }
     }
 }
