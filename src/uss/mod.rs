@@ -19,6 +19,7 @@ pub mod color_provider;
 pub mod variable_resolver;
 pub mod value;
 pub mod uss_utils;
+pub mod asset_string_validation;
 
 #[cfg(test)]
 mod diagnostics_tests;

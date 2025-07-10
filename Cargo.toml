@@ -25,6 +25,7 @@ log = { version = "0.4", features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
 thiserror = "1.0"
+url = "2.5"
 
 [dev-dependencies]
 tempfile = "3.0"

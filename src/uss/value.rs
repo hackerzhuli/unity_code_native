@@ -1,6 +1,8 @@
 use tree_sitter::Node;
 
 use crate::uss::definitions::UssDefinitions;
+use crate::uss::asset_string_validation::{validate_url_string, validate_resource_string};
+use crate::uss::uss_utils::convert_uss_string;
 
 /// Error type for USS value parsing
 #[derive(Debug, Clone, PartialEq)]
@@ -230,7 +232,11 @@ impl UssValue {
                 Ok(UssValue::Identifier(node_text.to_string()))
             }
             "string_value" => {
-                Ok(UssValue::String(node_text.to_string()))
+                // Convert USS string literal to actual string value
+                let converted_string = convert_uss_string(node_text)
+                    .map_err(|uss_err| UssValueError::new(node, content, format!("Invalid string literal: {}", uss_err.message)))?;
+                
+                Ok(UssValue::String(converted_string))
             }
             "color_value" => {
                 Ok(UssValue::Color(node_text.to_string()))
@@ -282,18 +288,55 @@ impl UssValue {
                         
                         Ok(UssValue::VariableReference(var_name.to_string()))
                     }
-                    "url" | "resource" => {
-                        // Validate that url/resource functions have exactly one string argument
+                    "url" => {
+                        // Validate that url function has exactly one string argument
                         let arg_nodes = Self::validate_function_args_structure(node, content)?;
                         
                         if arg_nodes.len() != 1 {
-                            return Err(UssValueError::new(node, content, format!("{}() function expects 1 argument, found {}", function_name_text, arg_nodes.len())));
+                            return Err(UssValueError::new(node, content, format!("url() function expects 1 argument, found {}", arg_nodes.len())));
                         }
                         
                         let string_node = arg_nodes[0];
                         if string_node.kind() != "string_value" {
-                            return Err(UssValueError::new(string_node, content, format!("Expected string_value for {}() argument, found {}", function_name_text, string_node.kind())));
+                            return Err(UssValueError::new(string_node, content, format!("Expected string_value for url() argument, found {}", string_node.kind())));
                         }
+                        
+                        let string_text = string_node.utf8_text(content.as_bytes())
+                            .map_err(|_| UssValueError::new(string_node, content, "Invalid UTF-8 in string argument".to_string()))?;
+                        
+                        // Convert USS string literal to actual string value
+                        let converted_string = convert_uss_string(string_text)
+                            .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
+                        
+                        // Validate the URL path
+                        validate_url_string(&converted_string)
+                            .map_err(|e| UssValueError::new(string_node, content, e.message))?;
+                        
+                        Ok(UssValue::Asset(node_text.to_string()))
+                    }
+                    "resource" => {
+                        // Validate that resource function has exactly one string argument
+                        let arg_nodes = Self::validate_function_args_structure(node, content)?;
+                        
+                        if arg_nodes.len() != 1 {
+                            return Err(UssValueError::new(node, content, format!("resource() function expects 1 argument, found {}", arg_nodes.len())));
+                        }
+                        
+                        let string_node = arg_nodes[0];
+                        if string_node.kind() != "string_value" {
+                            return Err(UssValueError::new(string_node, content, format!("Expected string_value for resource() argument, found {}", string_node.kind())));
+                        }
+                        
+                        let string_text = string_node.utf8_text(content.as_bytes())
+                            .map_err(|_| UssValueError::new(string_node, content, "Invalid UTF-8 in string argument".to_string()))?;
+                        
+                        // Convert USS string literal to actual string value
+                        let converted_string = convert_uss_string(string_text)
+                            .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
+                        
+                        // Validate the resource path
+                        validate_resource_string(&converted_string)
+                            .map_err(|e| UssValueError::new(string_node, content, e.message))?;
                         
                         Ok(UssValue::Asset(node_text.to_string()))
                     }

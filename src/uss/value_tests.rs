@@ -79,7 +79,7 @@ mod tests {
              let result = UssValue::from_node(node, source);
              assert!(result.is_ok());
              if let Ok(UssValue::String(s)) = result {
-                 assert_eq!(s, "\"Arial\"");
+                 assert_eq!(s, "Arial");
              } else {
                  panic!("Expected String value");
              }
@@ -183,8 +183,8 @@ mod tests {
         let asset = UssValue::Asset("url(\"image.png\")".to_string());
         assert_eq!(asset.to_string(), "url(\"image.png\")");
         
-        let string_val = UssValue::String("\"Arial\"".to_string());
-        assert_eq!(string_val.to_string(), "\"Arial\"");
+        let string_val = UssValue::String("Arial".to_string());
+        assert_eq!(string_val.to_string(), "Arial");
     }
 
     #[test]
