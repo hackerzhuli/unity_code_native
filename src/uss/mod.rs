@@ -7,6 +7,7 @@
 pub mod server;
 pub mod parser;
 pub mod document;
+pub mod document_manager;
 pub mod diagnostics;
 pub mod highlighting;
 pub mod definitions;

@@ -7,7 +7,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 
-use crate::uss::document::UssDocumentManager;
+use crate::uss::document_manager::UssDocumentManager;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::diagnostics::UssDiagnostics;
 use crate::uss::hover::UssHoverProvider;

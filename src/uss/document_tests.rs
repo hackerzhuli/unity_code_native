@@ -2,8 +2,10 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::document::{UssDocument, UssDocumentManager};
+
     use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, TextDocumentContentChangeEvent, Url};
+
+    use crate::uss::{document::UssDocument, document_manager::UssDocumentManager};
 
     #[test]
     fn test_document_creation() {
