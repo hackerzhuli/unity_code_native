@@ -3,7 +3,7 @@
 //! Provides document state management and incremental parsing for USS files.
 
 use std::collections::HashMap;
-use tower_lsp::lsp_types::{Position, Range, TextDocumentContentChangeEvent, Url};
+use tower_lsp::lsp_types::{Diagnostic, Position, Range, TextDocumentContentChangeEvent, Url};
 use tree_sitter::{InputEdit, Point, Tree};
 
 use crate::uss::parser::UssParser;
@@ -21,6 +21,10 @@ pub struct UssDocument {
     pub version: i32,
     /// Line start positions for efficient position calculations
     line_starts: Vec<usize>,
+    /// Cached diagnostics for this document
+    cached_diagnostics: Option<Vec<Diagnostic>>,
+    /// Whether the cached diagnostics are valid (not invalidated by changes)
+    diagnostics_valid: bool,
 }
 
 impl UssDocument {
@@ -33,12 +37,16 @@ impl UssDocument {
             tree: None,
             version,
             line_starts,
+            cached_diagnostics: None,
+            diagnostics_valid: false,
         }
     }
     
     /// Parse the document content and store the syntax tree
     pub fn parse(&mut self, parser: &mut UssParser) {
         self.tree = parser.parse(&self.content, None);
+        // Invalidate diagnostics when content is parsed
+        self.invalidate_diagnostics();
     }
     
     /// Apply incremental changes to the document
@@ -49,6 +57,9 @@ impl UssDocument {
         parser: &mut UssParser,
     ) {
         self.version = new_version;
+        
+        // Invalidate diagnostics when content changes
+        self.invalidate_diagnostics();
         
         for change in changes {
             if let Some(range) = change.range {
@@ -195,6 +206,31 @@ impl UssDocument {
     pub fn version(&self) -> i32 {
         self.version
     }
+    
+    /// Get cached diagnostics if they are valid
+    pub fn get_cached_diagnostics(&self) -> Option<&Vec<Diagnostic>> {
+        if self.diagnostics_valid {
+            self.cached_diagnostics.as_ref()
+        } else {
+            None
+        }
+    }
+    
+    /// Cache diagnostics for this document
+    pub fn cache_diagnostics(&mut self, diagnostics: Vec<Diagnostic>) {
+        self.cached_diagnostics = Some(diagnostics);
+        self.diagnostics_valid = true;
+    }
+    
+    /// Invalidate cached diagnostics
+    pub fn invalidate_diagnostics(&mut self) {
+        self.diagnostics_valid = false;
+    }
+    
+    /// Check if cached diagnostics are valid
+    pub fn are_diagnostics_valid(&self) -> bool {
+        self.diagnostics_valid
+    }
 }
 
 /// Document manager for USS files
@@ -249,6 +285,28 @@ impl UssDocumentManager {
     /// Get all document URIs
     pub fn document_uris(&self) -> impl Iterator<Item = &Url> {
         self.documents.keys()
+    }
+    
+    /// Invalidate diagnostics for a specific document
+    pub fn invalidate_document_diagnostics(&mut self, uri: &Url) {
+        if let Some(document) = self.documents.get_mut(uri) {
+            document.invalidate_diagnostics();
+        }
+    }
+    
+    /// Invalidate diagnostics for all documents (useful for dependency changes)
+    pub fn invalidate_all_diagnostics(&mut self) {
+        for document in self.documents.values_mut() {
+            document.invalidate_diagnostics();
+        }
+    }
+    
+    /// Check if a document has valid cached diagnostics
+    pub fn has_valid_diagnostics(&self, uri: &Url) -> bool {
+        self.documents
+            .get(uri)
+            .map(|doc| doc.are_diagnostics_valid())
+            .unwrap_or(false)
     }
 }
 

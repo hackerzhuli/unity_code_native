@@ -206,15 +206,41 @@ impl LanguageServer for UssLanguageServer {
     ) -> Result<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri;
         
-        let diagnostics = if let Ok(state) = self.state.lock() {
-            if let Some(document) = state.document_manager.get_document(&uri) {
-                if let Some(tree) = document.tree() {
-                    state.diagnostics.analyze(tree, document.content())
+        let diagnostics = if let Ok(mut state) = self.state.lock() {
+            // First, check if we have cached diagnostics
+            let cached_result = if let Some(document) = state.document_manager.get_document(&uri) {
+                document.get_cached_diagnostics().cloned()
+            } else {
+                None
+            };
+            
+            if let Some(cached_diagnostics) = cached_result {
+                cached_diagnostics
+            } else {
+                // Need to generate new diagnostics
+                let (tree_clone, content) = if let Some(document) = state.document_manager.get_document(&uri) {
+                    if let Some(tree) = document.tree() {
+                        (Some(tree.clone()), document.content().to_string())
+                    } else {
+                        (None, String::new())
+                    }
+                } else {
+                    (None, String::new())
+                };
+                
+                if let Some(tree) = tree_clone {
+                    // Generate new diagnostics
+                    let new_diagnostics = state.diagnostics.analyze(&tree, &content);
+                    
+                    // Cache the diagnostics
+                    if let Some(document) = state.document_manager.get_document_mut(&uri) {
+                        document.cache_diagnostics(new_diagnostics.clone());
+                    }
+                    
+                    new_diagnostics
                 } else {
                     Vec::new()
                 }
-            } else {
-                Vec::new()
             }
         } else {
             Vec::new()
