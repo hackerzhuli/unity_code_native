@@ -1,0 +1,6 @@
+.a {
+    --a: "a b"; /* space is invalid in string */
+    --b: "a\ b"; /* escape the space, this is valid */
+    --c: url(ab); /* url */
+    --d: url('a b"); /* url */
+}
