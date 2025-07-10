@@ -19,6 +19,10 @@ use crate::unity_project_manager::UnityProjectManager;
 /// USS Language Server
 pub struct UssLanguageServer {
     client: Client,
+    /// Arc<Mutex> is required here despite single-threaded async for three reasons:
+    /// 1. tower-lsp requires LanguageServer implementations to be Send + Sync
+    /// 2. Interior mutability is needed to modify state from &self methods
+    /// 3. Async method boundaries require thread-safe primitives even in single-threaded context
     state: Arc<Mutex<UssServerState>>,
 }
 
