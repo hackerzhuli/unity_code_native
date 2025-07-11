@@ -268,10 +268,6 @@ impl UssDocument {
         self.variable_resolver.are_variables_resolved()
     }
 
-
-
-
-
     /// Convert byte offset to LSP position
     pub fn byte_to_position(&self, byte: usize) -> Position {
         if byte == 0 {
