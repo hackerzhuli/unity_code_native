@@ -229,8 +229,9 @@ impl LanguageServer for UssLanguageServer {
                 };
                 
                 if let Some(tree) = tree_clone {
-                    // Generate new diagnostics
-                    let new_diagnostics = state.diagnostics.analyze(&tree, &content);
+                    // Generate new diagnostics with source URL
+                    let source_url = uri.as_str();
+                    let new_diagnostics = state.diagnostics.analyze_with_source_url(&tree, &content, Some(source_url));
                     
                     // Cache the diagnostics
                     if let Some(document) = state.document_manager.get_document_mut(&uri) {

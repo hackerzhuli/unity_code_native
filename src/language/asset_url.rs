@@ -145,6 +145,53 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<Url, AssetValid
     }
 }
 
+/// Creates a project scheme URL from a file path and project root path
+///
+/// Converts a file system path to a Unity project scheme URL.
+/// The file path should be within the Unity project directory.
+///
+/// # Arguments
+/// * `file_path` - The absolute file system path to the file
+/// * `project_root` - The absolute path to the Unity project root directory
+///
+/// # Returns
+/// * `Ok(Url)` - A project scheme URL (e.g., "project:/Assets/file.uss")
+/// * `Err(AssetValidationError)` - If the file is not within the project or paths are invalid
+///
+/// # Examples
+/// ```
+/// use unity_code_native::language::asset_url::create_project_url;
+/// use std::path::Path;
+/// 
+/// let project_root = Path::new("C:/MyProject");
+/// let file_path = Path::new("C:/MyProject/Assets/UI/styles.uss");
+/// let url = create_project_url(file_path, project_root).unwrap();
+/// assert_eq!(url.as_str(), "project:/Assets/UI/styles.uss");
+/// ```
+pub fn create_project_url(file_path: &std::path::Path, project_root: &std::path::Path) -> Result<Url, AssetValidationError> {
+    // Ensure both paths are absolute
+    if !file_path.is_absolute() {
+        return Err(AssetValidationError::new("File path must be absolute"));
+    }
+    if !project_root.is_absolute() {
+        return Err(AssetValidationError::new("Project root path must be absolute"));
+    }
+    
+    // Get the relative path from project root to file
+    let relative_path = file_path.strip_prefix(project_root)
+        .map_err(|_| AssetValidationError::new("File is not within the project directory"))?;
+    
+    // Convert to forward slashes for URL
+    let relative_path_str = relative_path.to_string_lossy().replace('\\', "/");
+    
+    // Create project scheme URL
+    let project_url = format!("project:/{}", relative_path_str);
+    
+    // Parse and validate the URL
+    Url::parse(&project_url)
+        .map_err(|e| AssetValidationError::new(format!("Failed to create project URL: {}", e)))
+}
+
 /// checks less problematic errors
 fn additional_error(url_path: &str) -> Option<AssetValidationError> {
     let mut violations = RefCell::new(Vec::new());

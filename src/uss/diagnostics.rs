@@ -80,7 +80,7 @@ impl UssDiagnostics {
                 // For example, if a property value contains a syntax error, we don't want to
                 // also report that the property itself is invalid - the child error is sufficient.
                 if !child_diagnostics_added {
-                    self.validate_declaration(node, content, diagnostics);
+                    self.validate_declaration(node, content, diagnostics, source_url);
                 }
             },
             "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
@@ -317,7 +317,7 @@ impl UssDiagnostics {
     }
     
     /// Validate declaration (property-value pair)
-    fn validate_declaration(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
+    fn validate_declaration(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&str>) {
         if let Some(property_node) = node.child(0) {
             if property_node.kind() == "property_name" {
                 let property_name = property_node.utf8_text(content.as_bytes()).unwrap_or("");
@@ -397,7 +397,9 @@ impl UssDiagnostics {
                         // Skip semicolons and whitespace
                         if child.kind() != ";" && !child.kind().is_empty() {
                             // Try to parse the node as a UssValue
-                            match UssValue::from_node(child, content, &self.definitions, source_url) {
+                            // Convert source_url string to Url if provided
+                            let source_url_parsed = source_url.and_then(|url_str| url::Url::parse(url_str).ok());
+                            match UssValue::from_node(child, content, &self.definitions, source_url_parsed.as_ref()) {
                                 Ok(value) => uss_values.push(value),
                                 Err(error) => {
                                     // Report parsing error and stop
