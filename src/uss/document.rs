@@ -26,7 +26,7 @@ pub struct UssDocument {
     /// Whether the cached diagnostics are valid (not invalidated by changes)
     diagnostics_valid: bool,
     /// Variable resolver for CSS custom properties
-    variable_resolver: VariableResolver,
+    pub variable_resolver: VariableResolver,
 }
 
 impl UssDocument {
@@ -252,16 +252,31 @@ impl UssDocument {
     }
 
     /// Get all variables defined in this document
+    /// 
+    /// **Note**: The variable resolver has limitations:
+    /// - Only resolves variables defined within this document
+    /// - Does not support imported variables from other USS files
+    /// - Variable resolution may be incomplete in complex scenarios
     pub fn get_variables(&self) -> &HashMap<String, VariableStatus> {
         self.variable_resolver.get_variables()
     }
 
     /// Get a specific variable by name
+    /// 
+    /// **Note**: The variable resolver has limitations:
+    /// - Only resolves variables defined within this document
+    /// - Does not support imported variables from other USS files
+    /// - Variable resolution may be incomplete in complex scenarios
     pub fn get_variable(&self, name: &str) -> Option<&VariableStatus> {
         self.variable_resolver.get_variable(name)
     }
 
     /// Check if variables have been resolved
+    /// 
+    /// **Note**: The variable resolver has limitations:
+    /// - Only resolves variables defined within this document
+    /// - Does not support imported variables from other USS files
+    /// - Variable resolution may be incomplete in complex scenarios
     pub fn are_variables_resolved(&self) -> bool {
         self.variable_resolver.are_variables_resolved()
     }

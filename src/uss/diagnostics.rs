@@ -6,10 +6,12 @@
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use url::Url;
+use std::collections::HashMap;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value::UssValue;
 use crate::uss::tree_printer;
 use crate::language::asset_url;
+use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
 
 /// USS diagnostic analyzer
 pub struct UssDiagnostics {
@@ -32,6 +34,16 @@ impl UssDiagnostics {
     
     /// Analyze USS syntax tree and generate diagnostics with optional source URL
     pub fn analyze_with_source_url(&self, tree: &Tree, content: &str, source_url: Option<&Url>) -> Vec<Diagnostic> {
+        self.analyze_with_variables(tree, content, source_url, None)
+    }
+    
+    /// Analyze USS syntax tree and generate diagnostics with variable resolver support
+    /// 
+    /// **Note**: Variable resolution has limitations:
+    /// - Only resolves variables defined within the same document
+    /// - Does not support imported variables from other USS files
+    /// - When variable resolution is uncertain, warnings are generated instead of errors
+    pub fn analyze_with_variables(&self, tree: &Tree, content: &str, source_url: Option<&Url>, variable_resolver: Option<&VariableResolver>) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         let root_node = tree.root_node();
         
@@ -41,7 +53,7 @@ impl UssDiagnostics {
                 "Source URL must use project scheme for Unity compatibility, got: {}", url);
         }
         
-        self.walk_node_with_source_url(root_node, content, source_url, &mut diagnostics);
+        self.walk_node_with_variables(root_node, content, source_url, variable_resolver, &mut diagnostics);
         
         diagnostics
     }
@@ -56,6 +68,11 @@ impl UssDiagnostics {
     
     /// Recursively walk the syntax tree and validate nodes with source URL
     fn walk_node_with_source_url(&self, node: Node, content: &str, source_url: Option<&Url>, diagnostics: &mut Vec<Diagnostic>) {
+        self.walk_node_with_variables(node, content, source_url, None, diagnostics);
+    }
+    
+    /// Recursively walk the syntax tree and validate nodes with variable resolver support
+    fn walk_node_with_variables(&self, node: Node, content: &str, source_url: Option<&Url>, variable_resolver: Option<&VariableResolver>, diagnostics: &mut Vec<Diagnostic>) {
         // Track the number of diagnostics before processing children
         let initial_diagnostic_count = diagnostics.len();
         
@@ -67,7 +84,7 @@ impl UssDiagnostics {
         // Recursively check children first to detect any child errors
         for i in 0..node.child_count() {
             if let Some(child) = node.child(i) {
-                self.walk_node_with_source_url(child, content, source_url, diagnostics);
+                self.walk_node_with_variables(child, content, source_url, variable_resolver, diagnostics);
             }
         }
         
@@ -83,7 +100,7 @@ impl UssDiagnostics {
                 // For example, if a property value contains a syntax error, we don't want to
                 // also report that the property itself is invalid - the child error is sufficient.
                 if !child_diagnostics_added {
-                    self.validate_declaration(node, content, diagnostics, source_url);
+                    self.validate_declaration_with_variables(node, content, diagnostics, source_url, variable_resolver);
                 }
             },
             "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
@@ -268,8 +285,13 @@ impl UssDiagnostics {
         }
     }
     
+    /// Validate declaration (property-value pair) with optional variable resolver support
+    fn validate_declaration_with_variables(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>, variable_resolver: Option<&VariableResolver>) {
+        self.validate_declaration(node, content, diagnostics, source_url, variable_resolver);
+    }
+    
     /// Validate declaration (property-value pair)
-    fn validate_declaration(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>) {
+    fn validate_declaration(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>, variable_resolver: Option<&VariableResolver>) {
         if let Some(property_node) = node.child(0) {
             if property_node.kind() == "property_name" {
                 let property_name = property_node.utf8_text(content.as_bytes()).unwrap_or("");
@@ -391,11 +413,98 @@ impl UssDiagnostics {
                             message: format!("Invalid value for property '{}'", property_name),
                             ..Default::default()
                         });
+                    } else if let Some(resolver) = variable_resolver {
+                        // Validation passed without variable resolution, now check with resolved variables for warnings
+                        let resolved_values = self.resolve_variables_in_values(&uss_values, resolver);
+                        let mut resolved_format_matches = false;
+                        let mut has_unresolved_variables = false;
+                        
+                        // Check if we have any unresolved variables
+                        for value in &uss_values {
+                            if let UssValue::VariableReference(var_name) = value {
+                                if let Some(var_status) = resolver.get_variable(var_name) {
+                                    match var_status {
+                                        VariableStatus::Unresolved | VariableStatus::Ambiguous | VariableStatus::Error => {
+                                            has_unresolved_variables = true;
+                                            break;
+                                        }
+                                        _ => {}
+                                    }
+                                } else {
+                                    // Variable not found in this document
+                                    has_unresolved_variables = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Try validation with resolved values
+                        for value_format in &property_info.value_spec.formats {
+                            if value_format.is_match(&resolved_values, &self.definitions) {
+                                resolved_format_matches = true;
+                                break;
+                            }
+                        }
+                        
+                        // Only generate warnings if there are unresolved variables and validation would fail with resolved values
+                        if has_unresolved_variables && !resolved_format_matches {
+                            let values_range = if let (Some(first_value_node), Some(last_value_node)) = 
+                                (node.child(2), node.child(node.child_count().saturating_sub(2))) {
+                                let start_pos = self.byte_to_position(first_value_node.start_byte(), content);
+                                let end_pos = self.byte_to_position(last_value_node.end_byte(), content);
+                                Range { start: start_pos, end: end_pos }
+                            } else {
+                                self.node_to_range(node, content)
+                            };
+                            
+                            diagnostics.push(Diagnostic {
+                                range: values_range,
+                                severity: Some(DiagnosticSeverity::WARNING),
+                                code: Some(NumberOrString::String("uncertain-property-value".to_string())),
+                                source: Some("uss".to_string()),
+                                message: format!("Property '{}' value may be invalid due to unresolved variables (variable resolver limitations: only resolves variables within this document)", property_name),
+                                ..Default::default()
+                            });
+                        }
                     }
                 }
                 // If property info is not found, we already reported "unknown-property" error above
             }
         }
+    }
+    
+    /// Resolve variables in a list of UssValues using the variable resolver
+    fn resolve_variables_in_values(&self, values: &[UssValue], variable_resolver: &VariableResolver) -> Vec<UssValue> {
+        let mut resolved_values = Vec::new();
+        
+        for value in values {
+            match value {
+                UssValue::VariableReference(var_name) => {
+                    // Try to resolve the variable
+                    if let Some(var_status) = variable_resolver.get_variable(var_name) {
+                        match var_status {
+                            VariableStatus::Resolved(resolved_vals) => {
+                                // Add all resolved values
+                                resolved_values.extend(resolved_vals.clone());
+                            }
+                            _ => {
+                                // Variable is unresolved, ambiguous, or has errors - keep the original reference
+                                resolved_values.push(value.clone());
+                            }
+                        }
+                    } else {
+                        // Variable not found - keep the original reference
+                        resolved_values.push(value.clone());
+                    }
+                }
+                _ => {
+                    // Non-variable value - keep as-is
+                    resolved_values.push(value.clone());
+                }
+            }
+        }
+        
+        resolved_values
     }
     
     /// Validate pseudo-class selector

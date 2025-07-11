@@ -245,7 +245,14 @@ impl LanguageServer for UssLanguageServer {
                         Some(uri.clone())
                     };
                     
-                    let new_diagnostics = state.diagnostics.analyze_with_source_url(&tree, &content, project_url.as_ref());
+                    // Get the variable resolver from the document for enhanced diagnostics
+                    let variable_resolver = if let Some(document) = state.document_manager.get_document(&uri) {
+                        Some(&document.variable_resolver)
+                    } else {
+                        None
+                    };
+                    
+                    let new_diagnostics = state.diagnostics.analyze_with_variables(&tree, &content, project_url.as_ref(), variable_resolver);
                     
                     // Cache the diagnostics
                     if let Some(document) = state.document_manager.get_document_mut(&uri) {
