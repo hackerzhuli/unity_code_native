@@ -4,6 +4,7 @@ use url::Url;
 use crate::language::asset_url::{validate_url};
 use crate::uss::uss_utils::convert_uss_string;
 use crate::uss::definitions::UssDefinitions;
+use crate::uss::color::Color;
 
 
 
@@ -42,8 +43,8 @@ pub enum UssValue {
     Numeric { value: f64, unit: Option<String>, has_fractional: bool },
     /// String literals, content is value of the string
     String(String),
-    /// Color value, in rgba format, note that USS doesn't support color functions like hls
-    Color(i32, i32, i32, f32),
+    /// Color value, note that USS doesn't support color functions like hls
+    Color(Color),
     /// Keyword values or property names, content is the identifier
     Identifier(String),
     /// a url asset reference, from url(), content is the actual parsed url
@@ -66,13 +67,7 @@ impl UssValue {
                 }
             }
             UssValue::String(s) => format!("\"{}\"", s),
-            UssValue::Color(r, g, b, a) => {
-                if *a == 1.0 {
-                    format!("rgb({}, {}, {})", r, g, b)
-                } else {
-                    format!("rgba({}, {}, {}, {})", r, g, b, a)
-                }
-            }
+            UssValue::Color(color) => color.to_string(),
             UssValue::Identifier(k) => k.clone(),
             UssValue::Url(url) => format!("url(\"{}\")", url.as_str()),
             UssValue::Resource(url) => format!("resource(\"{}\")", url.as_str()),
@@ -265,20 +260,11 @@ impl UssValue {
                 Ok(UssValue::String(converted_string))
             }
             "color_value" => {
-                // Parse hex color value like #ff0000 to RGBA components
-                if node_text.starts_with('#') && node_text.len() == 7 {
-                    let hex = &node_text[1..];
-                    if let (Ok(r), Ok(g), Ok(b)) = (
-                        i32::from_str_radix(&hex[0..2], 16),
-                        i32::from_str_radix(&hex[2..4], 16),
-                        i32::from_str_radix(&hex[4..6], 16)
-                    ) {
-                        Ok(UssValue::Color(r, g, b, 1.0))
-                    } else {
-                        Err(UssValueError::new(node, content, format!("Invalid hex color format: {}", node_text)))
-                    }
+                // Parse hex color value using the centralized Color::from_hex method
+                if let Some(color) = Color::from_hex(node_text) {
+                    Ok(UssValue::Color(color))
                 } else {
-                    Err(UssValueError::new(node, content, format!("Unsupported color format: {}", node_text)))
+                    Err(UssValueError::new(node, content, format!("Invalid hex color format: {}", node_text)))
                 }
             }
             "call_expression" => {
@@ -393,7 +379,8 @@ impl UssValue {
                                 return Err(UssValueError::new(node, content, format!("rgb() argument {} value {} is out of range (0-255)", i + 1, value)));
                             }
                         }
-                        Ok(UssValue::Color(args[0] as i32, args[1] as i32, args[2] as i32, 1.0))
+                        let color = Color::new_rgb(args[0] as u8, args[1] as u8, args[2] as u8);
+                        Ok(UssValue::Color(color))
                     }
 
                     "rgba" => {
@@ -410,7 +397,8 @@ impl UssValue {
                         if args[3] < 0.0 || args[3] > 1.0 {
                             return Err(UssValueError::new(node, content, format!("rgba() alpha value {} is out of range (0-1)", args[3])));
                         }
-                        Ok(UssValue::Color(args[0] as i32, args[1] as i32, args[2] as i32, args[3]))
+                        let color = Color::new_rgba(args[0] as u8, args[1] as u8, args[2] as u8, args[3]);
+                        Ok(UssValue::Color(color))
                     }
 
                     _ => {

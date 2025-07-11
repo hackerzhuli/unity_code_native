@@ -123,12 +123,12 @@ mod tests {
              let definitions = UssDefinitions::new();
              let result = UssValue::from_node(node, source, &definitions, None);
              assert!(result.is_ok());
-             if let Ok(UssValue::Color(r, g, b, a)) = result {
-                 assert_eq!(r, 255);
-                 assert_eq!(g, 0);
-                 assert_eq!(b, 0);
-                 assert_eq!(a, 1.0);
-             } else {
+             if let Ok(UssValue::Color(color)) = result {
+                assert_eq!(color.r, 255);
+                assert_eq!(color.g, 0);
+                assert_eq!(color.b, 0);
+                assert_eq!(color.a, 1.0);
+            } else {
                  panic!("Expected Color value");
              }
          }
@@ -182,7 +182,7 @@ mod tests {
         let numeric = UssValue::Numeric { value: 100.0, unit: Some("px".to_string()), has_fractional: false };
         assert_eq!(numeric.to_string(), "100px");
         
-        let color = UssValue::Color(255, 0, 0, 1.0);
+        let color = UssValue::Color(crate::uss::color::Color::new_rgb(255, 0, 0));
         assert_eq!(color.to_string(), "rgb(255, 0, 0)");
         
         let var_ref = UssValue::VariableReference("primary-color".to_string());
@@ -212,11 +212,11 @@ mod tests {
         if let Some(node) = find_node_by_type(root, "call_expression") {
             let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "Valid rgb() should parse successfully");
-            if let Ok(UssValue::Color(r, g, b, a)) = result {
-                assert_eq!(r, 255);
-                assert_eq!(g, 128);
-                assert_eq!(b, 0);
-                assert_eq!(a, 1.0);
+            if let Ok(UssValue::Color(color)) = result {
+                assert_eq!(color.r, 255);
+                assert_eq!(color.g, 128);
+                assert_eq!(color.b, 0);
+                assert_eq!(color.a, 1.0);
             }
         }
         

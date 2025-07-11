@@ -6,6 +6,7 @@
 
 use crate::uss::property_data::{create_standard_properties, create_unity_properties};
 use crate::uss::value_spec::ValueSpec;
+use crate::uss::color::Color;
 use std::collections::{HashMap, HashSet};
 
 /// Property documentation information
@@ -226,7 +227,7 @@ impl UssDefinitions {
         }
         
         let mut valid_functions = HashSet::new();
-        let functions = ["url", "resource", "var", "rgb", "rgba", "hsl", "hsla"];
+        let functions = ["url", "resource", "var", "rgb", "rgba"];
         for func in functions {
             valid_functions.insert(func);
         }
@@ -286,10 +287,14 @@ impl UssDefinitions {
         self.valid_color_keywords.contains_key(color)
     }
     
-    /// Get the hex value for a color keyword
-    pub fn get_color_hex_value(&self, color: &str) -> Option<&'static str> {
-        self.valid_color_keywords.get(color).copied()
+    /// Get parsed RGB color components for a color keyword
+    /// Returns (r, g, b) values in 0-255 range
+    pub fn get_color_rgb(&self, color: &str) -> Option<(u8, u8, u8)> {
+        let hex_value = self.valid_color_keywords.get(color).copied()?;
+        Color::from_hex(hex_value).map(|color| color.rgb())
     }
+
+
     
     /// Check if a function is valid
     pub fn is_valid_function(&self, function_name: &str) -> bool {

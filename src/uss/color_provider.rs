@@ -2,9 +2,11 @@
 //!
 //! Provides color information for USS files to enable color decorations in VS Code.
 
-use tower_lsp::lsp_types::*;
+use tower_lsp::lsp_types::{ColorInformation, ColorPresentation, Position, Range, TextEdit, Color as LspColor};
 use tree_sitter::{Node, Tree};
 use crate::uss::definitions::UssDefinitions;
+use crate::uss::value::UssValue;
+use crate::uss::color::Color as UssColor;
 
 /// USS color information provider
 pub struct UssColorProvider {
@@ -34,25 +36,8 @@ impl UssColorProvider {
         let node_type = node.kind();
         
         match node_type {
-            "color_value" => {
-                if let Some(color_info) = self.extract_color_from_node(node, content) {
-                    colors.push(color_info);
-                }
-            }
-            "plain_value" => {
-                // Check if this plain_value is a color keyword or hex color
-                let text = node.utf8_text(content.as_bytes()).unwrap_or("");
-                if text.starts_with('#') {
-                    if let Some(color_info) = self.extract_color_from_node(node, content) {
-                        colors.push(color_info);
-                    }
-                } else if let Some(color_info) = self.extract_color_keyword_from_node(node, content) {
-                    colors.push(color_info);
-                }
-            }
-            "call_expression" => {
-                // Check for rgb(), rgba(), hsl(), hsla() functions
-                if let Some(color_info) = self.extract_color_function_from_node(node, content) {
+            "color_value" | "plain_value" | "call_expression" => {
+                if let Some(color_info) = self.extract_color_from_uss_value(node, content) {
                     colors.push(color_info);
                 }
             }
@@ -67,208 +52,44 @@ impl UssColorProvider {
         }
     }
     
-    /// Extract color information from a color_value node (hex colors)
-    fn extract_color_from_node(&self, node: &Node, content: &str) -> Option<ColorInformation> {
-        let color_text = node.utf8_text(content.as_bytes()).ok()?;
+    /// Extract color information using UssValue parsing
+    fn extract_color_from_uss_value(&self, node: &Node, content: &str) -> Option<ColorInformation> {
+        // Try to parse the node as a UssValue
+        let uss_value = UssValue::from_node(*node, content, &self.definitions, None).ok()?;
         
-        if color_text.starts_with('#') {
-            let hex_part = &color_text[1..];
-            
-            // Parse hex color
-            let (r, g, b, a) = match hex_part.len() {
-                3 => {
-                    // #RGB -> #RRGGBB
-                    let r = u8::from_str_radix(&hex_part[0..1].repeat(2), 16).ok()?;
-                    let g = u8::from_str_radix(&hex_part[1..2].repeat(2), 16).ok()?;
-                    let b = u8::from_str_radix(&hex_part[2..3].repeat(2), 16).ok()?;
-                    (r, g, b, 255)
-                }
-                6 => {
-                    // #RRGGBB
-                    let r = u8::from_str_radix(&hex_part[0..2], 16).ok()?;
-                    let g = u8::from_str_radix(&hex_part[2..4], 16).ok()?;
-                    let b = u8::from_str_radix(&hex_part[4..6], 16).ok()?;
-                    (r, g, b, 255)
-                }
-                8 => {
-                    // #RRGGBBAA
-                    let r = u8::from_str_radix(&hex_part[0..2], 16).ok()?;
-                    let g = u8::from_str_radix(&hex_part[2..4], 16).ok()?;
-                    let b = u8::from_str_radix(&hex_part[4..6], 16).ok()?;
-                    let a = u8::from_str_radix(&hex_part[6..8], 16).ok()?;
-                    (r, g, b, a)
-                }
-                _ => return None,
-            };
-            
-            let range = self.node_to_range(node, content)?;
-            
-            Some(ColorInformation {
-                range,
-                color: Color {
-                    red: r as f32 / 255.0,
-                    green: g as f32 / 255.0,
-                    blue: b as f32 / 255.0,
-                    alpha: a as f32 / 255.0,
-                },
-            })
-        } else {
-            None
-        }
-    }
-    
-    /// Extract color information from a plain_value node (color keywords)
-    fn extract_color_keyword_from_node(&self, node: &Node, content: &str) -> Option<ColorInformation> {
-        let color_text = node.utf8_text(content.as_bytes()).ok()?;
-        
-        // Check if this is a valid color keyword
-        if let Some(hex_value) = self.definitions.get_color_hex_value(color_text) {
-            let range = self.node_to_range(node, content)?;
-            
-            // Parse the hex value (remove # if present)
-            let hex_part = if hex_value.starts_with('#') { &hex_value[1..] } else { &hex_value };
-            let r = u8::from_str_radix(&hex_part[0..2], 16).ok()?;
-            let g = u8::from_str_radix(&hex_part[2..4], 16).ok()?;
-            let b = u8::from_str_radix(&hex_part[4..6], 16).ok()?;
-            
-            Some(ColorInformation {
-                range,
-                color: Color {
-                    red: r as f32 / 255.0,
-                    green: g as f32 / 255.0,
-                    blue: b as f32 / 255.0,
-                    alpha: 1.0,
-                },
-            })
-        } else {
-            None
-        }
-    }
-    
-    /// Extract color information from a call_expression node (rgb, rgba, hsl, hsla functions)
-    fn extract_color_function_from_node(&self, node: &Node, content: &str) -> Option<ColorInformation> {
-        // Get the function name (first child should be function_name)
-        let function_name_node = node.child(0)?;
-        let function_name = function_name_node.utf8_text(content.as_bytes()).ok()?;
-        
-        match function_name {
-            "rgb" | "rgba" => {
-                self.extract_rgb_color(node, content)
+        // Convert UssValue to ColorInformation if it's a color
+        match uss_value {
+            UssValue::Color(uss_color) => {
+                let range = self.node_to_range(node, content)?;
+                Some(ColorInformation {
+                    range,
+                    color: LspColor {
+                        red: uss_color.r as f32 / 255.0,
+                        green: uss_color.g as f32 / 255.0,
+                        blue: uss_color.b as f32 / 255.0,
+                        alpha: uss_color.a,
+                    },
+                })
             }
-            "hsl" | "hsla" => {
-                self.extract_hsl_color(node, content)
+            UssValue::Identifier(keyword) => {
+                // Check if this identifier is a color keyword
+                if let Some((r, g, b)) = self.definitions.get_color_rgb(&keyword) {
+                    let range = self.node_to_range(node, content)?;
+                    
+                    Some(ColorInformation {
+                        range,
+                        color: LspColor {
+                            red: r as f32 / 255.0,
+                            green: g as f32 / 255.0,
+                            blue: b as f32 / 255.0,
+                            alpha: 1.0,
+                        },
+                    })
+                } else {
+                    None
+                }
             }
             _ => None,
-        }
-    }
-    
-    /// Extract RGB/RGBA color values
-    fn extract_rgb_color(&self, node: &Node, content: &str) -> Option<ColorInformation> {
-        // Get the arguments node (second child should be arguments)
-        let arguments_node = node.child(1)?;
-        let mut values = Vec::new();
-        
-        // Extract numeric values from arguments
-        for i in 0..arguments_node.child_count() {
-            if let Some(child) = arguments_node.child(i) {
-                if matches!(child.kind(), "integer_value" | "float_value") {
-                    if let Ok(text) = child.utf8_text(content.as_bytes()) {
-                        if let Ok(value) = text.parse::<f64>() {
-                            values.push(value);
-                        }
-                    }
-                }
-            }
-        }
-        
-        if values.len() >= 3 {
-            let r = (values[0] / 255.0).clamp(0.0, 1.0);
-            let g = (values[1] / 255.0).clamp(0.0, 1.0);
-            let b = (values[2] / 255.0).clamp(0.0, 1.0);
-            let a = if values.len() >= 4 { values[3].clamp(0.0, 1.0) } else { 1.0 };
-            
-            let range = self.node_to_range(node, content)?;
-            
-            Some(ColorInformation {
-                range,
-                color: Color {
-                    red: r as f32,
-                    green: g as f32,
-                    blue: b as f32,
-                    alpha: a as f32,
-                },
-            })
-        } else {
-            None
-        }
-    }
-    
-    /// Extract HSL/HSLA color values
-    fn extract_hsl_color(&self, node: &Node, content: &str) -> Option<ColorInformation> {
-        let arguments_node = node.child_by_field_name("arguments")?;
-        let mut values = Vec::new();
-        
-        // Extract numeric values from arguments
-        for i in 0..arguments_node.child_count() {
-            if let Some(child) = arguments_node.child(i) {
-                if matches!(child.kind(), "integer_value" | "float_value") {
-                    if let Ok(text) = child.utf8_text(content.as_bytes()) {
-                        if let Ok(value) = text.parse::<f64>() {
-                            values.push(value);
-                        }
-                    }
-                }
-            }
-        }
-        
-        if values.len() >= 3 {
-            let h = (values[0] % 360.0) / 360.0;
-            let s = (values[1] / 100.0).clamp(0.0, 1.0);
-            let l = (values[2] / 100.0).clamp(0.0, 1.0);
-            let a = if values.len() >= 4 { values[3].clamp(0.0, 1.0) } else { 1.0 };
-            
-            // Convert HSL to RGB
-            let (r, g, b) = self.hsl_to_rgb(h, s, l);
-            
-            let range = self.node_to_range(node, content)?;
-            
-            Some(ColorInformation {
-                range,
-                color: Color {
-                    red: r as f32,
-                    green: g as f32,
-                    blue: b as f32,
-                    alpha: a as f32,
-                },
-            })
-        } else {
-            None
-        }
-    }
-    
-    /// Convert HSL to RGB
-    fn hsl_to_rgb(&self, h: f64, s: f64, l: f64) -> (f64, f64, f64) {
-        if s == 0.0 {
-            // Achromatic (gray)
-            (l, l, l)
-        } else {
-            let hue_to_rgb = |p: f64, q: f64, mut t: f64| {
-                if t < 0.0 { t += 1.0; }
-                if t > 1.0 { t -= 1.0; }
-                if t < 1.0/6.0 { p + (q - p) * 6.0 * t }
-                else if t < 1.0/2.0 { q }
-                else if t < 2.0/3.0 { p + (q - p) * (2.0/3.0 - t) * 6.0 }
-                else { p }
-            };
-            
-            let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
-            let p = 2.0 * l - q;
-            
-            let r = hue_to_rgb(p, q, h + 1.0/3.0);
-            let g = hue_to_rgb(p, q, h);
-            let b = hue_to_rgb(p, q, h - 1.0/3.0);
-            
-            (r, g, b)
         }
     }
     
@@ -292,7 +113,7 @@ impl UssColorProvider {
     /// Provide color presentations for a given color
     pub fn provide_color_presentations(
         &self,
-        color: &Color,
+        color: &LspColor,
         range: Range,
     ) -> Vec<ColorPresentation> {
         let mut presentations = Vec::new();

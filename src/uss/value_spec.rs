@@ -190,7 +190,7 @@ impl ValueFormat {
                  }
              },
             UssValue::String(_) => matches!(value_type, ValueType::String),
-            UssValue::Color(_, _, _, _) => matches!(value_type, ValueType::Color),
+            UssValue::Color(_) => matches!(value_type, ValueType::Color),
             UssValue::Identifier(keyword) => {
                 match value_type {
                     ValueType::Keyword(expected) => keyword == expected,
@@ -289,7 +289,7 @@ impl ValueFormat {
                         // Check for color functions like rgb(), rgba()
                         if let Some(func_name) = node.child(0) {
                             let func_text = func_name.utf8_text(content.as_bytes()).unwrap_or("");
-                            matches!(func_text, "rgb" | "rgba" | "hsl" | "hsla")
+                            matches!(func_text, "rgb" | "rgba")
                         } else {
                             false
                         }

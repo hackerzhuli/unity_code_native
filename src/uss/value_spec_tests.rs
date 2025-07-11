@@ -68,15 +68,15 @@ fn test_color_format() {
     let definitions = UssDefinitions::new();
     
     // Valid hex color
-    let values = vec![UssValue::Color(255, 0, 0, 1.0)];
+    let values = vec![UssValue::Color(crate::uss::color::Color::new_rgb(255, 0, 0))];
     assert!(color_format.is_match(&values, &definitions));
     
     // Valid named color
-    let values = vec![UssValue::Color(255, 0, 0, 1.0)];
+    let values = vec![UssValue::Color(crate::uss::color::Color::new_rgb(255, 0, 0))];
     assert!(color_format.is_match(&values, &definitions));
     
     // Valid rgb function
-    let values = vec![UssValue::Color(255, 0, 0, 1.0)];
+    let values = vec![UssValue::Color(crate::uss::color::Color::new_rgb(255, 0, 0))];
     assert!(color_format.is_match(&values, &definitions));
     
     // Invalid - not a color
