@@ -6,11 +6,9 @@
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use url::Url;
-use std::collections::HashMap;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value::UssValue;
 use crate::uss::tree_printer;
-use crate::language::asset_url;
 use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
 
 /// USS diagnostic analyzer
@@ -65,12 +63,7 @@ impl UssDiagnostics {
         let root_node = tree.root_node();
         tree_printer::print_tree_to_stdout(root_node, content);
     }
-    
-    /// Recursively walk the syntax tree and validate nodes with source URL
-    fn walk_node_with_source_url(&self, node: Node, content: &str, source_url: Option<&Url>, diagnostics: &mut Vec<Diagnostic>) {
-        self.walk_node_with_variables(node, content, source_url, None, diagnostics);
-    }
-    
+
     /// Recursively walk the syntax tree and validate nodes with variable resolver support
     fn walk_node_with_variables(&self, node: Node, content: &str, source_url: Option<&Url>, variable_resolver: Option<&VariableResolver>, diagnostics: &mut Vec<Diagnostic>) {
         // Track the number of diagnostics before processing children
@@ -100,7 +93,7 @@ impl UssDiagnostics {
                 // For example, if a property value contains a syntax error, we don't want to
                 // also report that the property itself is invalid - the child error is sufficient.
                 if !child_diagnostics_added {
-                    self.validate_declaration_with_variables(node, content, diagnostics, source_url, variable_resolver);
+                    self.validate_declaration(node, content, diagnostics, source_url, variable_resolver);
                 }
             },
             "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
@@ -284,12 +277,7 @@ impl UssDiagnostics {
             parent = p.parent();
         }
     }
-    
-    /// Validate declaration (property-value pair) with optional variable resolver support
-    fn validate_declaration_with_variables(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>, variable_resolver: Option<&VariableResolver>) {
-        self.validate_declaration(node, content, diagnostics, source_url, variable_resolver);
-    }
-    
+
     /// Validate declaration (property-value pair)
     fn validate_declaration(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>, variable_resolver: Option<&VariableResolver>) {
         if let Some(property_node) = node.child(0) {
@@ -418,26 +406,7 @@ impl UssDiagnostics {
                         let resolved_values = self.resolve_variables_in_values(&uss_values, resolver);
                         let mut resolved_format_matches = false;
                         let mut has_unresolved_variables = false;
-                        
-                        // Check if we have any unresolved variables
-                        for value in &uss_values {
-                            if let UssValue::VariableReference(var_name) = value {
-                                if let Some(var_status) = resolver.get_variable(var_name) {
-                                    match var_status {
-                                        VariableStatus::Unresolved | VariableStatus::Ambiguous | VariableStatus::Error => {
-                                            has_unresolved_variables = true;
-                                            break;
-                                        }
-                                        _ => {}
-                                    }
-                                } else {
-                                    // Variable not found in this document
-                                    has_unresolved_variables = true;
-                                    break;
-                                }
-                            }
-                        }
-                        
+
                         // Try validation with resolved values
                         for value_format in &property_info.value_spec.formats {
                             if value_format.is_match(&resolved_values, &self.definitions) {
@@ -447,7 +416,7 @@ impl UssDiagnostics {
                         }
                         
                         // Only generate warnings if there are unresolved variables and validation would fail with resolved values
-                        if has_unresolved_variables && !resolved_format_matches {
+                        if !resolved_format_matches {
                             let values_range = if let (Some(first_value_node), Some(last_value_node)) = 
                                 (node.child(2), node.child(node.child_count().saturating_sub(2))) {
                                 let start_pos = self.byte_to_position(first_value_node.start_byte(), content);

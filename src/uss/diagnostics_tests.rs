@@ -594,3 +594,29 @@ fn test_resource_function_with_single_quotes() {
     assert!(results.is_empty(), "Valid resource() function with single quotes should not produce any errors. Found: {:?}", 
         results.iter().map(|e| &e.message).collect::<Vec<_>>());
 }
+
+#[test]
+fn test_variable_resolution_warning() {
+    use crate::uss::variable_resolver::VariableResolver;
+    
+    let mut diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // CSS content with variable definition that resolves to a valid value but wrong type for the property
+    let content = ":root { --my-var: 10px; }\nButton { color: var(--my-var); }";
+    
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Create variable resolver and populate it from the parsed tree
+    let mut variable_resolver = VariableResolver::new();
+    variable_resolver.add_variables_from_tree(tree.root_node(), content);
+    
+    let results = diagnostics.analyze_with_variables(&tree, content, None, Some(&variable_resolver));
+
+    // Should generate a warning for the resolved variable value being invalid
+    let warnings: Vec<_> = results.iter()
+        .filter(|d| d.severity == Some(tower_lsp::lsp_types::DiagnosticSeverity::WARNING))
+        .collect();
+    
+    assert!(!warnings.is_empty(), "Should generate a warning for invalid resolved variable value. Found {} total diagnostics", results.len());
+}
