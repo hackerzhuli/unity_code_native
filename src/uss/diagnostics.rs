@@ -323,7 +323,7 @@ impl UssDiagnostics {
                             let range = self.node_to_range(*child, content);
                             diagnostics.push(Diagnostic {
                                 range,
-                                severity: Some(DiagnosticSeverity::ERROR),
+                                severity: Some(error.severity),
                                 code: Some(NumberOrString::String("invalid-value".to_string())),
                                 source: Some("uss".to_string()),
                                 message: format!("Invalid value: {}", error.message),

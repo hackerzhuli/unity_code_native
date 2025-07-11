@@ -19,6 +19,8 @@ pub struct UssValueError {
     pub byte_range: (usize, usize),
     /// Descriptive error message
     pub message: String,
+    /// Diagnostic severity level
+    pub severity: tower_lsp::lsp_types::DiagnosticSeverity,
 }
 
 impl UssValueError {
@@ -32,6 +34,21 @@ impl UssValueError {
             node_text,
             byte_range: (node.start_byte(), node.end_byte()),
             message,
+            severity: tower_lsp::lsp_types::DiagnosticSeverity::ERROR,
+        }
+    }
+    
+    fn new_with_severity(node: Node, content: &str, message: String, severity: tower_lsp::lsp_types::DiagnosticSeverity) -> Self {
+        let node_text = node.utf8_text(content.as_bytes())
+            .unwrap_or("<invalid utf8>")
+            .to_string();
+        
+        Self {
+            node_kind: node.kind().to_string(),
+            node_text,
+            byte_range: (node.start_byte(), node.end_byte()),
+            message,
+            severity,
         }
     }
 }
@@ -336,7 +353,7 @@ impl UssValue {
                         
                         // Validate and parse the URL
                         let url = validate_url(&converted_string, source_url)
-                            .map_err(|e| UssValueError::new(string_node, content, e.message))?;
+                            .map_err(|e| UssValueError::new_with_severity(string_node, content, e.message, e.severity))?;
 
                         Ok(UssValue::Url(url))
                     }
@@ -364,7 +381,7 @@ impl UssValue {
                         // doesn't resolve relative paths in the same way as regular URLs
                         let resource_base = Url::parse("project:///Assets/Resources/").ok();
                         let url = validate_url(&converted_string, resource_base.as_ref())
-                            .map_err(|e| UssValueError::new(string_node, content, e.message))?;
+                            .map_err(|e| UssValueError::new_with_severity(string_node, content, e.message, e.severity))?;
 
                         Ok(UssValue::Resource(url))
                     }

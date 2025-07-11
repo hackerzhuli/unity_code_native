@@ -9,19 +9,35 @@
 //! So we treat resource path just like url path.
 
 use std::cell::RefCell;
-use tower_lsp::lsp_types::MessageActionItem;
+use tower_lsp::lsp_types::{DiagnosticSeverity};
 use url::{SyntaxViolation, Url};
 
 /// Error type for asset string validation
 #[derive(Debug, Clone, PartialEq)]
 pub struct AssetValidationError {
     pub message: String,
+    pub severity: DiagnosticSeverity,
 }
 
 impl AssetValidationError {
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
+            severity: DiagnosticSeverity::ERROR,
+        }
+    }
+
+    pub fn new_with_severity(message: impl Into<String>, severity: DiagnosticSeverity) -> Self {
+        Self {
+            message: message.into(),
+            severity,
+        }
+    }
+
+    pub fn warning(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            severity: DiagnosticSeverity::WARNING,
         }
     }
 }
@@ -100,7 +116,7 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<Url, AssetValid
     match parse_result {
         Ok(parsed_url) => {
             // we need to be more strict here, and find errors if it parsed ok
-            if let Some(value) = additional_error(url) {
+            if let Some(value) = additional_error(url, &effective_base) {
                 return Err(value);
             }
 
@@ -194,11 +210,12 @@ pub fn create_project_url(file_path: &std::path::Path, project_root: &std::path:
 }
 
 /// checks less problematic errors
-fn additional_error(url_path: &str) -> Option<AssetValidationError> {
+fn additional_error(url_path: &str, base_url: &Url) -> Option<AssetValidationError> {
     let mut violations = RefCell::new(Vec::new());
     let parsed
         = Url::options()
         .syntax_violation_callback(Some(&|v| violations.borrow_mut().push(v)))
+        .base_url(Some(base_url))
         .parse(url_path);
 
     // we should not get error here, we assume we call this function because there is no error
@@ -231,7 +248,7 @@ fn additional_error(url_path: &str) -> Option<AssetValidationError> {
             },
             SyntaxViolation::NonUrlCodePoint => {
                 let message = "Invalid character: there are characters that are not valid in URLs. You may be using space or other reserved characters in URL, consider use percent encoding for them.".to_string();
-                return Some(AssetValidationError::new(message));
+                return Some(AssetValidationError::warning(message));
             },
             SyntaxViolation::NullInFragment => {
                 return Some(AssetValidationError::new("NULL characters are ignored in URL fragment identifiers"));
@@ -291,8 +308,7 @@ mod tests {
         assert!(validate_url("simple-filename.png", None).is_ok());
         assert!(validate_url("folder/subfolder/deep-file.svg", None).is_ok());
 
-        // URL with spaces (should be encoded in real usage but path validation allows it)
-        assert!(validate_url("my image.png", None).is_ok());
+        assert!(validate_url("my image.png", None).is_err());
     }
 
     #[test]
