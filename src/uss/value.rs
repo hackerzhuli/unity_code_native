@@ -191,7 +191,14 @@ impl UssValue {
     /// - There is any parsing error detected
     /// - The node structure is invalid
     /// - The content cannot be parsed as a valid USS value
-    pub fn from_node(node: Node, content: &str) -> Result<Self, UssValueError> {
+    /// 
+    /// ### Parameters
+    /// 
+    /// - `node`: The tree-sitter node to parse
+    /// - `content`: The full content of the USS file
+    /// - `definitions`: The USS definitions to use for validation
+    /// - `source_url`: The URL of the USS file, note that this must be a absolute path and with project scheme, other schemes are not going to produce valid url values for uss
+    pub fn from_node(node: Node, content: &str, definitions: &UssDefinitions, source_url: Option<&Url>) -> Result<Self, UssValueError> {
         // Return error immediately if the node has parsing errors
         if node.has_error() {
             return Err(UssValueError::new(node, content, "Node has parsing errors".to_string()));
@@ -238,7 +245,6 @@ impl UssValue {
                 
                 // Validate unit if present
                 if let Some(unit_str) = &unit {
-                    let definitions = UssDefinitions::new();
                     if !definitions.is_valid_unit(unit_str) {
                         return Err(UssValueError::new(node, content, format!("Invalid unit '{}'. Valid units are: px, %, deg, rad, grad, turn, s, ms", unit_str)));
                     }
@@ -343,9 +349,9 @@ impl UssValue {
                             .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
                         
                         // Validate and parse the URL
-                        let url = validate_url(&converted_string)
+                        let url = validate_url(&converted_string, source_url)
                             .map_err(|e| UssValueError::new(string_node, content, e.message))?;
-                        
+
                         Ok(UssValue::Url(url))
                     }
                     "resource" => {
@@ -368,10 +374,12 @@ impl UssValue {
                         let converted_string = convert_uss_string(string_text)
                             .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
                         
-                        // Validate and parse the resource URL
-                        let url = validate_url(&converted_string)
+                        // For resource functions, we use a fixed base URL since Unity's resource system
+                        // doesn't resolve relative paths in the same way as regular URLs
+                        let resource_base = Url::parse("project:///Assets/Resources/").ok();
+                        let url = validate_url(&converted_string, resource_base.as_ref())
                             .map_err(|e| UssValueError::new(string_node, content, e.message))?;
-                        
+
                         Ok(UssValue::Resource(url))
                     }
                     "rgb" => {

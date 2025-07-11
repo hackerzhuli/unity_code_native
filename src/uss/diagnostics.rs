@@ -25,10 +25,15 @@ impl UssDiagnostics {
     
     /// Analyze USS syntax tree and generate diagnostics
     pub fn analyze(&self, tree: &Tree, content: &str) -> Vec<Diagnostic> {
+        self.analyze_with_source_url(tree, content, None)
+    }
+    
+    /// Analyze USS syntax tree and generate diagnostics with optional source URL
+    pub fn analyze_with_source_url(&self, tree: &Tree, content: &str, source_url: Option<&str>) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         let root_node = tree.root_node();
         
-        self.walk_node(root_node, content, &mut diagnostics);
+        self.walk_node_with_source_url(root_node, content, source_url, &mut diagnostics);
         
         diagnostics
     }
@@ -43,6 +48,11 @@ impl UssDiagnostics {
     
     /// Recursively walk the syntax tree and validate nodes
     fn walk_node(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
+        self.walk_node_with_source_url(node, content, None, diagnostics);
+    }
+    
+    /// Recursively walk the syntax tree and validate nodes with source URL
+    fn walk_node_with_source_url(&self, node: Node, content: &str, source_url: Option<&str>, diagnostics: &mut Vec<Diagnostic>) {
         // Track the number of diagnostics before processing children
         let initial_diagnostic_count = diagnostics.len();
         
@@ -54,7 +64,7 @@ impl UssDiagnostics {
         // Recursively check children first to detect any child errors
         for i in 0..node.child_count() {
             if let Some(child) = node.child(i) {
-                self.walk_node(child, content, diagnostics);
+                self.walk_node_with_source_url(child, content, source_url, diagnostics);
             }
         }
         
@@ -387,7 +397,7 @@ impl UssDiagnostics {
                         // Skip semicolons and whitespace
                         if child.kind() != ";" && !child.kind().is_empty() {
                             // Try to parse the node as a UssValue
-                            match UssValue::from_node(child, content) {
+                            match UssValue::from_node(child, content, &self.definitions, source_url) {
                                 Ok(value) => uss_values.push(value),
                                 Err(error) => {
                                     // Report parsing error and stop

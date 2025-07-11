@@ -42,57 +42,59 @@ impl std::error::Error for AssetValidationError {}
 ///
 /// # Arguments
 /// * `url_path` - The actual URL path string (already processed, no quotes or escapes)
+/// * `base_url` - The base URL to resolve relative paths against (optional)
 ///
 /// # Returns
-/// * `Ok(())` - If the URL path is valid for Unity USS
+/// * `Ok(Url)` - If the URL path is valid for Unity USS
 /// * `Err(AssetValidationError)` - If the URL path is invalid
 ///
 /// # Examples
 /// ```
 /// use unity_code_native::language::asset_url::validate_url;
+/// use url::Url;
+/// 
+/// let base = Some(Url::parse("project:///Assets/UI/styles.uss").unwrap());
 /// 
 /// // Valid project scheme URLs
-/// assert!(validate_url("project:/Assets/image.png").is_ok());
-/// assert!(validate_url("project:///Assets/image.png").is_ok());
+/// assert!(validate_url("project:/Assets/image.png", None).is_ok());
+/// assert!(validate_url("project:///Assets/image.png", None).is_ok());
 ///
 /// // Valid relative paths - parent directory navigation
-/// assert!(validate_url("../Resources/image.png").is_ok());
-/// assert!(validate_url("../../Textures/background.jpg").is_ok());
+/// assert!(validate_url("../Resources/image.png", base.as_ref()).is_ok());
+/// assert!(validate_url("../../Textures/background.jpg", base.as_ref()).is_ok());
 ///
 /// // Valid relative paths - current directory
-/// assert!(validate_url("./image.png").is_ok());
-/// assert!(validate_url("./subfolder/icon.svg").is_ok());
-///
-/// // Valid relative paths - simple filenames and subdirectories
-/// assert!(validate_url("./image.png").is_ok());
-/// assert!(validate_url("./subfolder/icon.png").is_ok());
-/// assert!(validate_url("./UI/Textures/background.jpg").is_ok());
+/// assert!(validate_url("./image.png", base.as_ref()).is_ok());
+/// assert!(validate_url("./subfolder/icon.svg", base.as_ref()).is_ok());
 ///
 /// // Valid absolute paths
-/// assert!(validate_url("/Assets/Resources/image.png").is_ok());
-/// assert!(validate_url("/Packages/com.unity.ui/Runtime/icon.png").is_ok());
+/// assert!(validate_url("/Assets/Resources/image.png", None).is_ok());
+/// assert!(validate_url("/Packages/com.unity.ui/Runtime/icon.png", None).is_ok());
 ///
 /// // Invalid - non-project scheme
-/// assert!(validate_url("https://example.com/image.png").is_err());
+/// assert!(validate_url("https://example.com/image.png", None).is_err());
 /// ```
-pub fn validate_url(url: &str) -> Result<Url, AssetValidationError> {
+pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<Url, AssetValidationError> {
     // Check if the URL path is empty
     if url.is_empty() {
         return Err(AssetValidationError::new("URL cannot be empty"));
     }
 
-    // base url is needed to make relative url valid, otherwise there will be a parse error
-    // note that if relative path contains lots of ..
-    // we are going to run into a problem, it will eventually go up and up until the result url is no longer in Assets and report an error
-    // so we need to add many layers to keep it in Assets, it should work in 99.99% cases
-    let base_url = url::Url::parse("project:///Assets/a/b/c/d/e/f/g/h/i/j/k/i/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z");
+    // Use provided base URL or create a default one for relative path resolution
+    let default_base = url::Url::parse("project:///Assets/a/b/c/d/e/f/g/h/i/j/k/i/l/m/n/o/p/q/r/s/t/u/v/w/x/y/z");
+    
+    let effective_base = match base_url {
+        Some(base) => base.clone(),
+        None => {
+            if default_base.is_err() {
+                // this should not happen, but we don't want to panic here
+                return Err(AssetValidationError::new("Unknown error"));
+            }
+            default_base.unwrap()
+        }
+    };
 
-    if base_url.is_err() {
-        // this should not happen, but we don't want to panic here
-        return Err(AssetValidationError::new("Unknown error"));
-    }
-
-    let parse_result = base_url.unwrap().join(url);
+    let parse_result = effective_base.join(url);
 
     match parse_result {
         Ok(parsed_url) => {
@@ -208,60 +210,60 @@ mod tests {
     #[test]
     fn test_validate_url_string_valid() {
         // Test valid Unity project scheme URLs
-        assert!(validate_url("project:/Assets/image.png").is_ok());
-        assert!(validate_url("project:///Assets/image.png").is_ok());
-        assert!(validate_url("project:/Packages/com.example/image.png").is_ok());
+        assert!(validate_url("project:/Assets/image.png", None).is_ok());
+        assert!(validate_url("project:///Assets/image.png", None).is_ok());
+        assert!(validate_url("project:/Packages/com.example/image.png", None).is_ok());
         // colon in the middle is actually valid url
-        assert!(validate_url("project:/Packages:/com.example/image.png").is_ok());
+        assert!(validate_url("project:/Packages:/com.example/image.png", None).is_ok());
 
         // Test valid Unity absolute paths
-        assert!(validate_url("/Assets/Resources/image.png").is_ok());
-        assert!(validate_url("/Packages/com.example/image.png").is_ok());
+        assert!(validate_url("/Assets/Resources/image.png", None).is_ok());
+        assert!(validate_url("/Packages/com.example/image.png", None).is_ok());
 
         // Test valid relative paths - parent directory navigation
-        assert!(validate_url("../Resources/image.png").is_ok());
-        assert!(validate_url("../../Textures/background.jpg").is_ok());
-        assert!(validate_url("../../../Assets/icon.svg").is_ok());
+        assert!(validate_url("../Resources/image.png", None).is_ok());
+        assert!(validate_url("../../Textures/background.jpg", None).is_ok());
+        assert!(validate_url("../../../Assets/icon.svg", None).is_ok());
 
         // Test valid relative paths - current directory
-        assert!(validate_url("./image.png").is_ok());
-        assert!(validate_url("./subfolder/icon.svg").is_ok());
-        assert!(validate_url("./UI/Buttons/submit.png").is_ok());
+        assert!(validate_url("./image.png", None).is_ok());
+        assert!(validate_url("./subfolder/icon.svg", None).is_ok());
+        assert!(validate_url("./UI/Buttons/submit.png", None).is_ok());
 
         // Test valid relative paths - simple filenames and subdirectories (no prefix)
-        assert!(validate_url("image.png").is_ok());
-        assert!(validate_url("Icons/button.png").is_ok());
-        assert!(validate_url("UI/Textures/background.jpg").is_ok());
-        assert!(validate_url("Fonts/arial.ttf").is_ok());
-        assert!(validate_url("simple-filename.png").is_ok());
-        assert!(validate_url("folder/subfolder/deep-file.svg").is_ok());
+        assert!(validate_url("image.png", None).is_ok());
+        assert!(validate_url("Icons/button.png", None).is_ok());
+        assert!(validate_url("UI/Textures/background.jpg", None).is_ok());
+        assert!(validate_url("Fonts/arial.ttf", None).is_ok());
+        assert!(validate_url("simple-filename.png", None).is_ok());
+        assert!(validate_url("folder/subfolder/deep-file.svg", None).is_ok());
 
         // URL with spaces (should be encoded in real usage but path validation allows it)
-        assert!(validate_url("my image.png").is_ok());
+        assert!(validate_url("my image.png", None).is_ok());
     }
 
     #[test]
     fn test_validate_url_string_with_special_chars() {
         // Test URL paths with valid special characters
-        assert!(validate_url("image-with-dashes.png").is_ok());
-        assert!(validate_url("image_with_underscores.png").is_ok());
-        assert!(validate_url("image%20with%20encoded%20spaces.png").is_ok());
+        assert!(validate_url("image-with-dashes.png", None).is_ok());
+        assert!(validate_url("image_with_underscores.png", None).is_ok());
+        assert!(validate_url("image%20with%20encoded%20spaces.png", None).is_ok());
 
         // Test Unity project URLs with special characters
-        assert!(validate_url("project:/Assets/UI/button-normal.png").is_ok());
+        assert!(validate_url("project:/Assets/UI/button-normal.png", None).is_ok());
         assert!(
-            validate_url("project:/Packages/com.unity.ui/Runtime/button_hover.png").is_ok()
+            validate_url("project:/Packages/com.unity.ui/Runtime/button_hover.png", None).is_ok()
         );
 
         // Test paths with numbers and dots
-        assert!(validate_url("../Resources/image.v2.png").is_ok());
-        assert!(validate_url("/Assets/Textures/texture_001.jpg").is_ok());
+        assert!(validate_url("../Resources/image.v2.png", None).is_ok());
+        assert!(validate_url("/Assets/Textures/texture_001.jpg", None).is_ok());
     }
 
     #[test]
     fn test_validate_url_string_invalid() {
         // Test empty URL path
-        let result = validate_url("");
+        let result = validate_url("", None);
         assert!(result.is_err());
         assert!(
             result
@@ -271,33 +273,33 @@ mod tests {
         );
 
         // Test invalid URL schemes (Unity only supports project: scheme)
-        assert!(validate_url("https://example.com/image.png").is_err());
-        assert!(validate_url("http://localhost/image.png").is_err());
-        assert!(validate_url("file:///C:/path/image.png").is_err());
-        assert!(validate_url("ftp://server/image.png").is_err());
+        assert!(validate_url("https://example.com/image.png", None).is_err());
+        assert!(validate_url("http://localhost/image.png", None).is_err());
+        assert!(validate_url("file:///C:/path/image.png", None).is_err());
+        assert!(validate_url("ftp://server/image.png", None).is_err());
 
         // Test invalid project URLs
-        assert!(validate_url("project:").is_err()); // Missing path
-        assert!(validate_url("project:/").is_err()); // Empty path
-        assert!(validate_url("project:invalid").is_err());
-        assert!(validate_url("project:/InvalidFolder/image.png").is_err()); // Should be Assets/ or Packages/
+        assert!(validate_url("project:", None).is_err()); // Missing path
+        assert!(validate_url("project:/", None).is_err()); // Empty path
+        assert!(validate_url("project:invalid", None).is_err());
+        assert!(validate_url("project:/InvalidFolder/image.png", None).is_err()); // Should be Assets/ or Packages/
 
         // Test invalid absolute paths
-        assert!(validate_url("/InvalidFolder/image.png").is_err()); // Should be /Assets/ or /Packages/
+        assert!(validate_url("/InvalidFolder/image.png", None).is_err()); // Should be /Assets/ or /Packages/
 
 
         // Test invalid whitespace characters with specific error messages
-        let tab_result = validate_url("path\twith\ttabs.png");
+        let tab_result = validate_url("path\twith\ttabs.png", None);
         assert!(tab_result.is_err());
         let tab_error = tab_result.unwrap_err();
         assert!(tab_error.message.contains("tab"));
 
-        let newline_result = validate_url("path\nwith\nnewlines.png");
+        let newline_result = validate_url("path\nwith\nnewlines.png", None);
         assert!(newline_result.is_err());
         let newline_error = newline_result.unwrap_err();
         assert!(newline_error.message.contains("newline"));
 
-        let carriage_result = validate_url("path\rwith\rcarriage.png");
+        let carriage_result = validate_url("path\rwith\rcarriage.png", None);
         assert!(carriage_result.is_err());
         let carriage_error = carriage_result.unwrap_err();
         assert!(carriage_error.message.contains("newline"));
@@ -309,21 +311,21 @@ mod tests {
         // This demonstrates the improved robustness from using the url crate
 
         // Malformed project URL with extra slashes - url crate normalizes this
-        assert!(validate_url("project:///Assets/image.png").is_ok());
+        assert!(validate_url("project:///Assets/image.png", None).is_ok());
 
         // Requires absolute path
-        let result = validate_url("project:Assets/image.png");
+        let result = validate_url("project:Assets/image.png", None);
         assert!(result.is_err());
 
         // Test that relative paths are properly validated through url joining
-        assert!(validate_url("../valid/path.png").is_ok());
-        assert!(validate_url("./valid/path.png").is_ok());
-        assert!(validate_url("valid/path.png").is_ok());
+        assert!(validate_url("../valid/path.png", None).is_ok());
+        assert!(validate_url("./valid/path.png", None).is_ok());
+        assert!(validate_url("valid/path.png", None).is_ok());
 
         // Test that truly malformed URLs are still caught
-        assert!(validate_url("project:").is_err());
+        assert!(validate_url("project:", None).is_err());
         // this is actually valid url because it is treated as a relative path(no scheme), and colon and double slash in the middle is valid url
-        assert!(validate_url("://invalid").is_ok());
+        assert!(validate_url("://invalid", None).is_ok());
     }
 
     #[test]

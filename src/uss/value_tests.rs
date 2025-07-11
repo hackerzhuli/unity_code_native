@@ -1,4 +1,5 @@
 use crate::uss::value::UssValue;
+use crate::uss::definitions::UssDefinitions;
 
 #[cfg(test)]
 mod tests {
@@ -31,7 +32,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "integer_value") {
-             let result = UssValue::from_node(node, source);
+             let definitions = UssDefinitions::new();
+             let result = UssValue::from_node(node, source, &definitions, None);
              assert!(result.is_ok());
              if let Ok(UssValue::Numeric { value, unit, has_fractional }) = result {
                  assert_eq!(value, 100.0);
@@ -55,7 +57,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "float_value") {
-             let result = UssValue::from_node(node, source);
+             let definitions = UssDefinitions::new();
+             let result = UssValue::from_node(node, source, &definitions, None);
              assert!(result.is_ok());
              if let Ok(UssValue::Numeric { value, unit, has_fractional }) = result {
                  assert_eq!(value, 0.75);
@@ -76,7 +79,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "string_value") {
-             let result = UssValue::from_node(node, source);
+             let definitions = UssDefinitions::new();
+             let result = UssValue::from_node(node, source, &definitions, None);
              assert!(result.is_ok());
              if let Ok(UssValue::String(s)) = result {
                  assert_eq!(s, "Arial");
@@ -95,7 +99,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "plain_value") {
-             let result = UssValue::from_node(node, source);
+             let definitions = UssDefinitions::new();
+             let result = UssValue::from_node(node, source, &definitions, None);
              assert!(result.is_ok());
              if let Ok(UssValue::Identifier(id)) = result {
                  assert_eq!(id, "flex");
@@ -115,7 +120,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "color_value") {
-             let result = UssValue::from_node(node, source);
+             let definitions = UssDefinitions::new();
+             let result = UssValue::from_node(node, source, &definitions, None);
              assert!(result.is_ok());
              if let Ok(UssValue::Color(r, g, b, a)) = result {
                  assert_eq!(r, 255);
@@ -137,7 +143,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "call_expression") {
-             let result = UssValue::from_node(node, source);
+             let definitions = UssDefinitions::new();
+             let result = UssValue::from_node(node, source, &definitions, None);
              assert!(result.is_ok());
              if let Ok(UssValue::VariableReference(var_name)) = result {
                  assert_eq!(var_name, "primary-color");
@@ -160,7 +167,8 @@ mod tests {
         if let Some(node) = find_node_by_type(root, "plain_value") {
              let node_text = node.utf8_text(source.as_bytes()).unwrap();
              if node_text.starts_with('#') {
-                 let result = UssValue::from_node(node, source);
+                 let definitions = UssDefinitions::new();
+                 let result = UssValue::from_node(node, source, &definitions, None);
                  // Invalid hex color should be treated as identifier (Ok result)
                  // since tree-sitter classified it as plain_value, not color_value
                  assert!(result.is_ok());
@@ -194,6 +202,7 @@ mod tests {
     #[test]
     fn test_color_function_range_validation() {
         let mut parser = UssParser::new().expect("Failed to create USS parser");
+        let definitions = UssDefinitions::new();
         
         // Test valid rgb() function
         let source = ".test { color: rgb(255, 128, 0); }";
@@ -201,7 +210,7 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "Valid rgb() should parse successfully");
             if let Ok(UssValue::Color(r, g, b, a)) = result {
                 assert_eq!(r, 255);
@@ -217,7 +226,7 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_err(), "rgb() with value > 255 should fail");
             if let Err(error) = result {
                 assert!(error.message.contains("out of range (0-255)"));
@@ -230,7 +239,7 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "Valid rgba() should parse successfully");
         }
         
@@ -240,7 +249,7 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_err(), "rgba() with alpha > 1 should fail");
             if let Err(error) = result {
                 assert!(error.message.contains("alpha value") && error.message.contains("out of range (0-1)"));
@@ -260,7 +269,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
+            let definitions = UssDefinitions::new();
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_err(), "rgb() with units should fail");
             if let Err(error) = result {
                 assert!(error.message.contains("unitless number") && error.message.contains("px"));
@@ -273,7 +283,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
+            let definitions = UssDefinitions::new();
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_err(), "rgba() with units should fail");
             if let Err(error) = result {
                 assert!(error.message.contains("unitless number") && error.message.contains("px"));
@@ -293,7 +304,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "integer_value") {
-            let result = UssValue::from_node(node, source);
+            let definitions = UssDefinitions::new();
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "100px should be valid");
         }
         
@@ -302,7 +314,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "integer_value") {
-            let result = UssValue::from_node(node, source);
+            let definitions = UssDefinitions::new();
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "50% should be valid");
         }
         
@@ -312,7 +325,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "integer_value") {
-            let result = UssValue::from_node(node, source);
+            let definitions = UssDefinitions::new();
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "45deg should be valid");
         }
         
@@ -322,7 +336,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "integer_value") {
-            let result = UssValue::from_node(node, source);
+            let definitions = UssDefinitions::new();
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "2s should be valid");
         }
         
@@ -331,7 +346,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "integer_value") {
-            let result = UssValue::from_node(node, source);
+            let definitions = UssDefinitions::new();
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "500ms should be valid");
         }
     }
@@ -349,7 +365,8 @@ mod tests {
             let root = tree.root_node();
             
             if let Some(node) = find_node_by_type(root, "integer_value") {
-                let result = UssValue::from_node(node, &source);
+                let definitions = UssDefinitions::new();
+                let result = UssValue::from_node(node, &source, &definitions, None);
                 assert!(result.is_err(), "Unit {} should be invalid", unit);
                 if let Err(error) = result {
                     assert!(error.message.contains("Invalid unit") && error.message.contains(unit), 
@@ -369,7 +386,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "integer_value") {
-            let result = UssValue::from_node(node, source);
+            let definitions = UssDefinitions::new();
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "Unitless integer should be valid");
             if let Ok(UssValue::Numeric { value, unit, has_fractional }) = result {
                 assert_eq!(value, 42.0);
@@ -384,7 +402,8 @@ mod tests {
         let root = tree.root_node();
         
         if let Some(node) = find_node_by_type(root, "float_value") {
-            let result = UssValue::from_node(node, source);
+            let definitions = UssDefinitions::new();
+            let result = UssValue::from_node(node, source, &definitions, None);
             assert!(result.is_ok(), "Unitless float should be valid");
             if let Ok(UssValue::Numeric { value, unit, has_fractional }) = result {
                 assert_eq!(value, 0.75);

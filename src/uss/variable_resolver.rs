@@ -166,6 +166,9 @@ impl VariableResolver {
     /// Extract UssValues from a declaration node using proper tree-sitter parsing
     /// Validates strict CSS declaration structure: property : values ;
     fn extract_values_from_declaration_node(&self, declaration_node: Node, content: &str) -> Result<Vec<UssValue>, ()> {
+        // Create default definitions and no source URL for variable resolution
+        let definitions = crate::uss::definitions::UssDefinitions::new();
+        let source_url: Option<&url::Url> = None;
         let child_count = declaration_node.child_count();
         
         // Validate minimum structure: property + colon + at least one value
@@ -197,7 +200,7 @@ impl VariableResolver {
                 }
                 
                 // If any value fails to parse, return the error
-                let value = UssValue::from_node(child, content).map_err(|_| ())?;
+                let value = UssValue::from_node(child, content, &definitions, source_url).map_err(|_| ())?;
                 values.push(value);
             }
         }
