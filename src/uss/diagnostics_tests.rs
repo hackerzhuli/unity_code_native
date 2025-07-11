@@ -5,6 +5,7 @@ use crate::uss::tree_printer::print_tree_to_stdout;
 use super::diagnostics::*;
 use super::parser::UssParser;
 use tower_lsp::lsp_types::NumberOrString;
+use url::Url;
 
 #[test]
 fn test_import_statement_validation() {
@@ -696,7 +697,7 @@ fn test_variable_resolution_warning() {
     let mut variable_resolver = VariableResolver::new();
     variable_resolver.add_variables_from_tree(tree.root_node(), content);
     
-    let results = diagnostics.analyze_with_variables(&tree, content, None, Some(&variable_resolver));
+    let (results, _url_references) = diagnostics.analyze_with_variables(&tree, content, None, Some(&variable_resolver));
 
     // Should generate a warning for the resolved variable value being invalid
     let warnings: Vec<_> = results.iter()
@@ -713,4 +714,41 @@ fn test_variable_resolution_warning() {
     assert!(warning.message.contains("likely invalid"), "Warning message should indicate the value is likely invalid");
 
     println!("{}", warning.message);
+}
+
+#[test]
+fn test_url_collection() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // CSS content with import statements and url() functions
+    let content = r#"@import "styles/base.uss";
+@import url("styles/theme.uss");
+
+Button {
+    background-image: url("images/button.png");
+    border-image: resource("UI/border");
+}
+
+.header {
+    background-image: url('assets/header-bg.jpg');
+}"#;
+    
+    let tree = parser.parse(content, None).unwrap();
+    // use a more realistic url for the uss file
+    let url = Url::parse("project:///Assets/UI/a.uss").unwrap();
+    let (diagnostics_result, url_references) = diagnostics.analyze_with_variables(&tree, content, Some(&url), None);
+
+    // Check that we have the expected number of URLs (3: one string import, one url() import, two url() functions)
+    // Note: String imports that are valid URLs will be collected
+    let url_count = url_references.len();
+    println!("Collected {} URL references", url_count);
+    
+    // Print collected URLs for verification
+    for (i, url_ref) in url_references.iter().enumerate() {
+        println!("URL {}: {} at range {:?}", i + 1, url_ref.url, url_ref.range);
+    }
+    
+    // Should have 4 url collected
+    assert_eq!(url_count, 4, "Should collect at least 2 URL references from url() functions, got {}", url_count);
 }

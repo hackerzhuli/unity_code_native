@@ -341,7 +341,7 @@ impl LanguageServer for UssLanguageServer {
                         None
                     };
                     
-                    let new_diagnostics = state.diagnostics.analyze_with_variables(&tree, &content, project_url.as_ref(), variable_resolver);
+                    let (new_diagnostics, _url_references) = state.diagnostics.analyze_with_variables(&tree, &content, project_url.as_ref(), variable_resolver);
                     
                     // Cache the diagnostics
                     if let Some(document) = state.document_manager.get_document_mut(&uri) {
