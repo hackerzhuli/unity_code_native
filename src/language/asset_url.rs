@@ -162,14 +162,15 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<Url, AssetValid
     }
 }
 
-/// Creates a project scheme URL from a file path and project root path
+/// Creates a project scheme URL from normalized file path and project root path
 ///
 /// Converts a file system path to a Unity project scheme URL.
 /// The file path should be within the Unity project directory.
+/// Both paths should be normalized (canonicalized) by the caller for proper comparison.
 ///
 /// # Arguments
-/// * `file_path` - The absolute file system path to the file
-/// * `project_root` - The absolute path to the Unity project root directory
+/// * `normalized_file_path` - The normalized absolute file system path to the file
+/// * `normalized_project_root` - The normalized absolute path to the Unity project root directory
 ///
 /// # Returns
 /// * `Ok(Url)` - A project scheme URL (e.g., "project:/Assets/file.uss")
@@ -185,17 +186,17 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<Url, AssetValid
 /// let url = create_project_url(file_path, project_root).unwrap();
 /// assert_eq!(url.as_str(), "project:/Assets/UI/styles.uss");
 /// ```
-pub fn create_project_url(file_path: &std::path::Path, project_root: &std::path::Path) -> Result<Url, AssetValidationError> {
+pub fn create_project_url(normalized_file_path: &std::path::Path, normalized_project_root: &std::path::Path) -> Result<Url, AssetValidationError> {
     // Ensure both paths are absolute
-    if !file_path.is_absolute() {
+    if !normalized_file_path.is_absolute() {
         return Err(AssetValidationError::new("File path must be absolute"));
     }
-    if !project_root.is_absolute() {
+    if !normalized_project_root.is_absolute() {
         return Err(AssetValidationError::new("Project root path must be absolute"));
     }
     
     // Get the relative path from project root to file
-    let relative_path = file_path.strip_prefix(project_root)
+    let relative_path = normalized_file_path.strip_prefix(normalized_project_root)
         .map_err(|_| AssetValidationError::new("File is not within the project directory"))?;
     
     // Convert to forward slashes for URL
@@ -207,6 +208,29 @@ pub fn create_project_url(file_path: &std::path::Path, project_root: &std::path:
     // Parse and validate the URL
     Url::parse(&project_url)
         .map_err(|e| AssetValidationError::new(format!("Failed to create project URL: {}", e)))
+}
+
+/// Creates a project scheme URL from file path and project root path with automatic normalization
+///
+/// This is a convenience function that handles path normalization automatically.
+/// For better performance when dealing with multiple paths, consider normalizing paths
+/// once and using `create_project_url` directly.
+///
+/// # Arguments
+/// * `file_path` - The absolute file system path to the file
+/// * `project_root` - The absolute path to the Unity project root directory
+///
+/// # Returns
+/// * `Ok(Url)` - A project scheme URL (e.g., "project:/Assets/file.uss")
+/// * `Err(AssetValidationError)` - If the file is not within the project or paths are invalid
+pub fn create_project_url_with_normalization(file_path: &std::path::Path, project_root: &std::path::Path) -> Result<Url, AssetValidationError> {
+    // Canonicalize both paths to handle case-insensitive comparison and resolve symlinks
+    let canonical_file_path = std::fs::canonicalize(file_path)
+        .map_err(|e| AssetValidationError::new(format!("Failed to canonicalize file path: {}", e)))?;
+    let canonical_project_root = std::fs::canonicalize(project_root)
+        .map_err(|e| AssetValidationError::new(format!("Failed to canonicalize project root: {}", e)))?;
+    
+    create_project_url(&canonical_file_path, &canonical_project_root)
 }
 
 /// checks less problematic errors
@@ -369,6 +393,87 @@ mod tests {
         assert!(result.is_ok());
         let resolved = result.unwrap();
         assert_eq!(resolved.as_str(), "project:/Packages/com.example/textures/metal.jpg");
+    }
+
+    #[test]
+    fn test_create_project_url_basic() {
+        use std::path::PathBuf;
+        
+        // Test with normalized paths (no file system access required)
+        // Since create_project_url now expects normalized paths, we simulate what canonicalize would return
+        // Use platform-appropriate absolute paths
+        #[cfg(windows)]
+        let (project_root, file_path, packages_file) = {
+            let project_root = PathBuf::from("C:\\MyProject");
+            let file_path = PathBuf::from("C:\\MyProject\\Assets\\UI\\styles.uss");
+            let packages_file = PathBuf::from("C:\\MyProject\\Packages\\com.unity.ui\\Runtime\\button.png");
+            (project_root, file_path, packages_file)
+        };
+        
+        #[cfg(not(windows))]
+        let (project_root, file_path, packages_file) = {
+            let project_root = PathBuf::from("/home/user/MyProject");
+            let file_path = PathBuf::from("/home/user/MyProject/Assets/UI/styles.uss");
+            let packages_file = PathBuf::from("/home/user/MyProject/Packages/com.unity.ui/Runtime/button.png");
+            (project_root, file_path, packages_file)
+        };
+        
+        let result = create_project_url(&file_path, &project_root);
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert_eq!(url.as_str(), "project:/Assets/UI/styles.uss");
+        
+        // Test with Windows-style paths explicitly
+        let project_root_win = PathBuf::from("C:\\MyProject");
+        let file_path_win = PathBuf::from("C:\\MyProject\\Assets\\Textures\\image.png");
+        
+        let result = create_project_url(&file_path_win, &project_root_win);
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert_eq!(url.as_str(), "project:/Assets/Textures/image.png");
+        
+        // Test with Packages directory
+        let result = create_project_url(&packages_file, &project_root);
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert_eq!(url.as_str(), "project:/Packages/com.unity.ui/Runtime/button.png");
+    }
+    
+    #[test]
+    fn test_create_project_url_with_normalization() {
+        use std::path::Path;
+        use tempfile::TempDir;
+        
+        // Create a temporary directory structure for testing
+        let temp_dir = TempDir::new().unwrap();
+        let project_root = temp_dir.path();
+        
+        // Create Assets directory
+        let assets_dir = project_root.join("Assets");
+        std::fs::create_dir_all(&assets_dir).unwrap();
+        
+        // Create a test file
+        let test_file = assets_dir.join("test.uss");
+        std::fs::write(&test_file, "/* test file */").unwrap();
+        
+        // Test with exact case using the normalization function
+        let result = create_project_url_with_normalization(&test_file, project_root);
+        assert!(result.is_ok());
+        let url = result.unwrap();
+        assert_eq!(url.as_str(), "project:/Assets/test.uss");
+        
+        // On Windows, test with different case in project root path
+        #[cfg(windows)]
+        {
+            // Convert project root to different case
+            let project_root_str = project_root.to_string_lossy().to_uppercase();
+            let project_root_different_case = Path::new(&project_root_str);
+            
+            let result = create_project_url_with_normalization(&test_file, project_root_different_case);
+            assert!(result.is_ok(), "Should handle case-insensitive paths on Windows");
+            let url = result.unwrap();
+            assert_eq!(url.as_str(), "project:/Assets/test.uss");
+        }
     }
 
     #[test]

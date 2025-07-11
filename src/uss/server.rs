@@ -70,7 +70,7 @@ impl UssLanguageServer {
                     let project_root = state.unity_manager.project_path();
                     log::info!("[open_document] Project root: {:?}", project_root);
                     
-                    match asset_url::create_project_url(&file_path, &project_root) {
+                    match asset_url::create_project_url_with_normalization(&file_path, &project_root) {
                         Ok(url) => {
                             log::info!("[open_document] Successfully created project URL: {}", url);
                             Some(url)
@@ -122,7 +122,7 @@ impl UssLanguageServer {
                     let project_root = state.unity_manager.project_path();
                     log::info!("[update_document] Project root: {:?}", project_root);
                     
-                    match asset_url::create_project_url(&file_path, &project_root) {
+                    match asset_url::create_project_url_with_normalization(&file_path, &project_root) {
                         Ok(url) => {
                             log::info!("[update_document] Successfully created project URL: {}", url);
                             Some(url)
@@ -325,7 +325,7 @@ impl LanguageServer for UssLanguageServer {
                         // Convert file:// URI to project:// URI
                         if let Ok(file_path) = uri.to_file_path() {
                             let project_root = state.unity_manager.project_path();
-                            asset_url::create_project_url(&file_path, &project_root).ok()
+                            asset_url::create_project_url_with_normalization(&file_path, &project_root).ok()
                         } else {
                             None
                         }

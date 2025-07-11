@@ -200,21 +200,30 @@ pub(crate) fn get_hot_reload_name() -> &'static str {
 }
 
 pub(crate) fn normalize_path(path: &str) -> String {
-    let normalized = Path::new(path)
-        .to_string_lossy()
-        .to_lowercase()
-        .replace('\\', "/");
-    // Remove duplicate slashes
-    let mut result = String::new();
-    let mut prev_char = ' ';
-    for ch in normalized.chars() {
-        if ch == '/' && prev_char == '/' {
-            continue; // Skip duplicate slash
+    // Use canonicalize for robust path normalization
+    match std::fs::canonicalize(path) {
+        Ok(canonical_path) => {
+            canonical_path.to_string_lossy().to_string()
         }
-        result.push(ch);
-        prev_char = ch;
+        Err(_) => {
+            // Fallback to original logic if canonicalize fails
+            let normalized = Path::new(path)
+                .to_string_lossy()
+                .to_lowercase()
+                .replace('\\', "/");
+            // Remove duplicate slashes
+            let mut result = String::new();
+            let mut prev_char = ' ';
+            for ch in normalized.chars() {
+                if ch == '/' && prev_char == '/' {
+                    continue; // Skip duplicate slash
+                }
+                result.push(ch);
+                prev_char = ch;
+            }
+            result
+        }
     }
-    result
 }
 
 pub(crate) fn extract_unity_project_path(process: &sysinfo::Process) -> Option<String> {
