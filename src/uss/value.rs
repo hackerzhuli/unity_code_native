@@ -1,7 +1,7 @@
 use tree_sitter::Node;
 
 use crate::uss::definitions::UssDefinitions;
-use crate::language::asset_url::{validate_url_string};
+use crate::language::asset_url::{validate_url};
 use crate::uss::uss_utils::convert_uss_string;
 
 /// Error type for USS value parsing
@@ -309,7 +309,7 @@ impl UssValue {
                             .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
                         
                         // Validate the URL path
-                        validate_url_string(&converted_string)
+                        validate_url(&converted_string)
                             .map_err(|e| UssValueError::new(string_node, content, e.message))?;
                         
                         Ok(UssValue::Asset(node_text.to_string()))
@@ -335,7 +335,7 @@ impl UssValue {
                             .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
                         
                         // Validate the resource path
-                        validate_url_string(&converted_string)
+                        validate_url(&converted_string)
                             .map_err(|e| UssValueError::new(string_node, content, e.message))?;
                         
                         Ok(UssValue::Asset(node_text.to_string()))
