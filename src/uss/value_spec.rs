@@ -232,18 +232,21 @@ impl ValueFormat {
                 match node_kind {
                     "integer_value" | "float_value" => {
                         // Check if it has a length unit (px, %) or is unitless 0
+                        let definitions = UssDefinitions::new();
                         // First check if there's a unit child
                         if node.child_count() > 1 {
                             if let Some(unit_child) = node.child(1) {
                                 if unit_child.kind() == "unit" {
                                     let unit = unit_child.utf8_text(content.as_bytes()).unwrap_or("");
-                                    return unit == "px" || unit == "%";
+                                    return definitions.is_length_unit(unit);
                                 }
                             }
                         }
                         // If no unit child, check if the text itself contains the unit
-                        if node_text.ends_with("px") || node_text.ends_with("%") {
-                            return true;
+                        for unit in ["px", "%"] {
+                            if node_text.ends_with(unit) {
+                                return true;
+                            }
                         }
                         // Unitless number - only valid if it's 0
                         node_text == "0"
@@ -271,17 +274,23 @@ impl ValueFormat {
             }
             ValueType::Time => {
                 // Time values with s or ms units
+                let definitions = UssDefinitions::new();
                 match node_kind {
                     "integer_value" | "float_value" => {
                         if let Some(unit_child) = node.child(1) {
                             let unit = unit_child.utf8_text(content.as_bytes()).unwrap_or("");
-                            unit == "s" || unit == "ms"
+                            definitions.is_time_unit(unit)
                         } else {
                             false
                         }
                     }
                     "plain_value" => {
-                        node_text.ends_with("s") || node_text.ends_with("ms")
+                        for unit in ["s", "ms"] {
+                            if node_text.ends_with(unit) {
+                                return true;
+                            }
+                        }
+                        false
                     }
                     _ => false,
                 }
@@ -317,18 +326,23 @@ impl ValueFormat {
             }
             ValueType::Angle => {
                 // Angle values with deg, rad, grad, turn units
+                let definitions = UssDefinitions::new();
                 match node_kind {
                     "integer_value" | "float_value" => {
                         if let Some(unit_child) = node.child(1) {
                             let unit = unit_child.utf8_text(content.as_bytes()).unwrap_or("");
-                            matches!(unit, "deg" | "rad" | "grad" | "turn")
+                            definitions.is_angle_unit(unit)
                         } else {
                             false
                         }
                     }
                     "plain_value" => {
-                        node_text.ends_with("deg") || node_text.ends_with("rad") ||
-                        node_text.ends_with("grad") || node_text.ends_with("turn")
+                        for unit in ["deg", "rad", "grad", "turn"] {
+                            if node_text.ends_with(unit) {
+                                return true;
+                            }
+                        }
+                        false
                     }
                     _ => false,
                 }

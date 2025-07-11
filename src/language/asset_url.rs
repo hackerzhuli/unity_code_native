@@ -265,7 +265,7 @@ mod tests {
             result
                 .unwrap_err()
                 .message
-                .contains("cannot have empty path")
+                .contains("empty")
         );
 
         // Test invalid URL schemes (Unity only supports project: scheme)

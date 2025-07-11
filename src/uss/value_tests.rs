@@ -356,4 +356,115 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_valid_units() {
+        let mut parser = UssParser::new().expect("Failed to create USS parser");
+        
+        // Test valid length units
+        let source = ".test { width: 100px; }";
+        let tree = parser.parse(source, None).unwrap();
+        let root = tree.root_node();
+        
+        if let Some(node) = find_node_by_type(root, "integer_value") {
+            let result = UssValue::from_node(node, source);
+            assert!(result.is_ok(), "100px should be valid");
+        }
+        
+        let source = ".test { width: 50%; }";
+        let tree = parser.parse(source, None).unwrap();
+        let root = tree.root_node();
+        
+        if let Some(node) = find_node_by_type(root, "integer_value") {
+            let result = UssValue::from_node(node, source);
+            assert!(result.is_ok(), "50% should be valid");
+        }
+        
+        // Test valid angle units
+        let source = ".test { transform: rotate(45deg); }";
+        let tree = parser.parse(source, None).unwrap();
+        let root = tree.root_node();
+        
+        if let Some(node) = find_node_by_type(root, "integer_value") {
+            let result = UssValue::from_node(node, source);
+            assert!(result.is_ok(), "45deg should be valid");
+        }
+        
+        // Test valid time units
+        let source = ".test { transition-duration: 2s; }";
+        let tree = parser.parse(source, None).unwrap();
+        let root = tree.root_node();
+        
+        if let Some(node) = find_node_by_type(root, "integer_value") {
+            let result = UssValue::from_node(node, source);
+            assert!(result.is_ok(), "2s should be valid");
+        }
+        
+        let source = ".test { animation-duration: 500ms; }";
+        let tree = parser.parse(source, None).unwrap();
+        let root = tree.root_node();
+        
+        if let Some(node) = find_node_by_type(root, "integer_value") {
+            let result = UssValue::from_node(node, source);
+            assert!(result.is_ok(), "500ms should be valid");
+        }
+    }
+
+    #[test]
+    fn test_invalid_units() {
+        let mut parser = UssParser::new().expect("Failed to create USS parser");
+        
+        // Test invalid units that should be rejected
+        let invalid_units = ["em", "rem", "pt", "cm", "in", "mm", "pc", "ex", "ch", "vw", "vh", "vmin", "vmax"];
+        
+        for unit in invalid_units {
+            let source = format!(".test {{ width: 100{}; }}", unit);
+            let tree = parser.parse(&source, None).unwrap();
+            let root = tree.root_node();
+            
+            if let Some(node) = find_node_by_type(root, "integer_value") {
+                let result = UssValue::from_node(node, &source);
+                assert!(result.is_err(), "Unit {} should be invalid", unit);
+                if let Err(error) = result {
+                    assert!(error.message.contains("Invalid unit") && error.message.contains(unit), 
+                           "Error message should mention invalid unit {}: {}", unit, error.message);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_unitless_numbers() {
+        let mut parser = UssParser::new().expect("Failed to create USS parser");
+        
+        // Test unitless integers
+        let source = ".test { z-index: 42; }";
+        let tree = parser.parse(source, None).unwrap();
+        let root = tree.root_node();
+        
+        if let Some(node) = find_node_by_type(root, "integer_value") {
+            let result = UssValue::from_node(node, source);
+            assert!(result.is_ok(), "Unitless integer should be valid");
+            if let Ok(UssValue::Numeric { value, unit, has_fractional }) = result {
+                assert_eq!(value, 42.0);
+                assert_eq!(unit, None);
+                assert_eq!(has_fractional, false);
+            }
+        }
+        
+        // Test unitless floats
+        let source = ".test { opacity: 0.75; }";
+        let tree = parser.parse(source, None).unwrap();
+        let root = tree.root_node();
+        
+        if let Some(node) = find_node_by_type(root, "float_value") {
+            let result = UssValue::from_node(node, source);
+            assert!(result.is_ok(), "Unitless float should be valid");
+            if let Ok(UssValue::Numeric { value, unit, has_fractional }) = result {
+                assert_eq!(value, 0.75);
+                assert_eq!(unit, None);
+                assert_eq!(has_fractional, true);
+            }
+        }
+    }
 }

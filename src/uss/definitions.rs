@@ -8,8 +8,6 @@ use crate::uss::property_data::{create_standard_properties, create_unity_propert
 use crate::uss::value_spec::ValueSpec;
 use std::collections::{HashMap, HashSet};
 
-
-
 /// Property documentation information
 #[derive(Debug, Clone)]
 pub struct PropertyInfo {
@@ -40,6 +38,8 @@ pub struct UssDefinitions {
     pub valid_functions: HashSet<&'static str>,
     /// Valid at-rules
     pub valid_at_rules: HashSet<&'static str>,
+    /// Valid USS units
+    pub valid_units: HashSet<&'static str>,
 }
 
 impl UssDefinitions {
@@ -236,12 +236,26 @@ impl UssDefinitions {
             valid_at_rules.insert(rule);
         }
         
+        let mut valid_units = HashSet::new();
+        let units = [
+            // Length units
+            "px", "%",
+            // Angle units
+            "deg", "rad", "grad", "turn",
+            // Time units
+            "s", "ms",
+        ];
+        for unit in units {
+            valid_units.insert(unit);
+        }
+        
         Self {
             properties,
             valid_pseudo_classes,
             valid_color_keywords,
             valid_functions,
             valid_at_rules,
+            valid_units,
         }
     }
     
@@ -284,6 +298,44 @@ impl UssDefinitions {
     /// Check if an at-rule is valid
     pub fn is_valid_at_rule(&self, at_rule: &str) -> bool {
         self.valid_at_rules.contains(at_rule)
+    }
+    
+    /// Check if a unit is valid
+    pub fn is_valid_unit(&self, unit: &str) -> bool {
+        self.valid_units.contains(unit)
+    }
+    
+    /// Check if a unit is a length unit
+    pub fn is_length_unit(&self, unit: &str) -> bool {
+        matches!(unit, "px" | "%")
+    }
+    
+    /// Check if a unit is an angle unit
+    pub fn is_angle_unit(&self, unit: &str) -> bool {
+        matches!(unit, "deg" | "rad" | "grad" | "turn")
+    }
+    
+    /// Check if a unit is a time unit
+    pub fn is_time_unit(&self, unit: &str) -> bool {
+        matches!(unit, "s" | "ms")
+    }
+    
+    /// Get all valid units
+    pub fn get_all_units(&self) -> Vec<&str> {
+        self.valid_units.iter().copied().collect()
+    }
+    
+    /// Get units by category
+    pub fn get_length_units(&self) -> Vec<&str> {
+        vec!["px", "%"]
+    }
+    
+    pub fn get_angle_units(&self) -> Vec<&str> {
+        vec!["deg", "rad", "grad", "turn"]
+    }
+    
+    pub fn get_time_units(&self) -> Vec<&str> {
+        vec!["s", "ms"]
     }
     
     /// Get valid keyword values for a specific property
@@ -417,5 +469,61 @@ mod tests {
         assert!(all_props.contains(&"border-radius"));
         assert!(all_props.contains(&"-unity-font"));
         assert!(all_props.len() > 50); // Should have many properties
+    }
+    
+    #[test]
+    fn test_unit_validation() {
+        let definitions = UssDefinitions::new();
+        
+        // Test valid units
+        assert!(definitions.is_valid_unit("px"));
+        assert!(definitions.is_valid_unit("%"));
+        assert!(definitions.is_valid_unit("deg"));
+        assert!(definitions.is_valid_unit("rad"));
+        assert!(definitions.is_valid_unit("grad"));
+        assert!(definitions.is_valid_unit("turn"));
+        assert!(definitions.is_valid_unit("s"));
+        assert!(definitions.is_valid_unit("ms"));
+        
+        // Test invalid units
+        assert!(!definitions.is_valid_unit("em"));
+        assert!(!definitions.is_valid_unit("rem"));
+        assert!(!definitions.is_valid_unit("vh"));
+        assert!(!definitions.is_valid_unit("vw"));
+        assert!(!definitions.is_valid_unit("pt"));
+        assert!(!definitions.is_valid_unit("cm"));
+        assert!(!definitions.is_valid_unit("invalid"));
+        
+        // Test unit categories
+        assert!(definitions.is_length_unit("px"));
+        assert!(definitions.is_length_unit("%"));
+        assert!(!definitions.is_length_unit("deg"));
+        
+        assert!(definitions.is_angle_unit("deg"));
+        assert!(definitions.is_angle_unit("rad"));
+        assert!(definitions.is_angle_unit("grad"));
+        assert!(definitions.is_angle_unit("turn"));
+        assert!(!definitions.is_angle_unit("px"));
+        
+        assert!(definitions.is_time_unit("s"));
+        assert!(definitions.is_time_unit("ms"));
+        assert!(!definitions.is_time_unit("px"));
+        
+        // Test getting units by category
+        let length_units = definitions.get_length_units();
+        assert_eq!(length_units, vec!["px", "%"]);
+        
+        let angle_units = definitions.get_angle_units();
+        assert_eq!(angle_units, vec!["deg", "rad", "grad", "turn"]);
+        
+        let time_units = definitions.get_time_units();
+        assert_eq!(time_units, vec!["s", "ms"]);
+        
+        // Test getting all units
+        let all_units = definitions.get_all_units();
+        assert!(all_units.contains(&"px"));
+        assert!(all_units.contains(&"deg"));
+        assert!(all_units.contains(&"s"));
+        assert_eq!(all_units.len(), 8); // Should have exactly 8 units
     }
 }

@@ -1,8 +1,8 @@
 use tree_sitter::Node;
 
-use crate::uss::definitions::UssDefinitions;
 use crate::language::asset_url::{validate_url};
 use crate::uss::uss_utils::convert_uss_string;
+use crate::uss::definitions::UssDefinitions;
 
 /// Error type for USS value parsing
 #[derive(Debug, Clone, PartialEq)]
@@ -223,6 +223,14 @@ impl UssValue {
                 // Parse the numeric value
                 let value = value_text.parse::<f64>()
                     .map_err(|_| UssValueError::new(node, content, format!("Cannot parse '{}' as numeric value", value_text)))?;
+                
+                // Validate unit if present
+                if let Some(unit_str) = &unit {
+                    let definitions = UssDefinitions::new();
+                    if !definitions.is_valid_unit(unit_str) {
+                        return Err(UssValueError::new(node, content, format!("Invalid unit '{}'. Valid units are: px, %, deg, rad, grad, turn, s, ms", unit_str)));
+                    }
+                }
                 
                 Ok(UssValue::Numeric { value, unit, has_fractional })
             }
