@@ -151,10 +151,11 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<AssetValidation
                     )));
                 }
 
-                // make sure url doesn't have anything like authority because it is not supported
-                if parsed_url.authority().len() > 0 {
-                    return Err(AssetValidationError::new(format!("URL should not have authority: {}", parsed_url.authority())));
-                }
+                // actually Unity does support authority field, that is totally valid
+                // but it is just ignored
+                // if parsed_url.authority().len() > 0 {
+                //     return Err(AssetValidationError::new(format!("URL should not have authority: {}", parsed_url.authority())));
+                // }
 
                 // path must be absolute
                 if !path.starts_with("/") {
