@@ -3,14 +3,16 @@
 //! Provides Language Server Protocol features for USS files using tower-lsp.
 
 use std::sync::{Arc, Mutex};
+use std::path::Path;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use url::Url;
 
+use crate::language::document::DocumentVersion;
 use crate::uss::document_manager::UssDocumentManager;
 use crate::uss::highlighting::UssHighlighter;
-use crate::uss::diagnostics::UssDiagnostics;
+use crate::uss::diagnostics::{UssDiagnostics, UrlReference};
 use crate::uss::hover::UssHoverProvider;
 use crate::uss::color_provider::UssColorProvider;
 use crate::unity_project_manager::UnityProjectManager;
@@ -56,23 +58,14 @@ impl UssLanguageServer {
     
     /// Open and parse a new document
     async fn open_document(&self, uri: &Url, content: &str, version: i32) {
-        log::info!("[open_document] Starting to open document: {}", uri);
-        
         if let Ok(mut state) = self.state.lock() {
             state.document_manager.open_document(uri.clone(), content.to_string(), version);
-            log::info!("[open_document] Document opened in manager");
-            
             // Extract variables with proper source URL for relative URL resolution
             let project_url = if uri.scheme() == "file" {
-                log::info!("[open_document] URI scheme is 'file', attempting to convert to project URL");
                 if let Ok(file_path) = uri.to_file_path() {
-                    log::info!("[open_document] File path extracted: {:?}", file_path);
                     let project_root = state.unity_manager.project_path();
-                    log::info!("[open_document] Project root: {:?}", project_root);
-                    
                     match asset_url::create_project_url_with_normalization(&file_path, &project_root) {
                         Ok(url) => {
-                            log::info!("[open_document] Successfully created project URL: {}", url);
                             Some(url)
                         }
                         Err(e) => {
@@ -85,46 +78,32 @@ impl UssLanguageServer {
                     None
                 }
             } else {
-                log::info!("[open_document] URI scheme is '{}', using URI directly as project URL", uri.scheme());
+                
                 Some(uri.clone())
             };
             
-            log::info!("[open_document] Final project_url for variable extraction: {:?}", project_url);
-            
             if let Some(document) = state.document_manager.get_document_mut(uri) {
-                log::info!("[open_document] Document found, extracting variables with source URL");
+                
                 document.extract_variables_with_source_url(project_url.as_ref());
-                log::info!("[open_document] Variable extraction completed");
+                
             } else {
                 log::warn!("[open_document] Document not found in manager after opening");
             }
         } else {
             log::error!("[open_document] Failed to acquire state lock");
         }
-        
-        log::info!("[open_document] Completed opening document: {}", uri);
     }
     
     /// Update a document with incremental changes
     async fn update_document(&self, uri: &Url, changes: Vec<TextDocumentContentChangeEvent>, version: i32) {
-        log::info!("[update_document] Starting to update document: {}", uri);
-        log::info!("[update_document] Number of changes: {}, version: {}", changes.len(), version);
-        
         if let Ok(mut state) = self.state.lock() {
             state.document_manager.update_document(uri, changes, version);
-            log::info!("[update_document] Document updated in manager");
-            
             // Re-extract variables with proper source URL after changes
             let project_url = if uri.scheme() == "file" {
-                log::info!("[update_document] URI scheme is 'file', attempting to convert to project URL");
                 if let Ok(file_path) = uri.to_file_path() {
-                    log::info!("[update_document] File path extracted: {:?}", file_path);
                     let project_root = state.unity_manager.project_path();
-                    log::info!("[update_document] Project root: {:?}", project_root);
-                    
                     match asset_url::create_project_url_with_normalization(&file_path, &project_root) {
                         Ok(url) => {
-                            log::info!("[update_document] Successfully created project URL: {}", url);
                             Some(url)
                         }
                         Err(e) => {
@@ -137,24 +116,17 @@ impl UssLanguageServer {
                     None
                 }
             } else {
-                log::info!("[update_document] URI scheme is '{}', using URI directly as project URL", uri.scheme());
                 Some(uri.clone())
             };
-            
-            log::info!("[update_document] Final project_url for variable extraction: {:?}", project_url);
-            
+
             if let Some(document) = state.document_manager.get_document_mut(uri) {
-                log::info!("[update_document] Document found, re-extracting variables with source URL");
                 document.extract_variables_with_source_url(project_url.as_ref());
-                log::info!("[update_document] Variable re-extraction completed");
             } else {
                 log::warn!("[update_document] Document not found in manager after update");
             }
         } else {
             log::error!("[update_document] Failed to acquire state lock");
         }
-        
-        log::info!("[update_document] Completed updating document: {}", uri);
     }
     
     /// Generate semantic tokens for syntax highlighting
@@ -165,6 +137,71 @@ impl UssLanguageServer {
         let content = document.content();
         
         Some(state.highlighter.generate_tokens(tree, content))
+    }
+    
+    /// Spawn an asynchronous task to validate asset references
+    fn spawn_asset_validation_task(
+        &self,
+        url_references: Vec<UrlReference>,
+        uri: Url,
+        current_version: DocumentVersion,
+        project_root: std::path::PathBuf,
+    ) {
+        let client = self.client.clone();
+        let state = self.state.clone();
+        
+        tokio::spawn(async move {
+            let mut asset_diagnostics = Vec::new();
+            
+            // Check each URL reference for asset existence
+            for url_ref in url_references {
+                if let Ok(asset_path) = url_ref.url.to_file_path() {
+                    // Convert project:// URL to actual file path
+                    let full_path = if url_ref.url.scheme() == "project" {
+                        project_root.join(asset_path.strip_prefix("/").unwrap_or(&asset_path))
+                    } else {
+                        // we only have project scheme, nothing else is expected
+                        continue;
+                    };
+                    
+                    // Check if the asset file exists
+                    if !full_path.exists() {
+                        asset_diagnostics.push(Diagnostic {
+                            range: url_ref.range,
+                            severity: Some(DiagnosticSeverity::WARNING),
+                            code: Some(NumberOrString::String("asset-not-found".to_string())),
+                            source: Some("uss".to_string()),
+                            message: format!("Asset doesn't exist on path: {}", asset_path.to_string_lossy()),
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
+            
+            let mut is_open = false;
+
+            // Only push diagnostics if document version hasn't changed
+            if !asset_diagnostics.is_empty() {
+                let should_publish = {
+                    if let Ok(state) = state.lock() {
+                        if let Some(document) = state.document_manager.get_document(&uri) {
+                            is_open = document.is_open;
+                            // Check if document version is still the same
+                            document.document_version() == current_version
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                };
+                
+                if should_publish {
+                    // Publish the asset diagnostics
+                    let _ = client.publish_diagnostics(uri, asset_diagnostics, if is_open { Some(current_version.minor) } else { None }).await;
+                }
+            }
+        });
     }
 }
 
@@ -297,16 +334,16 @@ impl LanguageServer for UssLanguageServer {
     ) -> Result<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri;
         
-        let diagnostics = if let Ok(state) = self.state.lock() {
+        let (diagnostics, url_references, current_version, project_root) = if let Ok(state) = self.state.lock() {
             // Generate diagnostics immediately
-            let (tree_clone, content) = if let Some(document) = state.document_manager.get_document(&uri) {
+            let (tree_clone, content, doc_version) = if let Some(document) = state.document_manager.get_document(&uri) {
                 if let Some(tree) = document.tree() {
-                    (Some(tree.clone()), document.content().to_string())
+                    (Some(tree.clone()), document.content().to_string(), document.document_version())
                 } else {
-                    (None, String::new())
+                    (None, String::new(), document.document_version())
                 }
             } else {
-                (None, String::new())
+                (None, String::new(), crate::language::document::DocumentVersion { major: 0, minor: 0 })
             };
             
             if let Some(tree) = tree_clone {
@@ -331,14 +368,19 @@ impl LanguageServer for UssLanguageServer {
                     None
                 };
                 
-                let (diagnostics, _url_references) = state.diagnostics.analyze_with_variables(&tree, &content, project_url.as_ref(), variable_resolver);
-                diagnostics
+                let (diagnostics, url_references) = state.diagnostics.analyze_with_variables(&tree, &content, project_url.as_ref(), variable_resolver);
+                (diagnostics, url_references, doc_version, state.unity_manager.project_path().clone())
             } else {
-                Vec::new()
+                (Vec::new(), Vec::new(), doc_version, state.unity_manager.project_path().clone())
             }
         } else {
-            Vec::new()
+            (Vec::new(), Vec::new(), crate::language::document::DocumentVersion { major: 0, minor: 0 }, std::path::PathBuf::new())
         };
+        
+        // Spawn async task for asset checking if there are URL references
+        if !url_references.is_empty() {
+            self.spawn_asset_validation_task(url_references, uri.clone(), current_version, project_root);
+        }
         
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(
