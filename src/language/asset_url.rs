@@ -16,28 +16,12 @@ use url::{SyntaxViolation, Url};
 #[derive(Debug, Clone, PartialEq)]
 pub struct AssetValidationError {
     pub message: String,
-    pub severity: DiagnosticSeverity,
 }
 
 impl AssetValidationError {
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
-            severity: DiagnosticSeverity::ERROR,
-        }
-    }
-
-    pub fn new_with_severity(message: impl Into<String>, severity: DiagnosticSeverity) -> Self {
-        Self {
-            message: message.into(),
-            severity,
-        }
-    }
-
-    pub fn warning(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-            severity: DiagnosticSeverity::WARNING,
         }
     }
 }
@@ -49,6 +33,50 @@ impl std::fmt::Display for AssetValidationError {
 }
 
 impl std::error::Error for AssetValidationError {}
+
+/// Warning type for asset string validation
+#[derive(Debug, Clone, PartialEq)]
+pub struct AssetValidationWarning {
+    pub message: String,
+}
+
+impl AssetValidationWarning {
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+        }
+    }
+}
+
+/// Result type for asset URL validation that includes the parsed URL and optional warnings
+#[derive(Debug, Clone, PartialEq)]
+pub struct AssetValidationResult {
+    pub url: Url,
+    pub warnings: Vec<AssetValidationWarning>,
+}
+
+impl AssetValidationResult {
+    pub fn new(url: Url) -> Self {
+        Self {
+            url,
+            warnings: Vec::new(),
+        }
+    }
+
+    pub fn with_warning(url: Url, warning: AssetValidationWarning) -> Self {
+        Self {
+            url,
+            warnings: vec![warning],
+        }
+    }
+
+    pub fn with_warnings(url: Url, warnings: Vec<AssetValidationWarning>) -> Self {
+        Self {
+            url,
+            warnings,
+        }
+    }
+}
 
 /// Validates a Unity USS `url()` or `resource()` argument or UXML's asset path
 ///
@@ -62,7 +90,7 @@ impl std::error::Error for AssetValidationError {}
 /// * `base_url` - The base URL to resolve relative paths against (optional), if not provided and url_path is relative, this will result in a path that is valid but does not really exist
 ///
 /// # Returns
-/// * `Ok(Url)` - If the URL path is valid for Unity USS
+/// * `Ok(AssetValidationResult)` - If the URL path is valid for Unity USS, with optional warnings
 /// * `Err(AssetValidationError)` - If the URL path is invalid
 ///
 /// # Examples
@@ -91,7 +119,7 @@ impl std::error::Error for AssetValidationError {}
 /// // Invalid - non-project scheme
 /// assert!(validate_url("https://example.com/image.png", None).is_err());
 /// ```
-pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<Url, AssetValidationError> {
+pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<AssetValidationResult, AssetValidationError> {
     // Check if the URL path is empty
     if url.is_empty() {
         return Err(AssetValidationError::new("URL cannot be empty"));
@@ -115,9 +143,15 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<Url, AssetValid
 
     match parse_result {
         Ok(parsed_url) => {
-            // we need to be more strict here, and find errors if it parsed ok
-            if let Some(value) = additional_error(url, &effective_base) {
-                return Err(value);
+            // Check for additional issues that might be errors or warnings
+            let mut warnings = Vec::new();
+            
+            // Check for errors first
+            if let Some(additional_result) = additional_error(url, &effective_base) {
+                match additional_result {
+                    AdditionalValidationResult::Error(err) => return Err(err),
+                    AdditionalValidationResult::Warning(warn) => warnings.push(warn),
+                }
             }
 
             // Successfully parsed as URL - validate scheme
@@ -146,7 +180,7 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<Url, AssetValid
                     return Err(AssetValidationError::new(format!("Asset path should start with `/Assets/` or `/Packages/` :`{}`, this is likely an error", path)));
                 }
 
-                Ok(parsed_url)
+                Ok(AssetValidationResult::with_warnings(parsed_url, warnings))
             } else {
                 Err(AssetValidationError::new(format!(
                     "Invalid URL scheme '{}' - Unity only supports `project` scheme",
@@ -233,8 +267,15 @@ pub fn create_project_url_with_normalization(file_path: &std::path::Path, projec
     create_project_url(&canonical_file_path, &canonical_project_root)
 }
 
+/// Result type for additional validation that can be either an error or warning
+#[derive(Debug, Clone, PartialEq)]
+enum AdditionalValidationResult {
+    Error(AssetValidationError),
+    Warning(AssetValidationWarning),
+}
+
 /// checks less problematic errors
-fn additional_error(url_path: &str, base_url: &Url) -> Option<AssetValidationError> {
+fn additional_error(url_path: &str, base_url: &Url) -> Option<AdditionalValidationResult> {
     let mut violations = RefCell::new(Vec::new());
     let parsed
         = Url::options()
@@ -252,13 +293,13 @@ fn additional_error(url_path: &str, base_url: &Url) -> Option<AssetValidationErr
     if !violations.get_mut().is_empty() {
         match violations.get_mut()[0] {
             SyntaxViolation::Backslash => {
-                return Some(AssetValidationError::new("Invalid character: backslash"));
+                return Some(AdditionalValidationResult::Error(AssetValidationError::new("Invalid character: backslash")));
             }
             SyntaxViolation::C0SpaceIgnored => {
                 // ignore
             },
             SyntaxViolation::EmbeddedCredentials => {
-                return Some(AssetValidationError::new("embedding authentication information (username or password) in an URL is not valid"));
+                return Some(AdditionalValidationResult::Error(AssetValidationError::new("embedding authentication information (username or password) in an URL is not valid")));
             },
             SyntaxViolation::ExpectedDoubleSlash => {
                 // double slash is not actually expected by Unity
@@ -272,20 +313,20 @@ fn additional_error(url_path: &str, base_url: &Url) -> Option<AssetValidationErr
             },
             SyntaxViolation::NonUrlCodePoint => {
                 let message = "there are characters that are not valid in URLs. You may be using space or other reserved characters in URL, consider use percent encoding instead.".to_string();
-                return Some(AssetValidationError::warning(message));
+                return Some(AdditionalValidationResult::Warning(AssetValidationWarning::new(message)));
             },
             SyntaxViolation::NullInFragment => {
-                return Some(AssetValidationError::new("NULL characters are ignored in URL fragment identifiers"));
+                return Some(AdditionalValidationResult::Error(AssetValidationError::new("NULL characters are ignored in URL fragment identifiers")));
             },
             SyntaxViolation::PercentDecode => {
-                return Some(AssetValidationError::new("expected 2 hex digits after %"));
+                return Some(AdditionalValidationResult::Error(AssetValidationError::new("expected 2 hex digits after %")));
             },
             SyntaxViolation::TabOrNewlineIgnored => {
                 // this, Unity will handle them not correctly, so report an error, it is not actually ignored
-                return Some(AssetValidationError::new("tabs or newlines are ignored in URLs"));
+                return Some(AdditionalValidationResult::Error(AssetValidationError::new("tabs or newlines are ignored in URLs")));
             },
             SyntaxViolation::UnencodedAtSign => {
-                return Some(AssetValidationError::new("unencoded @ sign in username or password"));
+                return Some(AdditionalValidationResult::Error(AssetValidationError::new("unencoded @ sign in username or password")));
             },
             a => {
                 // don't know error, so no error
@@ -332,7 +373,12 @@ mod tests {
         assert!(validate_url("simple-filename.png", None).is_ok());
         assert!(validate_url("folder/subfolder/deep-file.svg", None).is_ok());
 
-        assert!(validate_url("my image.png", None).is_err());
+        // Test that spaces generate warnings but still succeed
+        let result = validate_url("my image.png", None);
+        assert!(result.is_ok());
+        let validation_result = result.unwrap();
+        assert!(!validation_result.warnings.is_empty());
+        assert!(validation_result.warnings[0].message.contains("characters that are not valid in URLs"));
     }
 
     #[test]
@@ -344,37 +390,37 @@ mod tests {
         let result = validate_url("../Images/button.png", Some(&base_url));
         assert!(result.is_ok());
         let resolved = result.unwrap();
-        assert_eq!(resolved.as_str(), "project:/Assets/UI/Images/button.png");
+        assert_eq!(resolved.url.as_str(), "project:/Assets/UI/Images/button.png");
         
         // Test current directory relative path
         let result = validate_url("./icons/star.svg", Some(&base_url));
         assert!(result.is_ok());
         let resolved = result.unwrap();
-        assert_eq!(resolved.as_str(), "project:/Assets/UI/Styles/icons/star.svg");
+        assert_eq!(resolved.url.as_str(), "project:/Assets/UI/Styles/icons/star.svg");
         
         // Test simple filename relative path
         let result = validate_url("background.jpg", Some(&base_url));
         assert!(result.is_ok());
         let resolved = result.unwrap();
-        assert_eq!(resolved.as_str(), "project:/Assets/UI/Styles/background.jpg");
+        assert_eq!(resolved.url.as_str(), "project:/Assets/UI/Styles/background.jpg");
         
         // Test parent directory navigation
         let result = validate_url("../../Textures/wood.png", Some(&base_url));
         assert!(result.is_ok());
         let resolved = result.unwrap();
-        assert_eq!(resolved.as_str(), "project:/Assets/Textures/wood.png");
+        assert_eq!(resolved.url.as_str(), "project:/Assets/Textures/wood.png");
         
         // Test absolute paths (should ignore base URL)
         let result = validate_url("/Assets/Global/theme.png", Some(&base_url));
         assert!(result.is_ok());
         let resolved = result.unwrap();
-        assert_eq!(resolved.as_str(), "project:/Assets/Global/theme.png");
+        assert_eq!(resolved.url.as_str(), "project:/Assets/Global/theme.png");
         
         // Test project scheme URLs (should ignore base URL)
         let result = validate_url("project:/Packages/com.unity.ui/icon.png", Some(&base_url));
         assert!(result.is_ok());
         let resolved = result.unwrap();
-        assert_eq!(resolved.as_str(), "project:/Packages/com.unity.ui/icon.png");
+        assert_eq!(resolved.url.as_str(), "project:/Packages/com.unity.ui/icon.png");
     }
 
     #[test]
@@ -386,13 +432,13 @@ mod tests {
         let result = validate_url("../../../Images/icons/close.svg", Some(&base_url));
         assert!(result.is_ok());
         let resolved = result.unwrap();
-        assert_eq!(resolved.as_str(), "project:/Assets/UI/Images/icons/close.svg");
+        assert_eq!(resolved.url.as_str(), "project:/Assets/UI/Images/icons/close.svg");
         
         // Test navigation to project root and back
         let result = validate_url("../../../../../Packages/com.example/textures/metal.jpg", Some(&base_url));
         assert!(result.is_ok());
         let resolved = result.unwrap();
-        assert_eq!(resolved.as_str(), "project:/Packages/com.example/textures/metal.jpg");
+        assert_eq!(resolved.url.as_str(), "project:/Packages/com.example/textures/metal.jpg");
     }
 
     #[test]

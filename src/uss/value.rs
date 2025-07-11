@@ -352,10 +352,10 @@ impl UssValue {
                             .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
                         
                         // Validate and parse the URL
-                        let url = validate_url(&converted_string, source_url)
-                            .map_err(|e| UssValueError::new_with_severity(string_node, content, e.message, e.severity))?;
+                        let result = validate_url(&converted_string, source_url)
+                            .map_err(|e| UssValueError::new(string_node, content, e.message))?;
 
-                        Ok(UssValue::Url(url))
+                        Ok(UssValue::Url(result.url))
                     }
                     "resource" => {
                         // Validate that resource function has exactly one string argument
@@ -380,10 +380,10 @@ impl UssValue {
                         // For resource functions, we use a fixed base URL since Unity's resource system
                         // doesn't resolve relative paths in the same way as regular URLs
                         let resource_base = Url::parse("project:///Assets/Resources/").ok();
-                        let url = validate_url(&converted_string, resource_base.as_ref())
-                            .map_err(|e| UssValueError::new_with_severity(string_node, content, e.message, e.severity))?;
+                        let result = validate_url(&converted_string, resource_base.as_ref())
+                            .map_err(|e| UssValueError::new(string_node, content, e.message))?;
 
-                        Ok(UssValue::Resource(url))
+                        Ok(UssValue::Resource(result.url))
                     }
                     "rgb" => {
                         let args = Self::parse_color_function_args(node, content)?;
