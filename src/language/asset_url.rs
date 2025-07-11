@@ -49,6 +49,8 @@ impl std::error::Error for AssetValidationError {}
 ///
 /// # Examples
 /// ```
+/// use unity_code_native::language::asset_url::validate_url;
+/// 
 /// // Valid project scheme URLs
 /// assert!(validate_url("project:/Assets/image.png").is_ok());
 /// assert!(validate_url("project:///Assets/image.png").is_ok());

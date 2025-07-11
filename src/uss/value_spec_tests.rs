@@ -68,15 +68,15 @@ fn test_color_format() {
     let definitions = UssDefinitions::new();
     
     // Valid hex color
-    let values = vec![UssValue::Color("#ff0000".to_string())];
+    let values = vec![UssValue::Color(255, 0, 0, 1.0)];
     assert!(color_format.is_match(&values, &definitions));
     
     // Valid named color
-    let values = vec![UssValue::Color("red".to_string())];
+    let values = vec![UssValue::Color(255, 0, 0, 1.0)];
     assert!(color_format.is_match(&values, &definitions));
     
     // Valid rgb function
-    let values = vec![UssValue::Color("rgb(255, 0, 0)".to_string())];
+    let values = vec![UssValue::Color(255, 0, 0, 1.0)];
     assert!(color_format.is_match(&values, &definitions));
     
     // Invalid - not a color
@@ -201,11 +201,11 @@ fn test_asset_format() {
     let definitions = UssDefinitions::new();
     
     // Valid asset URL
-    let values = vec![UssValue::Asset("url(\"path/to/image.png\")".to_string())];
+    let values = vec![UssValue::Url(url::Url::parse("file:///path/to/image.png").unwrap())];
     assert!(asset_format.is_match(&values, &definitions));
     
     // Valid resource
-    let values = vec![UssValue::Asset("resource(\"MyTexture\")".to_string())];
+    let values = vec![UssValue::Resource(url::Url::parse("resource://MyTexture").unwrap())];
     assert!(asset_format.is_match(&values, &definitions));
     
     // Invalid - not an asset

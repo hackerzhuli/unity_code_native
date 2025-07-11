@@ -1,8 +1,11 @@
 use tree_sitter::Node;
+use url::Url;
 
 use crate::language::asset_url::{validate_url};
 use crate::uss::uss_utils::convert_uss_string;
 use crate::uss::definitions::UssDefinitions;
+
+
 
 /// Error type for USS value parsing
 #[derive(Debug, Clone, PartialEq)]
@@ -37,14 +40,16 @@ impl UssValueError {
 pub enum UssValue {
     /// Numeric values (numbers, lengths, angles, times) with optional unit and fractional indicator
     Numeric { value: f64, unit: Option<String>, has_fractional: bool },
-    /// String literals
+    /// String literals, content is value of the string
     String(String),
-    /// Color values (hex, named colors, rgb functions), kept as is
-    Color(String),
+    /// Color value, in rgba format, note that USS doesn't support color functions like hls
+    Color(i32, i32, i32, f32),
     /// Keyword values or property names, content is the identifier
     Identifier(String),
-    /// Asset references (url(), resource()) , content is the original function kept as is
-    Asset(String),
+    /// a url asset reference, from url(), content is the actual parsed url
+    Url(Url),
+    /// a resource asset reference, from resource(), content is the actual parsed url
+    Resource(Url),
     /// Variable references (var(--variable-name)), content is the name of variable with -- removed
     VariableReference(String),
 }
@@ -60,10 +65,17 @@ impl UssValue {
                     value.to_string()
                 }
             }
-            UssValue::String(s) => s.clone(),
-            UssValue::Color(c) => c.clone(),
+            UssValue::String(s) => format!("\"{}\"", s),
+            UssValue::Color(r, g, b, a) => {
+                if *a == 1.0 {
+                    format!("rgb({}, {}, {})", r, g, b)
+                } else {
+                    format!("rgba({}, {}, {}, {})", r, g, b, a)
+                }
+            }
             UssValue::Identifier(k) => k.clone(),
-            UssValue::Asset(a) => a.clone(),
+            UssValue::Url(url) => format!("url(\"{}\")", url.as_str()),
+            UssValue::Resource(url) => format!("resource(\"{}\")", url.as_str()),
             UssValue::VariableReference(var_name) => format!("var(--{})", var_name),
         }
     }
@@ -247,7 +259,21 @@ impl UssValue {
                 Ok(UssValue::String(converted_string))
             }
             "color_value" => {
-                Ok(UssValue::Color(node_text.to_string()))
+                // Parse hex color value like #ff0000 to RGBA components
+                if node_text.starts_with('#') && node_text.len() == 7 {
+                    let hex = &node_text[1..];
+                    if let (Ok(r), Ok(g), Ok(b)) = (
+                        i32::from_str_radix(&hex[0..2], 16),
+                        i32::from_str_radix(&hex[2..4], 16),
+                        i32::from_str_radix(&hex[4..6], 16)
+                    ) {
+                        Ok(UssValue::Color(r, g, b, 1.0))
+                    } else {
+                        Err(UssValueError::new(node, content, format!("Invalid hex color format: {}", node_text)))
+                    }
+                } else {
+                    Err(UssValueError::new(node, content, format!("Unsupported color format: {}", node_text)))
+                }
             }
             "call_expression" => {
                 // Handle function calls like url(), rgb(), var(), etc.
@@ -316,11 +342,11 @@ impl UssValue {
                         let converted_string = convert_uss_string(string_text)
                             .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
                         
-                        // Validate the URL path
-                        validate_url(&converted_string)
+                        // Validate and parse the URL
+                        let url = validate_url(&converted_string)
                             .map_err(|e| UssValueError::new(string_node, content, e.message))?;
                         
-                        Ok(UssValue::Asset(node_text.to_string()))
+                        Ok(UssValue::Url(url))
                     }
                     "resource" => {
                         // Validate that resource function has exactly one string argument
@@ -342,11 +368,11 @@ impl UssValue {
                         let converted_string = convert_uss_string(string_text)
                             .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
                         
-                        // Validate the resource path
-                        validate_url(&converted_string)
+                        // Validate and parse the resource URL
+                        let url = validate_url(&converted_string)
                             .map_err(|e| UssValueError::new(string_node, content, e.message))?;
                         
-                        Ok(UssValue::Asset(node_text.to_string()))
+                        Ok(UssValue::Resource(url))
                     }
                     "rgb" => {
                         let args = Self::parse_color_function_args(node, content)?;
@@ -359,24 +385,9 @@ impl UssValue {
                                 return Err(UssValueError::new(node, content, format!("rgb() argument {} value {} is out of range (0-255)", i + 1, value)));
                             }
                         }
-                        Ok(UssValue::Color(node_text.to_string()))
+                        Ok(UssValue::Color(args[0] as i32, args[1] as i32, args[2] as i32, 1.0))
                     }
-                    "hsl" => {
-                        let args = Self::parse_color_function_args(node, content)?;
-                        if args.len() != 3 {
-                            return Err(UssValueError::new(node, content, format!("hsl() function expects 3 arguments, found {}", args.len())));
-                        }
-                        // Validate HSL ranges: hue (0-360), saturation/lightness (0-100)
-                        if args[0] < 0.0 || args[0] > 360.0 {
-                            return Err(UssValueError::new(node, content, format!("hsl() hue value {} is out of range (0-360)", args[0])));
-                        }
-                        for i in 1..3 {
-                            if args[i] < 0.0 || args[i] > 100.0 {
-                                return Err(UssValueError::new(node, content, format!("hsl() saturation/lightness value {} is out of range (0-100)", args[i])));
-                            }
-                        }
-                        Ok(UssValue::Color(node_text.to_string()))
-                    }
+
                     "rgba" => {
                         let args = Self::parse_color_function_args(node, content)?;
                         if args.len() != 4 {
@@ -391,27 +402,9 @@ impl UssValue {
                         if args[3] < 0.0 || args[3] > 1.0 {
                             return Err(UssValueError::new(node, content, format!("rgba() alpha value {} is out of range (0-1)", args[3])));
                         }
-                        Ok(UssValue::Color(node_text.to_string()))
+                        Ok(UssValue::Color(args[0] as i32, args[1] as i32, args[2] as i32, args[3]))
                     }
-                    "hsla" => {
-                        let args = Self::parse_color_function_args(node, content)?;
-                        if args.len() != 4 {
-                            return Err(UssValueError::new(node, content, format!("hsla() function expects 4 arguments, found {}", args.len())));
-                        }
-                        // Validate HSLA ranges: hue (0-360), saturation/lightness (0-100), alpha (0-1)
-                        if args[0] < 0.0 || args[0] > 360.0 {
-                            return Err(UssValueError::new(node, content, format!("hsla() hue value {} is out of range (0-360)", args[0])));
-                        }
-                        for i in 1..3 {
-                            if args[i] < 0.0 || args[i] > 100.0 {
-                                return Err(UssValueError::new(node, content, format!("hsla() saturation/lightness value {} is out of range (0-100)", args[i])));
-                            }
-                        }
-                        if args[3] < 0.0 || args[3] > 1.0 {
-                            return Err(UssValueError::new(node, content, format!("hsla() alpha value {} is out of range (0-1)", args[3])));
-                        }
-                        Ok(UssValue::Color(node_text.to_string()))
-                    }
+
                     _ => {
                         // Unknown function
                         Err(UssValueError::new(node, content, format!("Unknown function '{}'", function_name_text)))

@@ -190,7 +190,7 @@ impl ValueFormat {
                  }
              },
             UssValue::String(_) => matches!(value_type, ValueType::String),
-            UssValue::Color(_) => matches!(value_type, ValueType::Color),
+            UssValue::Color(_, _, _, _) => matches!(value_type, ValueType::Color),
             UssValue::Identifier(keyword) => {
                 match value_type {
                     ValueType::Keyword(expected) => keyword == expected,
@@ -199,7 +199,8 @@ impl ValueFormat {
                     _ => false,
                 }
             },
-            UssValue::Asset(_) => matches!(value_type, ValueType::Asset),
+            UssValue::Url(_) => matches!(value_type, ValueType::Asset),
+            UssValue::Resource(_) => matches!(value_type, ValueType::Asset),
             // PropertyName is handled as Identifier
             // UssValue::PropertyName doesn't exist - property names use Identifier
             UssValue::VariableReference(_) => true, // Variables can match any type

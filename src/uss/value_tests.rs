@@ -117,8 +117,11 @@ mod tests {
         if let Some(node) = find_node_by_type(root, "color_value") {
              let result = UssValue::from_node(node, source);
              assert!(result.is_ok());
-             if let Ok(UssValue::Color(color)) = result {
-                 assert_eq!(color, "#ff0000");
+             if let Ok(UssValue::Color(r, g, b, a)) = result {
+                 assert_eq!(r, 255);
+                 assert_eq!(g, 0);
+                 assert_eq!(b, 0);
+                 assert_eq!(a, 1.0);
              } else {
                  panic!("Expected Color value");
              }
@@ -171,8 +174,8 @@ mod tests {
         let numeric = UssValue::Numeric { value: 100.0, unit: Some("px".to_string()), has_fractional: false };
         assert_eq!(numeric.to_string(), "100px");
         
-        let color = UssValue::Color("#ff0000".to_string());
-        assert_eq!(color.to_string(), "#ff0000");
+        let color = UssValue::Color(255, 0, 0, 1.0);
+        assert_eq!(color.to_string(), "rgb(255, 0, 0)");
         
         let var_ref = UssValue::VariableReference("primary-color".to_string());
         assert_eq!(var_ref.to_string(), "var(--primary-color)");
@@ -180,11 +183,12 @@ mod tests {
         let identifier = UssValue::Identifier("flex".to_string());
         assert_eq!(identifier.to_string(), "flex");
         
-        let asset = UssValue::Asset("url(\"image.png\")".to_string());
-        assert_eq!(asset.to_string(), "url(\"image.png\")");
+        let url = url::Url::parse("file:///image.png").unwrap();
+        let asset = UssValue::Url(url);
+        assert_eq!(asset.to_string(), "url(\"file:///image.png\")");
         
         let string_val = UssValue::String("Arial".to_string());
-        assert_eq!(string_val.to_string(), "Arial");
+        assert_eq!(string_val.to_string(), "\"Arial\"");
     }
 
     #[test]
@@ -199,8 +203,11 @@ mod tests {
         if let Some(node) = find_node_by_type(root, "call_expression") {
             let result = UssValue::from_node(node, source);
             assert!(result.is_ok(), "Valid rgb() should parse successfully");
-            if let Ok(UssValue::Color(color)) = result {
-                assert_eq!(color, "rgb(255, 128, 0)");
+            if let Ok(UssValue::Color(r, g, b, a)) = result {
+                assert_eq!(r, 255);
+                assert_eq!(g, 128);
+                assert_eq!(b, 0);
+                assert_eq!(a, 1.0);
             }
         }
         
@@ -240,64 +247,7 @@ mod tests {
             }
         }
         
-        // Test valid hsl() function
-        let source = ".test { color: hsl(360, 100, 50); }";
-        let tree = parser.parse(source, None).unwrap();
-        let root = tree.root_node();
-        
-        if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
-            assert!(result.is_ok(), "Valid hsl() should parse successfully");
-        }
-        
-        // Test invalid hsl() function - hue out of range
-        let source = ".test { color: hsl(400, 100, 50); }";
-        let tree = parser.parse(source, None).unwrap();
-        let root = tree.root_node();
-        
-        if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
-            assert!(result.is_err(), "hsl() with hue > 360 should fail");
-            if let Err(error) = result {
-                assert!(error.message.contains("hue value") && error.message.contains("out of range (0-360)"));
-            }
-        }
-        
-        // Test invalid hsl() function - saturation out of range
-        let source = ".test { color: hsl(180, 150, 50); }";
-        let tree = parser.parse(source, None).unwrap();
-        let root = tree.root_node();
-        
-        if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
-            assert!(result.is_err(), "hsl() with saturation > 100 should fail");
-            if let Err(error) = result {
-                assert!(error.message.contains("saturation/lightness value") && error.message.contains("out of range (0-100)"));
-            }
-        }
-        
-        // Test valid hsla() function
-        let source = ".test { color: hsla(180, 50, 75, 0.8); }";
-        let tree = parser.parse(source, None).unwrap();
-        let root = tree.root_node();
-        
-        if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
-            assert!(result.is_ok(), "Valid hsla() should parse successfully");
-        }
-        
-        // Test invalid hsla() function - alpha out of range
-        let source = ".test { color: hsla(180, 50, 75, -0.1); }";
-        let tree = parser.parse(source, None).unwrap();
-        let root = tree.root_node();
-        
-        if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
-            assert!(result.is_err(), "hsla() with negative alpha should fail");
-            if let Err(error) = result {
-                assert!(error.message.contains("alpha value") && error.message.contains("out of range (0-1)"));
-            }
-   }    
+    
     }
 
     #[test]
@@ -330,31 +280,7 @@ mod tests {
             }
         }
         
-        // Test hsl() function with units - should fail
-        let source = ".test { color: hsl(180deg, 50, 75); }";
-        let tree = parser.parse(source, None).unwrap();
-        let root = tree.root_node();
-        
-        if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
-            assert!(result.is_err(), "hsl() with units should fail");
-            if let Err(error) = result {
-                assert!(error.message.contains("unitless number") && error.message.contains("deg"));
-            }
-        }
-        
-        // Test hsla() function with units - should fail
-        let source = ".test { color: hsla(180, 50%, 75, 0.8); }";
-        let tree = parser.parse(source, None).unwrap();
-        let root = tree.root_node();
-        
-        if let Some(node) = find_node_by_type(root, "call_expression") {
-            let result = UssValue::from_node(node, source);
-            assert!(result.is_err(), "hsla() with units should fail");
-            if let Err(error) = result {
-                assert!(error.message.contains("unitless number") && error.message.contains("%"));
-            }
-        }
+
     }
 
     #[test]

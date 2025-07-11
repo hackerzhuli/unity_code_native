@@ -50,7 +50,7 @@ fn test_variable_resolution_simple() {
     // Check that the resolved value is correct
     if let VariableResolutionStatus::Resolved(values) = &text_var.status {
         assert_eq!(values.len(), 1);
-        assert!(matches!(values[0], UssValue::Color(_)));
+        assert!(matches!(values[0], UssValue::Color(_, _, _, _)));
     }
 }
 
@@ -139,12 +139,12 @@ fn test_complex_variable_dependencies() {
           // Check exact values in order with equality assertions
           assert_eq!(values[0], UssValue::Numeric { value: 1.0, unit: Some("px".to_string()), has_fractional: false });
           assert_eq!(values[1], UssValue::Numeric { value: 2.0, unit: None, has_fractional: false });
-          assert_eq!(values[2], UssValue::Color("#aabbcc".to_string()));
+          assert_eq!(values[2], UssValue::Color(170, 187, 204, 1.0));
           assert_eq!(values[3], UssValue::Identifier("row".to_string()));
           assert_eq!(values[4], UssValue::Identifier("column".to_string()));
           assert_eq!(values[5], UssValue::Numeric { value: 1.0, unit: Some("px".to_string()), has_fractional: false });
           assert_eq!(values[6], UssValue::Numeric { value: 2.0, unit: None, has_fractional: false });
-          assert_eq!(values[7], UssValue::Color("#aabbcc".to_string()));
+          assert_eq!(values[7], UssValue::Color(170, 187, 204, 1.0));
           assert_eq!(values[8], UssValue::Numeric { value: 1.0, unit: Some("px".to_string()), has_fractional: false });
       }
 }

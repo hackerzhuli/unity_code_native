@@ -258,35 +258,7 @@ fn test_valid_rgba_color() {
         results.iter().map(|e| &e.message).collect::<Vec<_>>());
 }
 
-#[test]
-fn test_valid_hsl_color() {
-    let diagnostics = UssDiagnostics::new();
-    let mut parser = UssParser::new().unwrap();
-    
-    let content = "Button { color: hsl(120, 100%, 50%); }";
-    
-    let tree = parser.parse(content, None).unwrap();
-    let results = diagnostics.analyze(&tree, content);
-    
-    // Should not have any errors for valid hsl color
-    assert!(results.is_empty(), "Valid hsl color should not produce any errors. Found: {:?}", 
-        results.iter().map(|e| &e.message).collect::<Vec<_>>());
-}
 
-#[test]
-fn test_valid_hsla_color() {
-    let diagnostics = UssDiagnostics::new();
-    let mut parser = UssParser::new().unwrap();
-    
-    let content = "Button { background-color: hsla(240, 100%, 50%, 0.8); }";
-    
-    let tree = parser.parse(content, None).unwrap();
-    let results = diagnostics.analyze(&tree, content);
-    
-    // Should not have any errors for valid hsla color
-    assert!(results.is_empty(), "Valid hsla color should not produce any errors. Found: {:?}", 
-        results.iter().map(|e| &e.message).collect::<Vec<_>>());
-}
 
 #[test]
 fn test_valid_named_colors() {
