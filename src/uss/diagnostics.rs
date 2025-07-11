@@ -280,90 +280,75 @@ impl UssDiagnostics {
                     return; // Don't validate values for unknown properties
                 }
                 
-                // Check for missing semicolon by detecting colon within plain_value
-                // This happens when parser treats "background-color: red\n    border-radius:10px" as one declaration
-                let plain_values: Vec<_> = (0..node.child_count())
-                    .filter_map(|i| node.child(i))
-                    .filter(|child| child.kind() == "plain_value")
-                    .collect();
-                
-                for plain_value in &plain_values {
-                    let value_text = plain_value.utf8_text(content.as_bytes()).unwrap_or("");
-                    
-                    // Look for a colon in the plain_value text, which indicates a new property started
-                    // without a semicolon ending the previous one
-                    if let Some(colon_pos) = value_text.find(':') {
-                        // Extract the part before the colon - this should be a property name
-                        let potential_property = value_text[..colon_pos].trim();
-                        
-                        // Check if this looks like a valid CSS property name
-                        if potential_property.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') 
-                           && potential_property.len() > 2 
-                           && !potential_property.chars().next().unwrap_or(' ').is_ascii_digit() {
-                            
-                            // This is likely a new property declaration, meaning we're missing a semicolon
-                            // Find the position just before this property starts
-                            let node_start = plain_value.start_byte();
-                            let property_start_in_value = value_text[..colon_pos].rfind(potential_property).unwrap_or(0);
-                            let error_byte_pos = node_start + property_start_in_value;
-                            
-                            // Create a range just before the new property
-                            let error_position = self.byte_to_position(error_byte_pos, content);
-                            let range = Range {
-                                start: Position {
-                                    line: error_position.line,
-                                    character: if error_position.character > 0 { error_position.character - 1 } else { 0 },
-                                },
-                                end: error_position,
-                            };
-                            
-                            diagnostics.push(Diagnostic {
-                                range,
-                                severity: Some(DiagnosticSeverity::ERROR),
-                                code: Some(NumberOrString::String("missing-semicolon".to_string())),
-                                source: Some("uss".to_string()),
-                                message: format!("Missing semicolon before property '{}'", potential_property),
-                                ..Default::default()
-                            });
-                            
-                            return; // Stop validation if semicolon is missing
-                        }
-                    }
-                }
-                
-                // Parse values into UssValue objects
+                // Parse values into UssValue objects first
                 let mut uss_values = Vec::new();
                 let mut parsing_failed = false;
+                let mut value_nodes = Vec::new(); // Keep track of nodes for error reporting
                 
                 // Collect value nodes (everything after the colon, skipping semicolons)
                 for i in 2..node.child_count() {
                     if let Some(child) = node.child(i) {
                         // Skip semicolons and whitespace
                         if child.kind() != ";" && !child.kind().is_empty() {
-                            // Try to parse the node as a UssValue
-                            // Convert source_url string to Url if provided
-                            let source_url_parsed = source_url.and_then(|url_str| url::Url::parse(url_str).ok());
-                            match UssValue::from_node(child, content, &self.definitions, source_url_parsed.as_ref()) {
-                                Ok(value) => uss_values.push(value),
-                                Err(error) => {
-                                    // Report parsing error and stop
-                                    let range = self.node_to_range(child, content);
+                            value_nodes.push(child);
+                        }
+                    }
+                }
+                
+                // Parse each value node
+                for child in &value_nodes {
+                    // Try to parse the node as a UssValue
+                    // Convert source_url string to Url if provided
+                    let source_url_parsed = source_url.and_then(|url_str| url::Url::parse(url_str).ok());
+                    match UssValue::from_node(*child, content, &self.definitions, source_url_parsed.as_ref()) {
+                        Ok(value) => uss_values.push(value),
+                        Err(error) => {
+                            // Report parsing error and stop
+                            let range = self.node_to_range(*child, content);
+                            diagnostics.push(Diagnostic {
+                                range,
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                code: Some(NumberOrString::String("invalid-value".to_string())),
+                                source: Some("uss".to_string()),
+                                message: format!("Invalid value: {}", error.message),
+                                ..Default::default()
+                            });
+                            parsing_failed = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Check for missing semicolon by detecting identifiers that contain colons
+                // This happens when parser treats "background-color: red\n    border-radius:10px" as one declaration
+                for (i, value) in uss_values.iter().enumerate() {
+                    if let UssValue::Identifier(identifier_text) = value {
+                        if let Some(colon_pos) = identifier_text.find(':') {
+                            // Extract the part before the colon - this should be a property name
+                            let potential_property = identifier_text[..colon_pos].trim();
+                            
+                            // Check if this looks like a valid CSS property name
+                            if self.is_likely_css_property(potential_property) {
+                                // This is likely a new property declaration, meaning we're missing a semicolon
+                                // Use the corresponding value node for error positioning
+                                if let Some(value_node) = value_nodes.get(i) {
+                                    let range = self.node_to_range(*value_node, content);
                                     diagnostics.push(Diagnostic {
                                         range,
                                         severity: Some(DiagnosticSeverity::ERROR),
-                                        code: Some(NumberOrString::String("invalid-value".to_string())),
+                                        code: Some(NumberOrString::String("missing-semicolon".to_string())),
                                         source: Some("uss".to_string()),
-                                        message: format!("Invalid value: {}", error.message),
+                                        message: format!("Missing semicolon before property '{}'", potential_property),
                                         ..Default::default()
                                     });
-                                    parsing_failed = true;
-                                    break;
+                                    
+                                    return; // Stop validation if semicolon is missing
                                 }
                             }
                         }
                     }
                 }
-                
+
                 // If parsing failed, don't proceed with validation
                 if parsing_failed {
                     return;
