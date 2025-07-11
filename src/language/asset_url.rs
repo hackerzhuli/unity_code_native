@@ -42,7 +42,7 @@ impl std::error::Error for AssetValidationError {}
 ///
 /// # Arguments
 /// * `url_path` - The actual URL path string (already processed, no quotes or escapes)
-/// * `base_url` - The base URL to resolve relative paths against (optional)
+/// * `base_url` - The base URL to resolve relative paths against (optional), if not provided and url_path is relative, this will result in a path that is valid but does not really exist
 ///
 /// # Returns
 /// * `Ok(Url)` - If the URL path is valid for Unity USS
