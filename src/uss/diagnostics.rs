@@ -5,9 +5,11 @@
 
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
+use url::Url;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value::UssValue;
 use crate::uss::tree_printer;
+use crate::language::asset_url;
 
 /// USS diagnostic analyzer
 pub struct UssDiagnostics {
@@ -29,9 +31,15 @@ impl UssDiagnostics {
     }
     
     /// Analyze USS syntax tree and generate diagnostics with optional source URL
-    pub fn analyze_with_source_url(&self, tree: &Tree, content: &str, source_url: Option<&str>) -> Vec<Diagnostic> {
+    pub fn analyze_with_source_url(&self, tree: &Tree, content: &str, source_url: Option<&Url>) -> Vec<Diagnostic> {
         let mut diagnostics = Vec::new();
         let root_node = tree.root_node();
+        
+        // Assert that if a source URL is provided, it must be a project scheme URL
+        if let Some(url) = source_url {
+            assert_eq!(url.scheme(), "project", 
+                "Source URL must use project scheme for Unity compatibility, got: {}", url);
+        }
         
         self.walk_node_with_source_url(root_node, content, source_url, &mut diagnostics);
         
@@ -47,7 +55,7 @@ impl UssDiagnostics {
     }
     
     /// Recursively walk the syntax tree and validate nodes with source URL
-    fn walk_node_with_source_url(&self, node: Node, content: &str, source_url: Option<&str>, diagnostics: &mut Vec<Diagnostic>) {
+    fn walk_node_with_source_url(&self, node: Node, content: &str, source_url: Option<&Url>, diagnostics: &mut Vec<Diagnostic>) {
         // Track the number of diagnostics before processing children
         let initial_diagnostic_count = diagnostics.len();
         
@@ -261,7 +269,7 @@ impl UssDiagnostics {
     }
     
     /// Validate declaration (property-value pair)
-    fn validate_declaration(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&str>) {
+    fn validate_declaration(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>) {
         if let Some(property_node) = node.child(0) {
             if property_node.kind() == "property_name" {
                 let property_name = property_node.utf8_text(content.as_bytes()).unwrap_or("");
@@ -298,9 +306,7 @@ impl UssDiagnostics {
                 // Parse each value node
                 for child in &value_nodes {
                     // Try to parse the node as a UssValue
-                    // Convert source_url string to Url if provided
-                    let source_url_parsed = source_url.and_then(|url_str| url::Url::parse(url_str).ok());
-                    match UssValue::from_node(*child, content, &self.definitions, source_url_parsed.as_ref()) {
+                    match UssValue::from_node(*child, content, &self.definitions, source_url) {
                         Ok(value) => uss_values.push(value),
                         Err(error) => {
                             // Report parsing error and stop
