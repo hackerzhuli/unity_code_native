@@ -164,7 +164,13 @@ impl UssDiagnostics {
                 self.validate_function_call(node, content, diagnostics, source_url, url_references)
             }
             "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
-            "at_rule" | "import_statement" => {
+            "at_rule"
+            | "charset_statement"
+            | "import_statement"
+            | "keyframes_statement"
+            | "media_statement"
+            | "namespace_statement"
+            | "supports_statement" => {
                 self.validate_at_rule(node, content, diagnostics, source_url, url_references)
             }
             _ => {}
@@ -476,8 +482,7 @@ impl UssDiagnostics {
                         ) {
                             let start_pos =
                                 byte_to_position(first_value_node.start_byte(), content);
-                            let end_pos =
-                                byte_to_position(last_value_node.end_byte(), content);
+                            let end_pos = byte_to_position(last_value_node.end_byte(), content);
                             Range {
                                 start: start_pos,
                                 end: end_pos,
@@ -517,7 +522,8 @@ impl UssDiagnostics {
                                     node.child(2),
                                     node.child(node.child_count().saturating_sub(2)),
                                 ) {
-                                    let start_pos = byte_to_position(first_value_node.start_byte(), content);
+                                    let start_pos =
+                                        byte_to_position(first_value_node.start_byte(), content);
                                     let end_pos =
                                         byte_to_position(last_value_node.end_byte(), content);
                                     Range {
@@ -656,7 +662,12 @@ impl UssDiagnostics {
                                             range: arg_range,
                                         });
 
-                                        self.add_url_argument_warning(arg_node, content, diagnostics, source_url);
+                                        self.add_url_argument_warning(
+                                            arg_node,
+                                            content,
+                                            diagnostics,
+                                            source_url,
+                                        );
                                     }
                                 }
                             }
@@ -671,36 +682,29 @@ impl UssDiagnostics {
     }
 
     /// try to find if a url argument node contains warnings
-    fn add_url_argument_warning(&self, node: Node<'_>, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>) {
+    fn add_url_argument_warning(
+        &self,
+        node: Node<'_>,
+        content: &str,
+        diagnostics: &mut Vec<Diagnostic>,
+        source_url: Option<&Url>,
+    ) {
         if node.kind() != "string_value" {
             return;
         }
-        
-        if let Ok(arg_value) = UssValue::from_node(
-            node,
-            content,
-            &self.definitions,
-            source_url,
-        ) {
+
+        if let Ok(arg_value) = UssValue::from_node(node, content, &self.definitions, source_url) {
             if let UssValue::String(arg_str) = arg_value {
                 if let Ok(validation_result) =
-                    crate::language::asset_url::validate_url(
-                        arg_str.as_str(),
-                        source_url,
-                    )
+                    crate::language::asset_url::validate_url(arg_str.as_str(), source_url)
                 {
                     if !validation_result.warnings.is_empty() {
                         for warning in validation_result.warnings {
-                            let range =
-                                node_to_range(node, content);
+                            let range = node_to_range(node, content);
                             diagnostics.push(Diagnostic {
                                 range,
-                                severity: Some(
-                                    DiagnosticSeverity::WARNING,
-                                ),
-                                code: Some(NumberOrString::String(
-                                    "url-warning".to_string(),
-                                )),
+                                severity: Some(DiagnosticSeverity::WARNING),
+                                code: Some(NumberOrString::String("url-warning".to_string())),
                                 source: Some("uss".to_string()),
                                 message: warning.message,
                                 ..Default::default()
@@ -711,7 +715,7 @@ impl UssDiagnostics {
             }
         }
     }
-    
+
     /// Validate pseudo-class selector
     fn validate_pseudo_class(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
         let pseudo_class = node.utf8_text(content.as_bytes()).unwrap_or("");
@@ -791,10 +795,13 @@ impl UssDiagnostics {
                     url_references,
                 );
             }
-            "at_rule" => {
+            _ => {
                 // Generic at-rule that's not an import - these are not supported
                 let range = node_to_range(node, content);
-                let at_rule_text = node.utf8_text(content.as_bytes()).unwrap_or("unknown");
+                let mut at_rule_text = "unknown";
+                if let Some(name_node) = node.child(0) {
+                    at_rule_text = name_node.utf8_text(content.as_bytes()).unwrap_or("unknown");
+                }
                 diagnostics.push(Diagnostic {
                     range,
                     severity: Some(DiagnosticSeverity::ERROR),
@@ -806,9 +813,6 @@ impl UssDiagnostics {
                     ),
                     ..Default::default()
                 });
-            }
-            _ => {
-                // Unknown at-rule type
             }
         }
     }
@@ -833,7 +837,13 @@ impl UssDiagnostics {
         }
 
         if let Some(value_node) = import_value_node {
-            self.validate_import_value_node(content, diagnostics, source_url, url_references, value_node);
+            self.validate_import_value_node(
+                content,
+                diagnostics,
+                source_url,
+                url_references,
+                value_node,
+            );
         }
 
         // we expect the third child to be a ";"
@@ -846,7 +856,10 @@ impl UssDiagnostics {
                     severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("missing-semicolon".to_string())),
                     source: Some("uss".to_string()),
-                    message: format!("Import statement is expecting a semicolon, but found {}", semi_node.utf8_text(content.as_bytes()).unwrap_or("None")),
+                    message: format!(
+                        "Import statement is expecting a semicolon, but found {}",
+                        semi_node.utf8_text(content.as_bytes()).unwrap_or("None")
+                    ),
                     ..Default::default()
                 });
             }
@@ -854,14 +867,20 @@ impl UssDiagnostics {
     }
 
     /// validate the value node of import statement, must be a url function or a string
-    fn validate_import_value_node(&self, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>, url_references: &mut Vec<UrlReference>, value_node: Node<'_>) {
+    fn validate_import_value_node(
+        &self,
+        content: &str,
+        diagnostics: &mut Vec<Diagnostic>,
+        source_url: Option<&Url>,
+        url_references: &mut Vec<UrlReference>,
+        value_node: Node<'_>,
+    ) {
         match UssValue::from_node(value_node, content, &self.definitions, source_url) {
             Ok(uss_value) => {
                 match uss_value {
                     UssValue::String(import_path) => {
                         // Validate URL for string import paths using asset_url validation
-                        match validate_url(&import_path, source_url)
-                        {
+                        match validate_url(&import_path, source_url) {
                             Err(validation_error) => {
                                 let range = node_to_range(value_node, content);
                                 diagnostics.push(Diagnostic {
@@ -880,7 +899,10 @@ impl UssDiagnostics {
                             }
                             Ok(validation_result) => {
                                 let range = node_to_range(value_node, content);
-                                url_references.push(UrlReference { url: validation_result.url, range });
+                                url_references.push(UrlReference {
+                                    url: validation_result.url,
+                                    range,
+                                });
 
                                 // Check for URL validation warnings
                                 for warning in &validation_result.warnings {
@@ -896,7 +918,7 @@ impl UssDiagnostics {
                                         ..Default::default()
                                     });
                                 }
-    
+
                                 // Check for .uss extension warning
                                 if !import_path.ends_with(".uss") {
                                     let range = node_to_range(value_node, content);
@@ -917,7 +939,7 @@ impl UssDiagnostics {
                     }
                     UssValue::Url(_) => {
                         // since URL is valid, so first child is "(", ignore
-                        if let Some(arg) = value_node.child(1){
+                        if let Some(arg) = value_node.child(1) {
                             self.add_url_argument_warning(arg, content, diagnostics, source_url);
                         }
                     }
@@ -927,12 +949,9 @@ impl UssDiagnostics {
                         diagnostics.push(Diagnostic {
                             range,
                             severity: Some(DiagnosticSeverity::ERROR),
-                            code: Some(NumberOrString::String(
-                                "invalid-import-value".to_string(),
-                            )),
+                            code: Some(NumberOrString::String("invalid-import-value".to_string())),
                             source: Some("uss".to_string()),
-                            message: "Import path must be a string or url() function"
-                                .to_string(),
+                            message: "Import path must be a string or url() function".to_string(),
                             ..Default::default()
                         });
                     }

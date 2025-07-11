@@ -1,0 +1,105 @@
+@charset "UTF-8";
+
+@import url("https://example.com/reset.css");
+
+@namespace svg url(http://www.w3.org/2000/svg);
+
+@media screen and (min-width: 600px) {
+  body {
+    background-color: lightblue;
+  }
+}
+
+@supports (display: grid) {
+  .grid-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@page {
+  margin: 2cm;
+}
+
+@font-face {
+  font-family: "CustomFont";
+  src: url("custom-font.woff2") format("woff2");
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100px);
+  }
+}
+
+@counter-style custom {
+  system: cyclic;
+  symbols: "★";
+  suffix: " ";
+}
+
+@property --my-color {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: #0000ff;
+}
+
+@layer base {
+  body {
+    font-size: 16px;
+  }
+}
+
+@container (min-width: 400px) {
+  .container-box {
+    width: 100%;
+    max-width: 800px;
+  }
+}
+
+@scope (.parent) {
+  .child {
+    color: var(--my-color);
+  }
+}
+
+@color-profile {
+  name: custom-profile;
+  src: url("profile.icc");
+}
+
+@font-palette-values --custom {
+  font-family: "CustomFont";
+  base-palette: 0;
+}
+
+@viewport {
+  width: device-width;
+  zoom: 1;
+}
+
+@document url("https://example.com") {
+  body {
+    background-color: lightgray;
+  }
+}
+
+@font-feature-values CustomFont {
+  @swash {
+    fancy: 1;
+  }
+}
+
+@nest @media (min-width: 600px) {
+  .nested {
+    padding: 10px;
+  }
+}
+
+@position-try --custom-position {
+  top: 10px;
+  left: 20px;
+}
