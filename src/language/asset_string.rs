@@ -99,7 +99,7 @@ pub fn validate_url_string(url_path: &str) -> Result<(), AssetValidationError> {
         let mut violations = RefCell::new(Vec::new());
 
         // Try to parse as a full URL first (for project: scheme)
-        let parse_result2
+        let _parse_result2
             = Url::options()
             .syntax_violation_callback(Some(&|v| violations.borrow_mut().push(v)))
             .parse(url_path);
@@ -232,30 +232,6 @@ pub fn validate_resource_string(resource_path: &str) -> Result<(), AssetValidati
 
     
     
-    Ok(())
-}
-
-/// Validates any asset string (generic validation)
-///
-/// # Arguments
-/// * `asset_path` - The actual asset path string (already processed, no quotes or escapes)
-/// * `asset_type` - The type of asset for error messages ("url", "resource", etc.)
-///
-/// # Returns
-/// * `Ok(())` - If the asset path is valid
-/// * `Err(AssetValidationError)` - If the asset path is invalid
-pub fn validate_asset_string(
-    asset_path: &str,
-    asset_type: &str,
-) -> Result<(), AssetValidationError> {
-    // Check if the asset path is empty
-    if asset_path.is_empty() {
-        return Err(AssetValidationError::new(format!(
-            "{} cannot have empty path",
-            asset_type
-        )));
-    }
-
     Ok(())
 }
 
@@ -523,23 +499,6 @@ mod tests {
         assert!(trailing_slash_result.is_err());
         let trailing_slash_error = trailing_slash_result.unwrap_err();
         assert!(trailing_slash_error.message.contains("ends with a slash"));
-    }
-
-    #[test]
-    fn test_validate_asset_string_generic() {
-        // Valid asset
-        let result = validate_asset_string("asset.png", "custom");
-        assert!(result.is_ok());
-
-        // Empty asset with custom type
-        let result = validate_asset_string("", "custom");
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .message
-                .contains("custom cannot have empty path")
-        );
     }
 
     #[test]

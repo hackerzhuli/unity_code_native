@@ -8,3 +8,4 @@ pub mod unity_project_manager;
 pub mod server;
 pub mod monitor;
 pub mod logging;
+pub mod language;

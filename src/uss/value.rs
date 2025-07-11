@@ -1,7 +1,7 @@
 use tree_sitter::Node;
 
 use crate::uss::definitions::UssDefinitions;
-use crate::uss::asset_string_validation::{validate_url_string, validate_resource_string};
+use crate::language::asset_string::{validate_url_string, validate_resource_string};
 use crate::uss::uss_utils::convert_uss_string;
 
 /// Error type for USS value parsing
