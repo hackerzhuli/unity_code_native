@@ -426,12 +426,41 @@ impl UssDiagnostics {
                                 self.node_to_range(node, content)
                             };
                             
+                            // Create a readable string of the resolved property values
+                            let resolved_values_str = resolved_values.iter()
+                                .map(|v| v.to_string())
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            
+                            // Collect information about resolved variables
+                             let mut variable_info = Vec::new();
+                             for value in &uss_values {
+                                 if let UssValue::VariableReference(var_name) = value {
+                                     if let Some(var_status) = resolver.get_variable(var_name) {
+                                         if let VariableStatus::Resolved(resolved_vals) = var_status {
+                                             let resolved_str = resolved_vals.iter()
+                                                 .map(|v| v.to_string())
+                                                 .collect::<Vec<_>>()
+                                                 .join(" ");
+                                             variable_info.push(format!("--{} = {}", var_name, resolved_str));
+                                         }
+                                     }
+                                 }
+                             }
+                            
+                            let message = if variable_info.is_empty() {
+                                format!("Property '{}' value '{}' is likely invalid", property_name, resolved_values_str)
+                            } else {
+                                format!("Property '{}' value '{}' is likely invalid. The resolved variables are: {}", 
+                                    property_name, resolved_values_str, variable_info.join(", "))
+                            };
+                            
                             diagnostics.push(Diagnostic {
                                 range: values_range,
                                 severity: Some(DiagnosticSeverity::WARNING),
                                 code: Some(NumberOrString::String("uncertain-property-value".to_string())),
                                 source: Some("uss".to_string()),
-                                message: format!("Property '{}' value may be invalid due to unresolved variables (variable resolver limitations: only resolves variables within this document)", property_name),
+                                message,
                                 ..Default::default()
                             });
                         }

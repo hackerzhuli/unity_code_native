@@ -599,11 +599,11 @@ fn test_resource_function_with_single_quotes() {
 fn test_variable_resolution_warning() {
     use crate::uss::variable_resolver::VariableResolver;
     
-    let mut diagnostics = UssDiagnostics::new();
+    let diagnostics = UssDiagnostics::new();
     let mut parser = UssParser::new().unwrap();
     
     // CSS content with variable definition that resolves to a valid value but wrong type for the property
-    let content = ":root { --my-var: 10px; }\nButton { color: var(--my-var); }";
+    let content = ":root { --my-var: 10px; --my-var2: 20px; my-var100: 100px; }\nButton { color: var(--my-var) var(--my-var2) var(--my-var3); }";
     
     let tree = parser.parse(content, None).unwrap();
     
@@ -619,4 +619,13 @@ fn test_variable_resolution_warning() {
         .collect();
     
     assert!(!warnings.is_empty(), "Should generate a warning for invalid resolved variable value. Found {} total diagnostics", results.len());
+    
+    // Check that the warning message contains the expected information
+    let warning = &warnings[0];
+    assert!(warning.message.contains("color"), "Warning message should mention the property name 'color'");
+    assert!(warning.message.contains("10px"), "Warning message should show the resolved value '10px'");
+    assert!(warning.message.contains("--my-var = 10px"), "Warning message should list the resolved variable '--my-var = 10px'");
+    assert!(warning.message.contains("likely invalid"), "Warning message should indicate the value is likely invalid");
+
+    println!("{}", warning.message);
 }
