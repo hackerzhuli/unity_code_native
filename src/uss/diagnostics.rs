@@ -321,6 +321,7 @@ impl UssDiagnostics {
                         Err(error) => {
                             // Report parsing error and stop
                             let range = self.node_to_range(*child, content);
+
                             diagnostics.push(Diagnostic {
                                 range,
                                 severity: Some(error.severity),
@@ -329,10 +330,16 @@ impl UssDiagnostics {
                                 message: format!("Invalid value: {}", error.message),
                                 ..Default::default()
                             });
-                            parsing_failed = true;
-                            break;
+
+                            if error.severity >= DiagnosticSeverity::ERROR {
+                                parsing_failed = true;
+                            }
                         }
                     }
+                }
+
+                if parsing_failed {
+                    return;
                 }
                 
                 // Check for missing semicolon by detecting identifiers that contain colons
@@ -405,7 +412,6 @@ impl UssDiagnostics {
                         // Validation passed without variable resolution, now check with resolved variables for warnings
                         let resolved_values = self.resolve_variables_in_values(&uss_values, resolver);
                         let mut resolved_format_matches = false;
-                        let mut has_unresolved_variables = false;
 
                         // Try validation with resolved values
                         for value_format in &property_info.value_spec.formats {
