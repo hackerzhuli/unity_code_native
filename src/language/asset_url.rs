@@ -32,7 +32,7 @@ impl std::fmt::Display for AssetValidationError {
 
 impl std::error::Error for AssetValidationError {}
 
-/// Validates a Unity USS URL function argument string
+/// Validates a Unity USS `url()` or `resource()` argument or UXML's asset path
 ///
 /// Unity USS url() function supports:
 /// - Relative paths: "../Resources/thumb.png"
@@ -48,8 +48,6 @@ impl std::error::Error for AssetValidationError {}
 ///
 /// # Examples
 /// ```
-/// use crate::uss::asset_string_validation::validate_url_string;
-///
 /// // Valid project scheme URLs
 /// assert!(validate_url_string("project:/Assets/image.png").is_ok());
 /// assert!(validate_url_string("project:///Assets/image.png").is_ok());
@@ -198,43 +196,6 @@ pub fn validate_url_string(url_path: &str) -> Result<(), AssetValidationError> {
     }
 }
 
-/// Validates a Unity USS resource function argument string
-///
-/// Unity USS resource() function references assets in Unity's resource folders:
-/// - Resources folder: reference by name without file extension ("Images/my-image")
-/// - Editor Default Resources folder: reference by name with file extension ("Images/my-image.png")
-///
-/// # Arguments
-/// * `resource_path` - The actual resource path string (already processed, no quotes or escapes)
-///
-/// # Returns
-/// * `Ok(())` - If the resource path is valid for Unity USS
-/// * `Err(AssetValidationError)` - If the resource path is invalid
-///
-/// # Examples
-/// ```
-/// use crate::uss::asset_string_validation::validate_resource_string;
-///
-/// // Valid resource path (Resources folder - no extension)
-/// assert!(validate_resource_string("Images/my-image").is_ok());
-///
-/// // Valid resource path (Editor Default Resources - with extension)
-/// assert!(validate_resource_string("Images/default-image.png").is_ok());
-///
-/// // Empty resource (invalid)
-/// assert!(validate_resource_string("").is_err());
-/// ```
-pub fn validate_resource_string(resource_path: &str) -> Result<(), AssetValidationError> {
-    // Check if the resource path is empty
-    if resource_path.is_empty() {
-        return Err(AssetValidationError::new("Resource cannot have empty path"));
-    }
-
-    
-    
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
 
@@ -359,146 +320,6 @@ mod tests {
         assert!(validate_url_string("project:").is_err());
         // this is actually valid url because it is treated as a relative path(no scheme), and colon and double slash in the middle is valid url
         assert!(validate_url_string("://invalid").is_ok());
-    }
-
-    #[test]
-    fn test_validate_resource_string_valid() {
-        // Test valid resource paths (Resources folder - no extension)
-        assert!(validate_resource_string("image").is_ok());
-        assert!(validate_resource_string("Images/logo").is_ok());
-        assert!(validate_resource_string("UI/button").is_ok());
-        assert!(validate_resource_string("Textures/background").is_ok());
-
-        // Test valid resource paths (Editor Default Resources - with extension)
-        assert!(validate_resource_string("Images/default-image.png").is_ok());
-        assert!(validate_resource_string("Icons/folder.png").is_ok());
-        assert!(validate_resource_string("Fonts/arial.ttf").is_ok());
-    }
-
-    #[test]
-    fn test_validate_resource_string_with_special_chars() {
-        // Test resource paths with valid special characters
-        assert!(validate_resource_string("image-with-dashes").is_ok());
-        assert!(validate_resource_string("image_with_underscores").is_ok());
-        assert!(validate_resource_string("folder/image with spaces").is_ok());
-        assert!(validate_resource_string("UI/button-normal").is_ok());
-
-        // Test resource paths with numbers and dots (for Editor Default Resources)
-        assert!(validate_resource_string("Icons/icon.v2.png").is_ok());
-        assert!(validate_resource_string("Textures/texture_001.jpg").is_ok());
-        assert!(validate_resource_string("Fonts/arial-bold.ttf").is_ok());
-    }
-
-    #[test]
-    fn test_validate_resource_string_invalid() {
-        // Test empty resource path
-        let result = validate_resource_string("");
-        assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .message
-                .contains("cannot have empty path")
-        );
-
-        // Test invalid characters with specific error messages
-        let bracket_result = validate_resource_string("invalid<>characters");
-        assert!(bracket_result.is_err());
-        let bracket_error = bracket_result.unwrap_err();
-        assert!(
-            bracket_error.message.contains("less-than symbol")
-                || bracket_error.message.contains("greater-than symbol")
-        );
-
-        let pipe_result = validate_resource_string("path|with|pipes");
-        assert!(pipe_result.is_err());
-        let pipe_error = pipe_result.unwrap_err();
-        assert!(pipe_error.message.contains("pipe symbol"));
-
-        let null_result = validate_resource_string("path\x00with\x00nulls");
-        assert!(null_result.is_err());
-        let null_error = null_result.unwrap_err();
-        assert!(null_error.message.contains("null character"));
-
-        let backslash_result = validate_resource_string("path\\with\\backslashes");
-        assert!(backslash_result.is_err());
-        let backslash_error = backslash_result.unwrap_err();
-        assert!(backslash_error.message.contains("backslash"));
-
-        // Test invalid whitespace characters with specific error messages
-        let tab_result = validate_resource_string("path\twith\ttabs");
-        assert!(tab_result.is_err());
-        let tab_error = tab_result.unwrap_err();
-        assert!(tab_error.message.contains("tab character"));
-        assert!(tab_error.message.contains("\\u0009"));
-
-        let newline_result = validate_resource_string("path\nwith\nnewlines");
-        assert!(newline_result.is_err());
-        let newline_error = newline_result.unwrap_err();
-        assert!(newline_error.message.contains("newline character"));
-        assert!(newline_error.message.contains("\\u000A"));
-
-        let carriage_result = validate_resource_string("path\rwith\rcarriage");
-        assert!(carriage_result.is_err());
-        let carriage_error = carriage_result.unwrap_err();
-        assert!(carriage_error.message.contains("carriage return character"));
-        assert!(carriage_error.message.contains("\\u000D"));
-
-        assert!(validate_resource_string("path\x0Bwith\x0Bvertical").is_err());
-        assert!(validate_resource_string("path\x0Cwith\x0Cform").is_err());
-
-        // Test absolute path indicators (not allowed in resource paths)
-        let abs_result = validate_resource_string("/Assets/image");
-        assert!(abs_result.is_err());
-        let abs_error = abs_result.unwrap_err();
-        assert!(abs_error.message.contains("starts with '/'"));
-
-        let assets_result = validate_resource_string("Assets/image");
-        assert!(assets_result.is_err());
-        let assets_error = assets_result.unwrap_err();
-        assert!(assets_error.message.contains("starts with 'Assets/'"));
-
-        let packages_result = validate_resource_string("Packages/image");
-        assert!(packages_result.is_err());
-        let packages_error = packages_result.unwrap_err();
-        assert!(packages_error.message.contains("starts with 'Packages/'"));
-
-        // Test URL schemes (not allowed in resource paths)
-        let project_result = validate_resource_string("project:/Assets/image");
-        assert!(project_result.is_err());
-        let project_error = project_result.unwrap_err();
-        assert!(project_error.message.contains("'project:' scheme"));
-
-        let https_result = validate_resource_string("https://example.com/image");
-        assert!(https_result.is_err());
-        let https_error = https_result.unwrap_err();
-        assert!(
-            https_error
-                .message
-                .contains("'://' which indicates a URL scheme")
-        );
-
-        // Test relative path components (not allowed)
-        let dotdot_result = validate_resource_string("../Images/image");
-        assert!(dotdot_result.is_err());
-        let dotdot_error = dotdot_result.unwrap_err();
-        assert!(dotdot_error.message.contains("contains '../'"));
-
-        let dot_result = validate_resource_string("./Images/image");
-        assert!(dot_result.is_err());
-        let dot_error = dot_result.unwrap_err();
-        assert!(dot_error.message.contains("contains './'"));
-
-        // Test invalid path formats
-        let double_slash_result = validate_resource_string("Images//image");
-        assert!(double_slash_result.is_err());
-        let double_slash_error = double_slash_result.unwrap_err();
-        assert!(double_slash_error.message.contains("consecutive slashes"));
-
-        let trailing_slash_result = validate_resource_string("Images/");
-        assert!(trailing_slash_result.is_err());
-        let trailing_slash_error = trailing_slash_result.unwrap_err();
-        assert!(trailing_slash_error.message.contains("ends with a slash"));
     }
 
     #[test]

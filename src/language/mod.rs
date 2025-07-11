@@ -1,4 +1,4 @@
-///! This module includes general things we can reuse in a language server implementation, across different languages
+///! This module includes common things we can reuse across different languages
 
 pub mod document;
-pub mod asset_string;
+pub mod asset_url;
