@@ -7,6 +7,7 @@ use tree_sitter::{InputEdit, Point, Tree};
 
 use crate::uss::parser::UssParser;
 use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
+use crate::language::document::DocumentVersion;
 
 /// Represents a USS document with its content, syntax tree, and version
 #[derive(Debug, Clone)]
@@ -17,14 +18,12 @@ pub struct UssDocument {
     pub content: String,
     /// Current syntax tree
     pub tree: Option<Tree>,
-    /// Document version for LSP synchronization
-    pub version: i32,
+    /// Enhanced document version tracking
+    pub document_version: DocumentVersion,
+    /// Whether the document is currently open in a client
+    pub is_open: bool,
     /// Line start positions for efficient position calculations
     line_starts: Vec<usize>,
-    /// Cached diagnostics for this document
-    cached_diagnostics: Option<Vec<Diagnostic>>,
-    /// Whether the cached diagnostics are valid (not invalidated by changes)
-    diagnostics_valid: bool,
     /// Variable resolver for CSS custom properties
     pub variable_resolver: VariableResolver,
 }
@@ -37,10 +36,23 @@ impl UssDocument {
             uri,
             content,
             tree: None,
-            version,
+            document_version: DocumentVersion { major: 1, minor: version },
+            is_open: false,
             line_starts,
-            cached_diagnostics: None,
-            diagnostics_valid: false,
+            variable_resolver: VariableResolver::new(),
+        }
+    }
+    
+    /// Create a new USS document with explicit document version
+    pub fn new_with_document_version(uri: Url, content: String, version: i32, document_version: DocumentVersion, is_open: bool) -> Self {
+        let line_starts = Self::calculate_line_starts(&content);
+        Self {
+            uri,
+            content,
+            tree: None,
+            document_version,
+            is_open,
+            line_starts,
             variable_resolver: VariableResolver::new(),
         }
     }
@@ -48,8 +60,6 @@ impl UssDocument {
     /// Parse the document content and store the syntax tree
     pub fn parse(&mut self, parser: &mut UssParser) {
         self.tree = parser.parse(&self.content, None);
-        // Invalidate diagnostics when content is parsed
-        self.invalidate_diagnostics();
         // Extract and resolve variables after parsing
         if let Some(tree) = &self.tree {
             self.variable_resolver.add_variables_from_tree(tree.root_node(), &self.content);
@@ -63,10 +73,11 @@ impl UssDocument {
         new_version: i32,
         parser: &mut UssParser,
     ) {
-        self.version = new_version;
+        // Update document version minor when content changes (if document is open)
+        if self.is_open {
+            self.document_version.minor = new_version;
+        }
         
-        // Invalidate diagnostics when content changes
-        self.invalidate_diagnostics();
         // Clear variable resolver when content changes
         self.variable_resolver.clear();
         
@@ -221,35 +232,9 @@ impl UssDocument {
         &self.content
     }
     
-    /// Get the document version
-    pub fn version(&self) -> i32 {
-        self.version
-    }
+
     
-    /// Get cached diagnostics if they are valid
-    pub fn get_cached_diagnostics(&self) -> Option<&Vec<Diagnostic>> {
-        if self.diagnostics_valid {
-            self.cached_diagnostics.as_ref()
-        } else {
-            None
-        }
-    }
-    
-    /// Cache diagnostics for this document
-    pub fn cache_diagnostics(&mut self, diagnostics: Vec<Diagnostic>) {
-        self.cached_diagnostics = Some(diagnostics);
-        self.diagnostics_valid = true;
-    }
-    
-    /// Invalidate cached diagnostics
-    pub fn invalidate_diagnostics(&mut self) {
-        self.diagnostics_valid = false;
-    }
-    
-    /// Check if cached diagnostics are valid
-    pub fn are_diagnostics_valid(&self) -> bool {
-        self.diagnostics_valid
-    }
+
 
     /// Get all variables defined in this document
     /// 
@@ -330,6 +315,45 @@ impl UssDocument {
             character: character as u32,
         }
     }
+    
+    /// Get the current document version
+    pub fn document_version(&self) -> DocumentVersion {
+        self.document_version
+    }
+    
+    /// Check if the document is currently open in a client
+    pub fn is_open(&self) -> bool {
+        self.is_open
+    }
+    
+    /// Mark the document as opened in a client
+    /// This increments the major version and resets minor version to the current LSP version
+    pub fn mark_opened(&mut self, lsp_version: i32) {
+        self.is_open = true;
+        self.document_version.major += 1;
+        self.document_version.minor = lsp_version;
+    }
+    
+    /// Mark the document as closed in a client
+    /// This increments the major version and resets minor version to 0
+    pub fn mark_closed(&mut self) {
+        self.is_open = false;
+        self.document_version.major += 1;
+        self.document_version.minor = 0;
+    }
+    
+    /// Update the document version when filesystem changes are detected (for closed documents)
+    /// This should only be called when the document is not open in a client
+    pub fn increment_filesystem_version(&mut self) {
+        if !self.is_open {
+            self.document_version.minor += 1;
+        }
+    }
+    
+    /// Set the document version explicitly
+    pub fn set_document_version(&mut self, version: DocumentVersion) {
+        self.document_version = version;
+    }
 }
 
 #[cfg(test)]
@@ -347,7 +371,10 @@ mod tests {
     #[test]
     fn test_document_creation() {
         let doc = create_test_document();
-        assert_eq!(doc.version, 1);
+        assert_eq!(doc.document_version().minor, 1);
+        assert_eq!(doc.document_version.major, 1);
+        assert_eq!(doc.document_version.minor, 1);
+        assert!(!doc.is_open);
         assert_eq!(doc.content, ".test { color: red; }");
         assert!(doc.tree.is_none());
     }
@@ -392,6 +419,9 @@ mod tests {
          let mut parser = UssParser::new().unwrap();
          
          doc.parse(&mut parser);
+         
+         // Mark document as open to test version tracking
+         doc.mark_opened(1);
         
         // Replace "red" (positions 15-18) with "blue"
         let changes = vec![TextDocumentContentChangeEvent {
@@ -404,7 +434,8 @@ mod tests {
         }];
         
         doc.apply_changes(changes, 2, &mut parser);
-        assert_eq!(doc.version, 2);
+        assert_eq!(doc.document_version().minor, 2);
+        assert_eq!(doc.document_version.minor, 2); // Minor version should update when open
         assert_eq!(doc.content, ".test { color: blue; }");
     }
 
@@ -424,23 +455,52 @@ mod tests {
         assert_eq!(pos.character, 0);
     }
 
+
+
     #[test]
-    fn test_diagnostics_caching() {
+    fn test_document_version_tracking() {
         let mut doc = create_test_document();
         
-        // Initially no cached diagnostics
-        assert!(doc.get_cached_diagnostics().is_none());
+        // Initial state: document is closed
+        assert!(!doc.is_open());
+        assert_eq!(doc.document_version().major, 1);
+        assert_eq!(doc.document_version().minor, 1);
         
-        // Set some diagnostics
-          let diagnostics = vec![];
-          doc.cache_diagnostics(diagnostics);
+        // Mark as opened
+        doc.mark_opened(5);
+        assert!(doc.is_open());
+        assert_eq!(doc.document_version().major, 2); // Major incremented
+        assert_eq!(doc.document_version().minor, 5); // Minor set to LSP version
         
-        // Should now have cached diagnostics
-        assert!(doc.get_cached_diagnostics().is_some());
+        // Mark as closed
+        doc.mark_closed();
+        assert!(!doc.is_open());
+        assert_eq!(doc.document_version().major, 3); // Major incremented again
+        assert_eq!(doc.document_version().minor, 0); // Minor reset to 0
         
-        // Invalidate diagnostics
-        doc.invalidate_diagnostics();
-        assert!(doc.get_cached_diagnostics().is_none());
+        // Test filesystem version increment (only works when closed)
+        doc.increment_filesystem_version();
+        assert_eq!(doc.document_version().major, 3); // Major unchanged
+        assert_eq!(doc.document_version().minor, 1); // Minor incremented
+        
+        // Reopen and test that filesystem increment doesn't work
+        doc.mark_opened(10);
+        doc.increment_filesystem_version();
+        assert_eq!(doc.document_version().major, 4); // Major incremented from reopening
+        assert_eq!(doc.document_version().minor, 10); // Minor unchanged (filesystem increment ignored when open)
+    }
+
+    #[test]
+    fn test_document_version_with_explicit_constructor() {
+        let uri = Url::parse("file:///test.uss").unwrap();
+        let content = ".test { color: red; }".to_string();
+        let version = DocumentVersion { major: 5, minor: 3 };
+        
+        let doc = UssDocument::new_with_document_version(uri, content, 1, version, true);
+        
+        assert_eq!(doc.document_version().major, 5);
+        assert_eq!(doc.document_version().minor, 3);
+        assert!(doc.is_open());
     }
 
 

@@ -297,61 +297,44 @@ impl LanguageServer for UssLanguageServer {
     ) -> Result<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri;
         
-        let diagnostics = if let Ok(mut state) = self.state.lock() {
-            // First, check if we have cached diagnostics
-            let cached_result = if let Some(document) = state.document_manager.get_document(&uri) {
-                document.get_cached_diagnostics().cloned()
-            } else {
-                None
-            };
-            
-            if let Some(cached_diagnostics) = cached_result {
-                cached_diagnostics
-            } else {
-                // Need to generate new diagnostics
-                let (tree_clone, content) = if let Some(document) = state.document_manager.get_document(&uri) {
-                    if let Some(tree) = document.tree() {
-                        (Some(tree.clone()), document.content().to_string())
-                    } else {
-                        (None, String::new())
-                    }
+        let diagnostics = if let Ok(state) = self.state.lock() {
+            // Generate diagnostics immediately
+            let (tree_clone, content) = if let Some(document) = state.document_manager.get_document(&uri) {
+                if let Some(tree) = document.tree() {
+                    (Some(tree.clone()), document.content().to_string())
                 } else {
                     (None, String::new())
-                };
-                
-                if let Some(tree) = tree_clone {
-                    // Convert file system URI to project scheme URL for Unity compatibility
-                    let project_url = if uri.scheme() == "file" {
-                        // Convert file:// URI to project:// URI
-                        if let Ok(file_path) = uri.to_file_path() {
-                            let project_root = state.unity_manager.project_path();
-                            asset_url::create_project_url_with_normalization(&file_path, &project_root).ok()
-                        } else {
-                            None
-                        }
-                    } else {
-                        // If it's already a project:// URI or other scheme, use as-is
-                        Some(uri.clone())
-                    };
-                    
-                    // Get the variable resolver from the document for enhanced diagnostics
-                    let variable_resolver = if let Some(document) = state.document_manager.get_document(&uri) {
-                        Some(&document.variable_resolver)
+                }
+            } else {
+                (None, String::new())
+            };
+            
+            if let Some(tree) = tree_clone {
+                // Convert file system URI to project scheme URL for Unity compatibility
+                let project_url = if uri.scheme() == "file" {
+                    // Convert file:// URI to project:// URI
+                    if let Ok(file_path) = uri.to_file_path() {
+                        let project_root = state.unity_manager.project_path();
+                        asset_url::create_project_url_with_normalization(&file_path, &project_root).ok()
                     } else {
                         None
-                    };
-                    
-                    let (new_diagnostics, _url_references) = state.diagnostics.analyze_with_variables(&tree, &content, project_url.as_ref(), variable_resolver);
-                    
-                    // Cache the diagnostics
-                    if let Some(document) = state.document_manager.get_document_mut(&uri) {
-                        document.cache_diagnostics(new_diagnostics.clone());
                     }
-                    
-                    new_diagnostics
                 } else {
-                    Vec::new()
-                }
+                    // If it's already a project:// URI or other scheme, use as-is
+                    Some(uri.clone())
+                };
+                
+                // Get the variable resolver from the document for enhanced diagnostics
+                let variable_resolver = if let Some(document) = state.document_manager.get_document(&uri) {
+                    Some(&document.variable_resolver)
+                } else {
+                    None
+                };
+                
+                let (diagnostics, _url_references) = state.diagnostics.analyze_with_variables(&tree, &content, project_url.as_ref(), variable_resolver);
+                diagnostics
+            } else {
+                Vec::new()
             }
         } else {
             Vec::new()

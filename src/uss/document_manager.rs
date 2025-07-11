@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use tower_lsp::lsp_types::{TextDocumentContentChangeEvent, Url};
 
 use crate::uss::parser::UssParser;
+use crate::language::document::DocumentVersion;
 use super::document::UssDocument;
 
 /// Document manager for USS files
@@ -25,7 +26,26 @@ impl UssDocumentManager {
     
     /// Open a new document
     pub fn open_document(&mut self, uri: Url, content: String, version: i32) {
-        let mut document = UssDocument::new(uri.clone(), content, version);
+        let mut document = if let Some(existing_doc) = self.documents.get(&uri) {
+            // Document was previously known (possibly closed), reuse its major version
+            let mut new_major = existing_doc.document_version().major;
+            if !existing_doc.is_open() {
+                new_major += 1; // Increment major version when reopening
+            }
+            UssDocument::new_with_document_version(
+                uri.clone(),
+                content,
+                version,
+                DocumentVersion { major: new_major, minor: version },
+                true
+            )
+        } else {
+            // New document
+            let mut document = UssDocument::new(uri.clone(), content, version);
+            document.mark_opened(version);
+            document
+        };
+        
         document.parse(&mut self.parser);
         self.documents.insert(uri, document);
     }
@@ -44,6 +64,15 @@ impl UssDocumentManager {
     
     /// Close a document
     pub fn close_document(&mut self, uri: &Url) {
+        if let Some(document) = self.documents.get_mut(uri) {
+            document.mark_closed();
+            // Keep the document in memory to preserve version history
+            // Remove it only if explicitly requested or after a timeout
+        }
+    }
+    
+    /// Remove a document completely from memory
+    pub fn remove_document(&mut self, uri: &Url) {
         self.documents.remove(uri);
     }
     
@@ -62,26 +91,43 @@ impl UssDocumentManager {
         self.documents.keys()
     }
     
-    /// Invalidate diagnostics for a specific document
-    pub fn invalidate_document_diagnostics(&mut self, uri: &Url) {
-        if let Some(document) = self.documents.get_mut(uri) {
-            document.invalidate_diagnostics();
-        }
+
+    
+    /// Get the document version for a specific document
+    pub fn get_document_version(&self, uri: &Url) -> Option<DocumentVersion> {
+        self.documents.get(uri).map(|doc| doc.document_version())
     }
     
-    /// Invalidate diagnostics for all documents (useful for dependency changes)
-    pub fn invalidate_all_diagnostics(&mut self) {
-        for document in self.documents.values_mut() {
-            document.invalidate_diagnostics();
-        }
-    }
-    
-    /// Check if a document has valid cached diagnostics
-    pub fn has_valid_diagnostics(&self, uri: &Url) -> bool {
+    /// Check if a document is currently open in a client
+    pub fn is_document_open(&self, uri: &Url) -> bool {
         self.documents
             .get(uri)
-            .map(|doc| doc.are_diagnostics_valid())
+            .map(|doc| doc.is_open())
             .unwrap_or(false)
+    }
+    
+    /// Increment filesystem version for a closed document
+    /// This should be called when filesystem changes are detected for documents not open in clients
+    pub fn increment_filesystem_version(&mut self, uri: &Url) {
+        if let Some(document) = self.documents.get_mut(uri) {
+            document.increment_filesystem_version();
+        }
+    }
+    
+    /// Get all open document URIs
+    pub fn open_document_uris(&self) -> impl Iterator<Item = &Url> {
+        self.documents
+            .iter()
+            .filter(|(_, doc)| doc.is_open())
+            .map(|(uri, _)| uri)
+    }
+    
+    /// Get all closed document URIs
+    pub fn closed_document_uris(&self) -> impl Iterator<Item = &Url> {
+        self.documents
+            .iter()
+            .filter(|(_, doc)| !doc.is_open())
+            .map(|(uri, _)| uri)
     }
 }
 
