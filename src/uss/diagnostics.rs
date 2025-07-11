@@ -6,6 +6,7 @@
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use crate::uss::definitions::UssDefinitions;
+use crate::uss::value::UssValue;
 use crate::uss::tree_printer;
 
 /// USS diagnostic analyzer
@@ -523,11 +524,14 @@ impl UssDiagnostics {
     fn validate_property_value(&self, property_name: &str, declaration_node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
         // Get property information from definitions
         if let Some(property_info) = self.definitions.get_property_info(property_name) {
+            // Extract UssValues from the declaration node
+            let values = self.extract_values_from_declaration(declaration_node, content);
+            
             // Check if any of the property's value formats match
             let mut any_format_matches = false;
             
             for value_format in &property_info.value_spec.formats {
-                if value_format.is_match(declaration_node, content) {
+                if value_format.is_match(&values) {
                     any_format_matches = true;
                     break;
                 }
@@ -581,6 +585,28 @@ impl UssDiagnostics {
         // If property info is not found, we already reported "unknown-property" error in validate_declaration
     }
     
+    /// Extract UssValues from a declaration node
+    fn extract_values_from_declaration(&self, declaration_node: Node, content: &str) -> Vec<UssValue> {
+        let mut values = Vec::new();
+        
+        // Collect value nodes (everything after the colon)
+        for i in 2..declaration_node.child_count() {
+            if let Some(child) = declaration_node.child(i) {
+                // Skip semicolons and whitespace
+                if child.kind() != ";" && !child.kind().is_empty() {
+                    // Try to parse the node as a UssValue
+                    if let Ok(value) = UssValue::from_node(child, content) {
+                        values.push(value);
+                    }
+                    // If parsing fails, we'll still continue to check other values
+                    // The validation will catch the invalid value
+                }
+            }
+        }
+        
+        values
+    }
+
     /// Add invalid unit diagnostic
     fn add_invalid_unit_diagnostic(&self, unit_node: Node, content: &str, property_name: &str, unit: &str, expected: &str, diagnostics: &mut Vec<Diagnostic>) {
         let range = self.node_to_range(unit_node, content);

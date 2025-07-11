@@ -5,6 +5,7 @@
 
 use tree_sitter::Node;
 use crate::uss::definitions::UssDefinitions;
+use crate::uss::value::UssValue;
 
 /// Basic value type that a property accepts
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -82,89 +83,45 @@ impl ValueFormat {
         }
     }
 
-    /// Check if a declaration node matches this value format
-    /// 
-    /// The declaration node should have the structure:
-    /// - child(0): property_name
-    /// - child(1): colon ":"
-    /// - child(2..): value nodes to validate against this format
+    /// Check if a slice of UssValues matches this value format
     /// 
     /// Special handling for CSS variables (var(--name)):
     /// - var() calls are treated as wildcards that can match 0-n values
     /// - If any var() is present, we validate non-var values and return true if they could potentially match
-    pub fn is_match(&self, declaration_node: Node, content: &str) -> bool {
-        // Verify this is a declaration node
-        if declaration_node.kind() != "declaration" {
-            return false;
-        }
-
-        // Check minimum structure: property_name + colon
-        if declaration_node.child_count() < 2 {
-            return false;
-        }
-
-        // Verify first child is property_name
-        if let Some(first_child) = declaration_node.child(0) {
-            if first_child.kind() != "property_name" {
-                return false;
-            }
-        } else {
-            return false;
-        }
-
-        // Verify second child is colon
-        if let Some(second_child) = declaration_node.child(1) {
-            if second_child.kind() != ":" {
-                return false;
-            }
-        } else {
-            return false;
-        }
-
-        // Collect value nodes (everything after the colon)
-        let mut value_nodes = Vec::new();
-        for i in 2..declaration_node.child_count() {
-            if let Some(child) = declaration_node.child(i) {
-                // Skip semicolons and whitespace
-                if child.kind() != ";" && !child.kind().is_empty() {
-                    value_nodes.push(child);
-                }
-            }
-        }
-
+    pub fn is_match(&self, values: &[UssValue]) -> bool {
         // Check for CSS variables (var() calls)
-        let has_variables = value_nodes.iter().any(|node| self.is_css_variable(*node, content));
+        let has_variables = values.iter().any(|value| matches!(value, UssValue::VariableReference(_)));
         
         if has_variables {
             // With variables present, we use flexible matching
-            // Separate variable and non-variable nodes
-            let non_var_nodes: Vec<_> = value_nodes.iter()
-                .filter(|node| !self.is_css_variable(**node, content))
+            // Separate variable and non-variable values
+            let non_var_values: Vec<_> = values.iter()
+                .filter(|value| !matches!(value, UssValue::VariableReference(_)))
                 .collect();
             
-            // If we have more non-variable nodes than format entries, it's definitely invalid
-            if non_var_nodes.len() > self.entries.len() {
+            // If we have more non-variable values than format entries, it's definitely invalid
+            if non_var_values.len() > self.entries.len() {
                 return false;
             }
             
-            // Try to match non-variable nodes against format entries
+            // Try to match non-variable values against format entries
             // We'll be permissive here - if any reasonable assignment could work, return true
-            if non_var_nodes.is_empty() {
+            if non_var_values.is_empty() {
                 // Only variables - always valid since variables can match anything
                 return true;
             }
             
-            // Check if non-variable nodes can match any subset of our format entries
-            return self.can_match_subset(&non_var_nodes, content);
+            // Check if non-variable values can match any subset of our format entries
+            return self.can_match_subset_values(&non_var_values);
         } else {
             // No variables - use strict matching
-            if value_nodes.len() != self.entries.len() {
+            if values.len() != self.entries.len() {
                 return false;
             }
 
-            // Validate each value node against corresponding entry
-            for (value_node, entry) in value_nodes.iter().zip(&self.entries) {
-                if !self.is_value_node_valid(*value_node, entry, content) {
+            // Validate each value against corresponding entry
+            for (value, entry) in values.iter().zip(&self.entries) {
+                if !self.is_value_valid(value, entry) {
                     return false;
                 }
             }
@@ -173,42 +130,22 @@ impl ValueFormat {
         }
     }
 
-    /// Check if a value node matches any of the types in a ValueEntry
-    fn is_value_node_valid(&self, value_node: Node, entry: &ValueEntry, content: &str) -> bool {
-        for value_type in &entry.types {
-            if self.is_node_of_type(value_node, *value_type, content) {
-                return true;
-            }
-        }
-        false
-    }
 
-    /// Check if a node represents a CSS variable (var() call)
-    fn is_css_variable(&self, node: Node, content: &str) -> bool {
-        if node.kind() == "call_expression" {
-            // Check if the function name is "var"
-            if let Some(function_name) = node.child(0) {
-                let name_text = &content[function_name.start_byte()..function_name.end_byte()];
-                return name_text == "var";
-            }
-        }
-        false
-    }
 
-    /// Check if non-variable nodes can match any subset of format entries
-    /// This is a permissive check for when variables are present
-    fn can_match_subset(&self, non_var_nodes: &[&Node], content: &str) -> bool {
+    /// Check if a subset of values can match any subset of format entries
+    /// This is used for flexible matching when CSS variables are present
+    fn can_match_subset_values(&self, values: &[&UssValue]) -> bool {
         // If we have no format entries, only variables can be valid
         if self.entries.is_empty() {
-            return non_var_nodes.is_empty();
+            return values.is_empty();
         }
 
-        // Try to find a valid assignment of non-variable nodes to format entries
-        // For simplicity, we'll check if each non-variable node can match at least one format entry
-        for node in non_var_nodes {
+        // Try to find a valid assignment of values to format entries
+        // For simplicity, we'll check if each value can match at least one format entry
+        for value in values {
             let mut found_match = false;
             for entry in &self.entries {
-                if self.is_value_node_valid(**node, entry, content) {
+                if self.is_value_valid(value, entry) {
                     found_match = true;
                     break;
                 }
@@ -219,6 +156,55 @@ impl ValueFormat {
         }
         
         true
+    }
+
+    /// Check if a UssValue matches any of the types in a ValueEntry
+    fn is_value_valid(&self, value: &UssValue, entry: &ValueEntry) -> bool {
+        for value_type in &entry.types {
+            if self.is_value_of_type(value, *value_type) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Check if a UssValue matches a specific ValueType
+    fn is_value_of_type(&self, value: &UssValue, value_type: ValueType) -> bool {
+        match value {
+            UssValue::Numeric { unit: Some(unit_str), has_fractional, .. } => {
+                  // Check if this numeric value matches the expected type based on unit
+                  match value_type {
+                      ValueType::Length => unit_str == "px" || unit_str == "%",
+                      ValueType::Time => unit_str == "s" || unit_str == "ms",
+                      ValueType::Angle => matches!(unit_str.as_str(), "deg" | "rad" | "grad" | "turn"),
+                      ValueType::Number => false, // Numbers with units don't match Number type
+                      ValueType::Integer => false, // Integers with units don't match Integer type
+                      _ => false,
+                  }
+              },
+            UssValue::Numeric { unit: None, has_fractional, value, .. } => {
+                 // Unitless numeric values can match Number, Integer, or Length (only for 0)
+                 match value_type {
+                     ValueType::Integer => !has_fractional, // Integers cannot have fractional parts
+                     ValueType::Number => true, // Numbers can be fractional or not
+                     ValueType::Length => *value == 0.0, // Length can only be unitless if it's exactly 0
+                     _ => false,
+                 }
+             },
+            UssValue::String(_) => matches!(value_type, ValueType::String),
+            UssValue::Color(_) => matches!(value_type, ValueType::Color),
+            UssValue::Identifier(keyword) => {
+                match value_type {
+                    ValueType::Keyword(expected) => keyword == expected,
+                    ValueType::PropertyName => true, // Any identifier can be a property name
+                    _ => false,
+                }
+            },
+            UssValue::Asset(_) => matches!(value_type, ValueType::Asset),
+            // PropertyName is handled as Identifier
+            // UssValue::PropertyName doesn't exist - property names use Identifier
+            UssValue::VariableReference(_) => true, // Variables can match any type
+        }
     }
 
     /// Check if a node matches a specific ValueType

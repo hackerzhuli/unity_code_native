@@ -39,13 +39,13 @@ pub enum UssValue {
     Numeric { value: f64, unit: Option<String>, has_fractional: bool },
     /// String literals
     String(String),
-    /// Color values (hex, named colors, rgb functions)
+    /// Color values (hex, named colors, rgb functions), kept as is
     Color(String),
-    /// Keyword values or property names
+    /// Keyword values or property names, content is the identifier
     Identifier(String),
-    /// Asset references (url(), resource()) - kept as-is
+    /// Asset references (url(), resource()) , content is the original function kept as is
     Asset(String),
-    /// Variable references (var(--variable-name))
+    /// Variable references (var(--variable-name)), content is the name of variable with -- removed
     VariableReference(String),
 }
 
