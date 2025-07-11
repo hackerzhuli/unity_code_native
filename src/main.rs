@@ -3,6 +3,7 @@ mod monitor;
 mod server;
 mod unity_project_manager;
 mod uss;
+mod language;
 
 use std::env;
 use std::path::PathBuf;
