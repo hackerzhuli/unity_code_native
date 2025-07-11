@@ -9,6 +9,7 @@
 //! So we treat resource path just like url path.
 
 use std::cell::RefCell;
+use tower_lsp::lsp_types::MessageActionItem;
 use url::{SyntaxViolation, Url};
 
 /// Error type for asset string validation
@@ -195,13 +196,17 @@ pub fn create_project_url(file_path: &std::path::Path, project_root: &std::path:
 /// checks less problematic errors
 fn additional_error(url_path: &str) -> Option<AssetValidationError> {
     let mut violations = RefCell::new(Vec::new());
-    let _parse_result2
+    let parsed
         = Url::options()
         .syntax_violation_callback(Some(&|v| violations.borrow_mut().push(v)))
         .parse(url_path);
-    // Use url crate's parsing with syntax violation detection
 
-    // Try to parse as a full URL first (for project: scheme)
+    // we should not get error here, we assume we call this function because there is no error
+    if parsed.is_err() {
+        return None;
+    }
+
+    // Use url crate's parsing with syntax violation detection
 
     if !violations.get_mut().is_empty() {
         match violations.get_mut()[0] {
@@ -225,7 +230,8 @@ fn additional_error(url_path: &str) -> Option<AssetValidationError> {
                 // ignore
             },
             SyntaxViolation::NonUrlCodePoint => {
-                return Some(AssetValidationError::new("Invalid character: non-URL code point"));
+                let message = "Invalid character: there are characters that are not valid in URLs. You may be using space or other reserved characters in URL, consider use percent encoding for them.".to_string();
+                return Some(AssetValidationError::new(message));
             },
             SyntaxViolation::NullInFragment => {
                 return Some(AssetValidationError::new("NULL characters are ignored in URL fragment identifiers"));
@@ -240,7 +246,7 @@ fn additional_error(url_path: &str) -> Option<AssetValidationError> {
             SyntaxViolation::UnencodedAtSign => {
                 return Some(AssetValidationError::new("unencoded @ sign in username or password"));
             },
-            _ => {
+            a => {
                 // don't know error, so no error
                 //return Err(AssetValidationError::new("Invalid URL path"));
             }
