@@ -27,6 +27,7 @@ pub struct PropertyInfo {
 }
 
 /// USS language definitions and validation data
+#[derive(Clone)]
 pub struct UssDefinitions {
     /// USS properties with their metadata
     pub properties: HashMap<&'static str, PropertyInfo>,

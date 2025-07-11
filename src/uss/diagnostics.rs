@@ -323,6 +323,7 @@ impl UssDiagnostics {
                         message: format!("Unknown property: {}", property_name),
                         ..Default::default()
                     });
+                    return; // Don't validate values for unknown properties
                 }
                 
                 // Check for missing semicolon by detecting colon within plain_value
@@ -371,13 +372,81 @@ impl UssDiagnostics {
                                 ..Default::default()
                             });
                             
-                            break; // Only report the first missing semicolon in this declaration
+                            return; // Stop validation if semicolon is missing
                         }
                     }
                 }
                 
-                // Validate property value using the entire declaration node
-                self.validate_property_value(property_name, node, content, diagnostics);
+                // Parse values into UssValue objects
+                let mut uss_values = Vec::new();
+                let mut parsing_failed = false;
+                
+                // Collect value nodes (everything after the colon, skipping semicolons)
+                for i in 2..node.child_count() {
+                    if let Some(child) = node.child(i) {
+                        // Skip semicolons and whitespace
+                        if child.kind() != ";" && !child.kind().is_empty() {
+                            // Try to parse the node as a UssValue
+                            match UssValue::from_node(child, content) {
+                                Ok(value) => uss_values.push(value),
+                                Err(error) => {
+                                    // Report parsing error and stop
+                                    let range = self.node_to_range(child, content);
+                                    diagnostics.push(Diagnostic {
+                                        range,
+                                        severity: Some(DiagnosticSeverity::ERROR),
+                                        code: Some(NumberOrString::String("invalid-value".to_string())),
+                                        source: Some("uss".to_string()),
+                                        message: format!("Invalid value: {}", error.message),
+                                        ..Default::default()
+                                    });
+                                    parsing_failed = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // If parsing failed, don't proceed with validation
+                if parsing_failed {
+                    return;
+                }
+                
+                // Validate the parsed values against the property's ValueSpec
+                if let Some(property_info) = self.definitions.get_property_info(property_name) {
+                    // Check if any of the property's value formats match
+                    let mut any_format_matches = false;
+                    
+                    for value_format in &property_info.value_spec.formats {
+                        if value_format.is_match(&uss_values, &self.definitions) {
+                            any_format_matches = true;
+                            break;
+                        }
+                    }
+                    
+                    if !any_format_matches {
+                        // Find the range covering all values
+                        let values_range = if let (Some(first_value_node), Some(last_value_node)) = 
+                            (node.child(2), node.child(node.child_count().saturating_sub(2))) {
+                            let start_pos = self.byte_to_position(first_value_node.start_byte(), content);
+                            let end_pos = self.byte_to_position(last_value_node.end_byte(), content);
+                            Range { start: start_pos, end: end_pos }
+                        } else {
+                            self.node_to_range(node, content)
+                        };
+                        
+                        diagnostics.push(Diagnostic {
+                            range: values_range,
+                            severity: Some(DiagnosticSeverity::ERROR),
+                            code: Some(NumberOrString::String("invalid-property-value".to_string())),
+                            source: Some("uss".to_string()),
+                            message: format!("Invalid value for property '{}'", property_name),
+                            ..Default::default()
+                        });
+                    }
+                }
+                // If property info is not found, we already reported "unknown-property" error above
             }
         }
     }
@@ -520,92 +589,7 @@ impl UssDiagnostics {
         }
     }
     
-    /// Validate property value using ValueFormat::is_match
-    fn validate_property_value(&self, property_name: &str, declaration_node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
-        // Get property information from definitions
-        if let Some(property_info) = self.definitions.get_property_info(property_name) {
-            // Extract UssValues from the declaration node
-            let values = self.extract_values_from_declaration(declaration_node, content);
-            
-            // Check if any of the property's value formats match
-            let mut any_format_matches = false;
-            
-            for value_format in &property_info.value_spec.formats {
-                if value_format.is_match(&values) {
-                    any_format_matches = true;
-                    break;
-                }
-            }
-            
-            if !any_format_matches {
-                // Find the value nodes to highlight in the error
-                let mut value_nodes = Vec::new();
-                for i in 2..declaration_node.child_count() {
-                    if let Some(child) = declaration_node.child(i) {
-                        // Skip semicolons and whitespace
-                        if child.kind() != ";" && !child.kind().is_empty() {
-                            value_nodes.push(child);
-                        }
-                    }
-                }
-                
-                // Create error range covering all value nodes
-                let range = if value_nodes.is_empty() {
-                    // Fallback to the entire declaration if no value nodes found
-                    self.node_to_range(declaration_node, content)
-                } else if value_nodes.len() == 1 {
-                    self.node_to_range(value_nodes[0], content)
-                } else {
-                    // Create range from first to last value node
-                    let start_pos = self.byte_to_position(value_nodes[0].start_byte(), content);
-                    let end_pos = self.byte_to_position(value_nodes[value_nodes.len() - 1].end_byte(), content);
-                    Range { start: start_pos, end: end_pos }
-                };
-                
-                // Get the actual value text for the error message
-                let value_text = if value_nodes.is_empty() {
-                    "<missing value>".to_string()
-                } else {
-                    value_nodes.iter()
-                        .map(|node| node.utf8_text(content.as_bytes()).unwrap_or(""))
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                };
-                
-                diagnostics.push(Diagnostic {
-                    range,
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    code: Some(NumberOrString::String("invalid-property-value".to_string())),
-                    source: Some("uss".to_string()),
-                    message: format!("Invalid value '{}' for property '{}'", value_text, property_name),
-                    ..Default::default()
-                });
-            }
-        }
-        // If property info is not found, we already reported "unknown-property" error in validate_declaration
-    }
-    
-    /// Extract UssValues from a declaration node
-    fn extract_values_from_declaration(&self, declaration_node: Node, content: &str) -> Vec<UssValue> {
-        let mut values = Vec::new();
-        
-        // Collect value nodes (everything after the colon)
-        for i in 2..declaration_node.child_count() {
-            if let Some(child) = declaration_node.child(i) {
-                // Skip semicolons and whitespace
-                if child.kind() != ";" && !child.kind().is_empty() {
-                    // Try to parse the node as a UssValue
-                    if let Ok(value) = UssValue::from_node(child, content) {
-                        values.push(value);
-                    }
-                    // If parsing fails, we'll still continue to check other values
-                    // The validation will catch the invalid value
-                }
-            }
-        }
-        
-        values
-    }
+
 
     /// Add invalid unit diagnostic
     fn add_invalid_unit_diagnostic(&self, unit_node: Node, content: &str, property_name: &str, unit: &str, expected: &str, diagnostics: &mut Vec<Diagnostic>) {

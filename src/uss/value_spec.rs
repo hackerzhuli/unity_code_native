@@ -88,7 +88,7 @@ impl ValueFormat {
     /// Special handling for CSS variables (var(--name)):
     /// - var() calls are treated as wildcards that can match 0-n values
     /// - If any var() is present, we validate non-var values and return true if they could potentially match
-    pub fn is_match(&self, values: &[UssValue]) -> bool {
+    pub fn is_match(&self, values: &[UssValue], definitions: &UssDefinitions) -> bool {
         // Check for CSS variables (var() calls)
         let has_variables = values.iter().any(|value| matches!(value, UssValue::VariableReference(_)));
         
@@ -112,7 +112,7 @@ impl ValueFormat {
             }
             
             // Check if non-variable values can match any subset of our format entries
-            return self.can_match_subset_values(&non_var_values);
+            return self.can_match_subset_values(&non_var_values, definitions);
         } else {
             // No variables - use strict matching
             if values.len() != self.entries.len() {
@@ -121,7 +121,7 @@ impl ValueFormat {
 
             // Validate each value against corresponding entry
             for (value, entry) in values.iter().zip(&self.entries) {
-                if !self.is_value_valid(value, entry) {
+                if !self.is_value_valid(value, entry, definitions) {
                     return false;
                 }
             }
@@ -130,11 +130,9 @@ impl ValueFormat {
         }
     }
 
-
-
     /// Check if a subset of values can match any subset of format entries
     /// This is used for flexible matching when CSS variables are present
-    fn can_match_subset_values(&self, values: &[&UssValue]) -> bool {
+    fn can_match_subset_values(&self, values: &[&UssValue], definitions: &UssDefinitions) -> bool {
         // If we have no format entries, only variables can be valid
         if self.entries.is_empty() {
             return values.is_empty();
@@ -145,7 +143,7 @@ impl ValueFormat {
         for value in values {
             let mut found_match = false;
             for entry in &self.entries {
-                if self.is_value_valid(value, entry) {
+                if self.is_value_valid(value, entry, definitions) {
                     found_match = true;
                     break;
                 }
@@ -159,9 +157,9 @@ impl ValueFormat {
     }
 
     /// Check if a UssValue matches any of the types in a ValueEntry
-    fn is_value_valid(&self, value: &UssValue, entry: &ValueEntry) -> bool {
+    fn is_value_valid(&self, value: &UssValue, entry: &ValueEntry, definitions: &UssDefinitions) -> bool {
         for value_type in &entry.types {
-            if self.is_value_of_type(value, *value_type) {
+            if self.is_value_of_type(value, *value_type, definitions) {
                 return true;
             }
         }
@@ -169,7 +167,7 @@ impl ValueFormat {
     }
 
     /// Check if a UssValue matches a specific ValueType
-    fn is_value_of_type(&self, value: &UssValue, value_type: ValueType) -> bool {
+    fn is_value_of_type(&self, value: &UssValue, value_type: ValueType, definitions: &UssDefinitions) -> bool {
         match value {
             UssValue::Numeric { unit: Some(unit_str), has_fractional, .. } => {
                   // Check if this numeric value matches the expected type based on unit
@@ -197,6 +195,7 @@ impl ValueFormat {
                 match value_type {
                     ValueType::Keyword(expected) => keyword == expected,
                     ValueType::PropertyName => true, // Any identifier can be a property name
+                    ValueType::Color => definitions.is_valid_color_keyword(keyword), // Check if identifier is a valid color name
                     _ => false,
                 }
             },
@@ -393,7 +392,9 @@ impl ValueSpec {
                     types: vec![value_type],
                 });
             }
-            formats.push(ValueFormat { entries });
+            formats.push(ValueFormat { 
+                entries,
+            });
         }
         
         Self { formats }
