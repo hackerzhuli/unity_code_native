@@ -7,6 +7,91 @@ use super::parser::UssParser;
 use tower_lsp::lsp_types::NumberOrString;
 
 #[test]
+fn test_import_statement_validation() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with valid import statement using url() function
+    let valid_url_content = r#"@import url("styles.uss");
+
+.button {
+    color: red;
+}"#;
+    
+    let tree = parser.parse(valid_url_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, valid_url_content);
+    
+    // Should not have any errors for valid url() import
+    let import_errors: Vec<_> = results.iter()
+        .filter(|d| d.message.contains("import") || d.code.as_ref().map_or(false, |c| {
+            if let tower_lsp::lsp_types::NumberOrString::String(s) = c {
+                s.contains("import")
+            } else { false }
+        }))
+        .collect();
+    
+    assert!(import_errors.is_empty(), "Valid url() import statement should not produce errors. Found: {:?}", 
+        import_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+    
+    // Test case with valid import statement using string
+    let valid_string_content = r#"@import "styles.uss";
+
+.button {
+    color: red;
+}"#;
+    
+    let tree = parser.parse(valid_string_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, valid_string_content);
+    
+    // Should not have any errors for valid string import
+    let import_errors: Vec<_> = results.iter()
+        .filter(|d| d.message.contains("import") || d.code.as_ref().map_or(false, |c| {
+            if let tower_lsp::lsp_types::NumberOrString::String(s) = c {
+                s.contains("import")
+            } else { false }
+        }))
+        .collect();
+    
+    assert!(import_errors.is_empty(), "Valid string import statement should not produce errors. Found: {:?}", 
+        import_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+    
+    // Test case with import statement missing .uss extension
+    let css_import_content = r#"@import "styles.css";
+
+.button {
+    color: red;
+}"#;
+    
+    let tree = parser.parse(css_import_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, css_import_content);
+    
+    // Should detect missing .uss extension warning
+    let uss_extension_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("missing-uss-extension".to_string())))
+        .collect();
+    
+    assert!(!uss_extension_warnings.is_empty(), "Should detect missing .uss extension");
+    
+    // Test case with empty import path
+    let empty_import_content = r#"@import "";
+
+.button {
+    color: red;
+}"#;
+    
+    let tree = parser.parse(empty_import_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, empty_import_content);
+    
+    // Should detect some error for empty import path (UssValue validation handles this)
+    println!("Empty import diagnostics: {:?}", results.iter().map(|d| (&d.code, &d.message)).collect::<Vec<_>>());
+    
+    // UssValue validation should produce an error for empty strings
+     assert!(!results.is_empty() && results.iter().any(|d| 
+         d.severity == Some(tower_lsp::lsp_types::DiagnosticSeverity::ERROR)
+     ), "Should detect error for empty import path");
+}
+
+#[test]
 fn test_precise_syntax_error_range() {
     let diagnostics = UssDiagnostics::new();
     let mut parser = UssParser::new().unwrap();

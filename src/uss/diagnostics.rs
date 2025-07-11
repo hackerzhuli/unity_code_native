@@ -98,8 +98,9 @@ impl UssDiagnostics {
                     self.validate_declaration(node, content, diagnostics, source_url, variable_resolver);
                 }
             },
+            "function_call" => self.validate_function_call(node, content, diagnostics, source_url),
             "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
-            "at_rule" => self.validate_at_rule(node, content, diagnostics),
+            "at_rule" | "import_statement" => self.validate_at_rule(node, content, diagnostics, source_url),
             _ => {
             }
         }
@@ -513,6 +514,31 @@ impl UssDiagnostics {
         resolved_values
     }
     
+    /// Validate function call (specifically for URL functions to generate warnings)
+    fn validate_function_call(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>) {
+        // Parse the function call using UssValue
+        if let Ok(uss_value) = UssValue::from_node(node, content, &self.definitions, source_url) {
+            if let UssValue::Url(url) = uss_value {
+                // Validate the URL and check for warnings
+                if let Ok(validation_result) = crate::language::asset_url::validate_url(url.as_str(), source_url) {
+                    if !validation_result.warnings.is_empty() {
+                        for warning in validation_result.warnings {
+                            let range = self.node_to_range(node, content);
+                            diagnostics.push(Diagnostic {
+                                range,
+                                severity: Some(DiagnosticSeverity::WARNING),
+                                code: Some(NumberOrString::String("url-warning".to_string())),
+                                source: Some("uss".to_string()),
+                                message: warning.message,
+                                ..Default::default()
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     /// Validate pseudo-class selector
     fn validate_pseudo_class(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
         let pseudo_class = node.utf8_text(content.as_bytes()).unwrap_or("");
@@ -574,28 +600,160 @@ impl UssDiagnostics {
     }
     
     /// Validate at-rule (only @import is supported)
-    fn validate_at_rule(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
-        let at_rule_text = node.utf8_text(content.as_bytes()).unwrap_or("");
+    fn validate_at_rule(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>) {
+        match node.kind() {
+            "import_statement" => {
+                self.validate_import_statement(node, content, diagnostics, source_url);
+            }
+            "at_rule" => {
+                // Generic at-rule that's not an import - these are not supported
+                let range = self.node_to_range(node, content);
+                let at_rule_text = node.utf8_text(content.as_bytes()).unwrap_or("unknown");
+                diagnostics.push(Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("unsupported-at-rule".to_string())),
+                    source: Some("uss".to_string()),
+                    message: format!("Unsupported at-rule '{}'. Only @import is supported in USS", at_rule_text),
+                    ..Default::default()
+                });
+            }
+            _ => {
+                // Unknown at-rule type
+                let range = self.node_to_range(node, content);
+                diagnostics.push(Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("unknown-at-rule".to_string())),
+                    source: Some("uss".to_string()),
+                    message: "Unknown at-rule type".to_string(),
+                    ..Default::default()
+                });
+            }
+        }
+    }
+
+    /// Validate import statement structure and values
+    fn validate_import_statement(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>, source_url: Option<&Url>) {
+        // Import statement structure: import_statement -> @import + (string_value | call_expression)
+        // Find the value child that contains the import path (either string or url() function)
+        let mut import_value_node = None;
         
-        // Extract the at-rule name (e.g., "@import" from "@import url(...)")
-        let at_rule_name = if let Some(space_pos) = at_rule_text.find(' ') {
-            &at_rule_text[..space_pos]
+        for i in 0..node.child_count() {
+            if let Some(child) = node.child(i) {
+                if child.kind() == "string_value" || child.kind() == "call_expression" {
+                    import_value_node = Some(child);
+                    break;
+                }
+            }
+        }
+        
+        if let Some(value_node) = import_value_node {
+            // UssValue::from_node already handles all validation including URL validation
+            // We just need to check if it's a valid string or url value
+            match UssValue::from_node(value_node, content, &self.definitions, source_url) {
+                Ok(uss_value) => {
+                    match uss_value {
+                        UssValue::String(import_path) => {
+                            // Validate URL for string import paths using asset_url validation
+                            match crate::language::asset_url::validate_url(&import_path, source_url) {
+                                Err(validation_error) => {
+                                    let range = self.node_to_range(value_node, content);
+                                    diagnostics.push(Diagnostic {
+                                        range,
+                                        severity: Some(DiagnosticSeverity::ERROR),
+                                        code: Some(NumberOrString::String("invalid-import-url".to_string())),
+                                        source: Some("uss".to_string()),
+                                        message: format!("Invalid import path: {}", validation_error.message),
+                                        ..Default::default()
+                                    });
+                                }
+                                Ok(validation_result) => {
+                                    // Check for URL validation warnings
+                                    for warning in &validation_result.warnings {
+                                        let range = self.node_to_range(value_node, content);
+                                        diagnostics.push(Diagnostic {
+                                            range,
+                                            severity: Some(DiagnosticSeverity::WARNING),
+                                            code: Some(NumberOrString::String("import-url-warning".to_string())),
+                                            source: Some("uss".to_string()),
+                                            message: warning.message.clone(),
+                                            ..Default::default()
+                                        });
+                                    }
+                                    
+                                    // Check for .uss extension warning
+                                    if !import_path.ends_with(".uss") {
+                                        let range = self.node_to_range(value_node, content);
+                                        diagnostics.push(Diagnostic {
+                                            range,
+                                            severity: Some(DiagnosticSeverity::WARNING),
+                                            code: Some(NumberOrString::String("missing-uss-extension".to_string())),
+                                            source: Some("uss".to_string()),
+                                            message: "Import path should have .uss extension".to_string(),
+                                            ..Default::default()
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        UssValue::Url(url) => {
+                            // Check for .uss extension warning in URL path
+                            let url_path = url.path();
+                            if !url_path.ends_with(".uss") {
+                                let range = self.node_to_range(value_node, content);
+                                diagnostics.push(Diagnostic {
+                                    range,
+                                    severity: Some(DiagnosticSeverity::WARNING),
+                                    code: Some(NumberOrString::String("missing-uss-extension".to_string())),
+                                    source: Some("uss".to_string()),
+                                    message: "Import path should have .uss extension".to_string(),
+                                    ..Default::default()
+                                });
+                            }
+                        }
+                        _ => {
+                            // Import value is neither a string nor a url function
+                            let range = self.node_to_range(value_node, content);
+                            diagnostics.push(Diagnostic {
+                                range,
+                                severity: Some(DiagnosticSeverity::ERROR),
+                                code: Some(NumberOrString::String("invalid-import-value".to_string())),
+                                source: Some("uss".to_string()),
+                                message: "Import path must be a string or url() function".to_string(),
+                                ..Default::default()
+                            });
+                        }
+                    }
+                }
+                Err(err) => {
+                    // UssValue validation failed - use the detailed error from UssValue
+                    let range = self.node_to_range(value_node, content);
+                    diagnostics.push(Diagnostic {
+                        range,
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        code: Some(NumberOrString::String("invalid-import-syntax".to_string())),
+                        source: Some("uss".to_string()),
+                        message: err.message,
+                        ..Default::default()
+                    });
+                }
+            }
         } else {
-            at_rule_text
-        };
-        
-        if !self.definitions.is_valid_at_rule(at_rule_name) {
+            // No string value found in import statement
             let range = self.node_to_range(node, content);
             diagnostics.push(Diagnostic {
                 range,
                 severity: Some(DiagnosticSeverity::ERROR),
-                code: Some(NumberOrString::String("unsupported-at-rule".to_string())),
+                code: Some(NumberOrString::String("missing-import-path".to_string())),
                 source: Some("uss".to_string()),
-                message: format!("Unsupported at-rule '{}'. Only @import is supported in USS", at_rule_name),
+                message: "Import statement missing file path".to_string(),
                 ..Default::default()
             });
         }
     }
+
+
 
     /// Convert tree-sitter node to LSP range
     fn node_to_range(&self, node: Node, content: &str) -> Range {
