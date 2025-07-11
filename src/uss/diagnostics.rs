@@ -4,6 +4,7 @@
 //! Validates syntax, properties, values, and USS-specific rules.
 
 use crate::language::asset_url::validate_url;
+use crate::language::tree_utils::{byte_to_position, node_to_range};
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::tree_printer;
 use crate::uss::value::UssValue;
@@ -196,7 +197,7 @@ impl UssDiagnostics {
             if !error_nodes.is_empty() {
                 // Use the first ERROR node found (they should be small and specific)
                 let error_node = error_nodes[0];
-                let error_range = self.node_to_range(error_node, content);
+                let error_range = node_to_range(error_node, content);
 
                 // Limit to single line if it spans multiple lines
                 if error_range.end.line > error_range.start.line {
@@ -214,17 +215,17 @@ impl UssDiagnostics {
             let missing_nodes = self.find_missing_nodes(node);
             if !missing_nodes.is_empty() {
                 let missing_node = missing_nodes[0];
-                return self.node_to_range(missing_node, content);
+                return node_to_range(missing_node, content);
             }
         }
 
         // If this is an ERROR node itself, use its range directly
         if node.kind() == "ERROR" {
-            return self.node_to_range(node, content);
+            return node_to_range(node, content);
         }
 
         // Fallback: limit the node range to a single line
-        let node_range = self.node_to_range(node, content);
+        let node_range = node_to_range(node, content);
         let start_line = node_range.start.line;
         let end_line = node_range.end.line;
 
@@ -327,7 +328,7 @@ impl UssDiagnostics {
             if p.kind() == "block" {
                 if let Some(grandparent) = p.parent() {
                     if grandparent.kind() == "rule_set" {
-                        let range = self.node_to_range(node, content);
+                        let range = node_to_range(node, content);
                         diagnostics.push(Diagnostic {
                             range,
                             severity: Some(DiagnosticSeverity::ERROR),
@@ -359,7 +360,7 @@ impl UssDiagnostics {
 
                 // Check if property is valid
                 if !self.definitions.is_valid_property(property_name) {
-                    let range = self.node_to_range(property_node, content);
+                    let range = node_to_range(property_node, content);
                     diagnostics.push(Diagnostic {
                         range,
                         severity: Some(DiagnosticSeverity::ERROR),
@@ -393,7 +394,7 @@ impl UssDiagnostics {
                         Ok(value) => uss_values.push(value),
                         Err(error) => {
                             // Report parsing error and stop
-                            let range = self.node_to_range(*child, content);
+                            let range = node_to_range(*child, content);
 
                             diagnostics.push(Diagnostic {
                                 range,
@@ -428,7 +429,7 @@ impl UssDiagnostics {
                                 // This is likely a new property declaration, meaning we're missing a semicolon
                                 // Use the corresponding value node for error positioning
                                 if let Some(value_node) = value_nodes.get(i) {
-                                    let range = self.node_to_range(*value_node, content);
+                                    let range = node_to_range(*value_node, content);
                                     diagnostics.push(Diagnostic {
                                         range,
                                         severity: Some(DiagnosticSeverity::ERROR),
@@ -474,15 +475,15 @@ impl UssDiagnostics {
                             node.child(node.child_count().saturating_sub(2)),
                         ) {
                             let start_pos =
-                                self.byte_to_position(first_value_node.start_byte(), content);
+                                byte_to_position(first_value_node.start_byte(), content);
                             let end_pos =
-                                self.byte_to_position(last_value_node.end_byte(), content);
+                                byte_to_position(last_value_node.end_byte(), content);
                             Range {
                                 start: start_pos,
                                 end: end_pos,
                             }
                         } else {
-                            self.node_to_range(node, content)
+                            node_to_range(node, content)
                         };
 
                         diagnostics.push(Diagnostic {
@@ -516,16 +517,15 @@ impl UssDiagnostics {
                                     node.child(2),
                                     node.child(node.child_count().saturating_sub(2)),
                                 ) {
-                                    let start_pos = self
-                                        .byte_to_position(first_value_node.start_byte(), content);
+                                    let start_pos = byte_to_position(first_value_node.start_byte(), content);
                                     let end_pos =
-                                        self.byte_to_position(last_value_node.end_byte(), content);
+                                        byte_to_position(last_value_node.end_byte(), content);
                                     Range {
                                         start: start_pos,
                                         end: end_pos,
                                     }
                                 } else {
-                                    self.node_to_range(node, content)
+                                    node_to_range(node, content)
                                 };
 
                             // Create a readable string of the resolved property values
@@ -650,7 +650,7 @@ impl UssDiagnostics {
                                 // first argument is '(', second is actual argument
                                 if let Some(arg_node) = args_node.child(1) {
                                     if arg_node.kind() == "string_value" {
-                                        let arg_range = self.node_to_range(arg_node, content);
+                                        let arg_range = node_to_range(arg_node, content);
                                         url_references.push(UrlReference {
                                             url: url.clone(),
                                             range: arg_range,
@@ -692,7 +692,7 @@ impl UssDiagnostics {
                     if !validation_result.warnings.is_empty() {
                         for warning in validation_result.warnings {
                             let range =
-                                self.node_to_range(node, content);
+                                node_to_range(node, content);
                             diagnostics.push(Diagnostic {
                                 range,
                                 severity: Some(
@@ -725,7 +725,7 @@ impl UssDiagnostics {
             // Check if the part before colon looks like a CSS property name
             if self.is_likely_css_property(property_part) && !value_part.is_empty() {
                 // This is likely a missing semicolon, not a pseudo-class
-                let range = self.node_to_range(node, content);
+                let range = node_to_range(node, content);
                 diagnostics.push(Diagnostic {
                     range,
                     severity: Some(DiagnosticSeverity::ERROR),
@@ -739,7 +739,7 @@ impl UssDiagnostics {
         }
 
         if !self.definitions.is_valid_pseudo_class(pseudo_class) {
-            let range = self.node_to_range(node, content);
+            let range = node_to_range(node, content);
             diagnostics.push(Diagnostic {
                 range,
                 severity: Some(DiagnosticSeverity::ERROR),
@@ -793,7 +793,7 @@ impl UssDiagnostics {
             }
             "at_rule" => {
                 // Generic at-rule that's not an import - these are not supported
-                let range = self.node_to_range(node, content);
+                let range = node_to_range(node, content);
                 let at_rule_text = node.utf8_text(content.as_bytes()).unwrap_or("unknown");
                 diagnostics.push(Diagnostic {
                     range,
@@ -809,15 +809,6 @@ impl UssDiagnostics {
             }
             _ => {
                 // Unknown at-rule type
-                let range = self.node_to_range(node, content);
-                diagnostics.push(Diagnostic {
-                    range,
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    code: Some(NumberOrString::String("unknown-at-rule".to_string())),
-                    source: Some("uss".to_string()),
-                    message: "Unknown at-rule type".to_string(),
-                    ..Default::default()
-                });
             }
         }
     }
@@ -849,7 +840,7 @@ impl UssDiagnostics {
         if node.child_count() > 2 {
             let semi_node = node.child(2).unwrap();
             if semi_node.kind() != ";" {
-                let range = self.node_to_range(semi_node, content);
+                let range = node_to_range(semi_node, content);
                 diagnostics.push(Diagnostic {
                     range,
                     severity: Some(DiagnosticSeverity::ERROR),
@@ -872,7 +863,7 @@ impl UssDiagnostics {
                         match validate_url(&import_path, source_url)
                         {
                             Err(validation_error) => {
-                                let range = self.node_to_range(value_node, content);
+                                let range = node_to_range(value_node, content);
                                 diagnostics.push(Diagnostic {
                                     range,
                                     severity: Some(DiagnosticSeverity::ERROR),
@@ -888,12 +879,12 @@ impl UssDiagnostics {
                                 });
                             }
                             Ok(validation_result) => {
-                                let range = self.node_to_range(value_node, content);
+                                let range = node_to_range(value_node, content);
                                 url_references.push(UrlReference { url: validation_result.url, range });
 
                                 // Check for URL validation warnings
                                 for warning in &validation_result.warnings {
-                                    let range = self.node_to_range(value_node, content);
+                                    let range = node_to_range(value_node, content);
                                     diagnostics.push(Diagnostic {
                                         range,
                                         severity: Some(DiagnosticSeverity::WARNING),
@@ -908,7 +899,7 @@ impl UssDiagnostics {
     
                                 // Check for .uss extension warning
                                 if !import_path.ends_with(".uss") {
-                                    let range = self.node_to_range(value_node, content);
+                                    let range = node_to_range(value_node, content);
                                     diagnostics.push(Diagnostic {
                                         range,
                                         severity: Some(DiagnosticSeverity::WARNING),
@@ -932,7 +923,7 @@ impl UssDiagnostics {
                     }
                     _ => {
                         // Import value is neither a string nor a url function
-                        let range = self.node_to_range(value_node, content);
+                        let range = node_to_range(value_node, content);
                         diagnostics.push(Diagnostic {
                             range,
                             severity: Some(DiagnosticSeverity::ERROR),
@@ -949,7 +940,7 @@ impl UssDiagnostics {
             }
             Err(err) => {
                 // UssValue validation failed - use the detailed error from UssValue
-                let range = self.node_to_range(value_node, content);
+                let range = node_to_range(value_node, content);
                 diagnostics.push(Diagnostic {
                     range,
                     severity: Some(DiagnosticSeverity::ERROR),
@@ -959,44 +950,6 @@ impl UssDiagnostics {
                     ..Default::default()
                 });
             }
-        }
-    }
-    
-    /// Convert tree-sitter node to LSP range
-    fn node_to_range(&self, node: Node, content: &str) -> Range {
-        let start_byte = node.start_byte();
-        let end_byte = node.end_byte();
-
-        let start_position = self.byte_to_position(start_byte, content);
-        let end_position = self.byte_to_position(end_byte, content);
-
-        Range {
-            start: start_position,
-            end: end_position,
-        }
-    }
-
-    /// Convert byte offset to LSP position
-    fn byte_to_position(&self, byte_offset: usize, content: &str) -> Position {
-        let mut line = 0;
-        let mut character = 0;
-
-        for (i, ch) in content.char_indices() {
-            if i >= byte_offset {
-                break;
-            }
-
-            if ch == '\n' {
-                line += 1;
-                character = 0;
-            } else {
-                character += 1;
-            }
-        }
-
-        Position {
-            line: line as u32,
-            character: character as u32,
         }
     }
 }
