@@ -247,7 +247,7 @@ fn additional_error(url_path: &str, base_url: &Url) -> Option<AssetValidationErr
                 // ignore
             },
             SyntaxViolation::NonUrlCodePoint => {
-                let message = "Invalid character: there are characters that are not valid in URLs. You may be using space or other reserved characters in URL, consider use percent encoding for them.".to_string();
+                let message = "there are characters that are not valid in URLs. You may be using space or other reserved characters in URL, consider use percent encoding instead.".to_string();
                 return Some(AssetValidationError::warning(message));
             },
             SyntaxViolation::NullInFragment => {
