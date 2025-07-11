@@ -6,9 +6,7 @@ use tower_lsp::lsp_types::{Diagnostic, Position, Range, TextDocumentContentChang
 use tree_sitter::{InputEdit, Point, Tree};
 
 use crate::uss::parser::UssParser;
-use crate::uss::variable_resolver::{VariableResolver, VariableDefinition, VariableResolutionStatus};
-
-
+use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
 
 /// Represents a USS document with its content, syntax tree, and version
 #[derive(Debug, Clone)]
@@ -254,12 +252,12 @@ impl UssDocument {
     }
 
     /// Get all variables defined in this document
-    pub fn get_variables(&self) -> &HashMap<String, VariableDefinition> {
+    pub fn get_variables(&self) -> &HashMap<String, VariableStatus> {
         self.variable_resolver.get_variables()
     }
 
     /// Get a specific variable by name
-    pub fn get_variable(&self, name: &str) -> Option<&VariableDefinition> {
+    pub fn get_variable(&self, name: &str) -> Option<&VariableStatus> {
         self.variable_resolver.get_variable(name)
     }
 

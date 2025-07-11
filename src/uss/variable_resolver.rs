@@ -25,9 +25,9 @@ use tower_lsp::lsp_types::Range;
 use tree_sitter::Node;
 use crate::uss::value::UssValue;
 
-/// Status of a variable's resolution
+/// Status and value of a CSS custom property variable
 #[derive(Debug, Clone, PartialEq)]
-pub enum VariableResolutionStatus {
+pub enum VariableStatus {
     /// Variable has been successfully resolved to concrete values
     Resolved(Vec<UssValue>),
     /// Variable cannot be resolved (circular dependency, missing dependency, etc.)
@@ -38,21 +38,12 @@ pub enum VariableResolutionStatus {
     Error,
 }
 
-/// Definition of a CSS custom property variable
-#[derive(Debug, Clone)]
-pub struct VariableDefinition {
-    pub name: String,
-    pub values: Vec<UssValue>,
-    pub range: Range,
-    pub status: VariableResolutionStatus,
-}
-
-
-
 /// Handles variable extraction and resolution for USS documents
 #[derive(Clone, Debug)]
 pub struct VariableResolver {
-    variables: HashMap<String, VariableDefinition>,
+    variables: HashMap<String, VariableStatus>,
+    /// Temporary storage for parsed values during extraction
+    parsed_values: HashMap<String, Vec<UssValue>>,
     resolved: bool,
 }
 
@@ -61,6 +52,7 @@ impl VariableResolver {
     pub fn new() -> Self {
         Self {
             variables: HashMap::new(),
+            parsed_values: HashMap::new(),
             resolved: false,
         }
     }
@@ -84,12 +76,12 @@ impl VariableResolver {
     }
 
     /// Get all variables
-    pub fn get_variables(&self) -> &HashMap<String, VariableDefinition> {
+    pub fn get_variables(&self) -> &HashMap<String, VariableStatus> {
         &self.variables
     }
 
     /// Get a specific variable by name
-    pub fn get_variable(&self, name: &str) -> Option<&VariableDefinition> {
+    pub fn get_variable(&self, name: &str) -> Option<&VariableStatus> {
         self.variables.get(name)
     }
 
@@ -119,32 +111,19 @@ impl VariableResolver {
                 // Check if this variable already exists (ambiguous case)
                 if self.variables.contains_key(&variable_name) {
                     // Mark existing variable as ambiguous
-                    if let Some(existing_var) = self.variables.get_mut(&variable_name) {
-                        existing_var.status = VariableResolutionStatus::Ambiguous;
-                        existing_var.values.clear(); // Clear values for ambiguous variables
-                    }
+                    self.variables.insert(variable_name.clone(), VariableStatus::Ambiguous);
+                    self.parsed_values.remove(&variable_name); // Remove parsed values for ambiguous variables
                 } else {
                     // Extract values immediately during traversal
                     match self.extract_values_from_declaration_node(node, content) {
                         Ok(values) => {
-                            let definition = VariableDefinition {
-                                name: variable_name.clone(),
-                                values,
-                                range,
-                                status: VariableResolutionStatus::Unresolved,
-                            };
-                            self.variables.insert(variable_name, definition);
+                            // Store parsed values and mark as unresolved initially
+                            self.parsed_values.insert(variable_name.clone(), values);
+                            self.variables.insert(variable_name, VariableStatus::Unresolved);
                         }
                         Err(_) => {
                             // If extraction fails, record this variable with error status
-                            // This allows tracking of all variable declarations even when they have parsing errors
-                            let definition = VariableDefinition {
-                                name: variable_name.clone(),
-                                values: Vec::new(), // Empty values for error cases
-                                range,
-                                status: VariableResolutionStatus::Error,
-                            };
-                            self.variables.insert(variable_name, definition);
+                            self.variables.insert(variable_name, VariableStatus::Error);
                         }
                     }
                 }
@@ -244,10 +223,8 @@ impl VariableResolver {
     ) -> Option<Vec<UssValue>> {
         // If already resolved, return the cached result
         if resolved.contains(var_name) {
-            if let Some(var_def) = self.variables.get(var_name) {
-                if let VariableResolutionStatus::Resolved(values) = &var_def.status {
-                    return Some(values.clone());
-                }
+            if let Some(VariableStatus::Resolved(values)) = self.variables.get(var_name) {
+                return Some(values.clone());
             }
             return None;
         }
@@ -255,30 +232,34 @@ impl VariableResolver {
         // Check for circular dependency
         if visiting.contains(var_name) {
             // Mark as unresolved due to circular dependency
-            if let Some(var_def) = self.variables.get_mut(var_name) {
-                var_def.status = VariableResolutionStatus::Unresolved;
-            }
+            self.variables.insert(var_name.to_string(), VariableStatus::Unresolved);
             return None;
         }
         
-        // Get the variable definition
-        let var_def = match self.variables.get(var_name) {
-            Some(def) => def.clone(),
+        // Get the variable status
+        let var_status = match self.variables.get(var_name) {
+            Some(status) => status.clone(),
             None => return None,
         };
         
         // Skip if already marked as ambiguous or has errors
-        if matches!(var_def.status, VariableResolutionStatus::Ambiguous | VariableResolutionStatus::Error) {
+        if matches!(var_status, VariableStatus::Ambiguous | VariableStatus::Error) {
             resolved.insert(var_name.to_string());
             return None;
         }
+        
+        // Get the parsed values
+        let parsed_values = match self.parsed_values.get(var_name) {
+            Some(values) => values.clone(),
+            None => return None,
+        };
         
         visiting.insert(var_name.to_string());
         
         // Resolve the variable values
         let mut resolved_values = Vec::new();
         
-        for value in &var_def.values {
+        for value in &parsed_values {
             match value {
                 UssValue::VariableReference(ref_var_name) => {
                     // Recursively resolve the referenced variable
@@ -287,9 +268,7 @@ impl VariableResolver {
                     } else {
                         // If we can't resolve the reference, mark as unresolved
                         visiting.remove(var_name);
-                        if let Some(var_def) = self.variables.get_mut(var_name) {
-                            var_def.status = VariableResolutionStatus::Unresolved;
-                        }
+                        self.variables.insert(var_name.to_string(), VariableStatus::Unresolved);
                         return None;
                     }
                 }
@@ -304,12 +283,8 @@ impl VariableResolver {
         resolved.insert(var_name.to_string());
         
         // Update the variable status
-        if let Some(var_def) = self.variables.get_mut(var_name) {
-            var_def.status = VariableResolutionStatus::Resolved(resolved_values.clone());
-            Some(resolved_values)
-        } else {
-            None
-        }
+        self.variables.insert(var_name.to_string(), VariableStatus::Resolved(resolved_values.clone()));
+        Some(resolved_values)
     }
 }
 

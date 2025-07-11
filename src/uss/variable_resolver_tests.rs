@@ -1,4 +1,4 @@
-use crate::uss::{parser::UssParser, value::UssValue, variable_resolver::{VariableResolutionStatus, VariableResolver}};
+use crate::uss::{parser::UssParser, value::UssValue, variable_resolver::{VariableStatus, VariableResolver}};
 
 fn create_test_tree(content: &str) -> Option<tree_sitter::Tree> {
     let mut parser = UssParser::new().unwrap();
@@ -42,13 +42,13 @@ fn test_variable_resolution_simple() {
     assert_eq!(variables.len(), 2);
     
     let primary_var = resolver.get_variable("primary-color").unwrap();
-    assert!(matches!(primary_var.status, VariableResolutionStatus::Resolved(_)));
+    assert!(matches!(primary_var, VariableStatus::Resolved(_)));
     
     let text_var = resolver.get_variable("text-color").unwrap();
-    assert!(matches!(text_var.status, VariableResolutionStatus::Resolved(_)));
+    assert!(matches!(text_var, VariableStatus::Resolved(_)));
     
     // Check that the resolved value is correct
-    if let VariableResolutionStatus::Resolved(values) = &text_var.status {
+    if let VariableStatus::Resolved(values) = text_var {
         assert_eq!(values.len(), 1);
         assert!(matches!(values[0], UssValue::Color(_, _, _, _)));
     }
@@ -71,8 +71,8 @@ fn test_variable_resolution_circular() {
     let color_b = resolver.get_variable("color-b").unwrap();
     
     // Both should be unresolved due to circular dependency
-    assert!(matches!(color_a.status, VariableResolutionStatus::Unresolved));
-    assert!(matches!(color_b.status, VariableResolutionStatus::Unresolved));
+    assert!(matches!(color_a, VariableStatus::Unresolved));
+    assert!(matches!(color_b, VariableStatus::Unresolved));
 }
 
 #[test]
@@ -91,7 +91,7 @@ fn test_variable_resolution_ambiguous() {
     resolver.add_variables_from_tree(tree.root_node(), content);
     
     let primary_var = resolver.get_variable("primary-color").unwrap();
-    assert!(matches!(primary_var.status, VariableResolutionStatus::Ambiguous));
+    assert!(matches!(primary_var, VariableStatus::Ambiguous));
 }
 
 #[test]
@@ -116,22 +116,22 @@ fn test_complex_variable_dependencies() {
     
     // Check that --something is resolved (no dependencies)
     let something_var = resolver.get_variable("something").unwrap();
-    assert!(matches!(something_var.status, VariableResolutionStatus::Resolved(_)));
-    if let VariableResolutionStatus::Resolved(values) = &something_var.status {
+    assert!(matches!(something_var, VariableStatus::Resolved(_)));
+    if let VariableStatus::Resolved(values) = something_var {
         assert_eq!(values.len(), 3); // 1px, 2, #aabbcc
     }
     
     // Check that --something-else is resolved (depends on --something)
     let something_else_var = resolver.get_variable("something-else").unwrap();
-    assert!(matches!(something_else_var.status, VariableResolutionStatus::Resolved(_)));
-    if let VariableResolutionStatus::Resolved(values) = &something_else_var.status {
+    assert!(matches!(something_else_var, VariableStatus::Resolved(_)));
+    if let VariableStatus::Resolved(values) = something_else_var {
         assert_eq!(values.len(), 4); // 1px, 2, #aabbcc (from var(--something)), 1px
     }
     
     // Check that --something-even-bigger is resolved (depends on both --something and --something-else)
       let something_bigger_var = resolver.get_variable("something-even-bigger").unwrap();
-      assert!(matches!(something_bigger_var.status, VariableResolutionStatus::Resolved(_)));
-      if let VariableResolutionStatus::Resolved(values) = &something_bigger_var.status {
+      assert!(matches!(something_bigger_var, VariableStatus::Resolved(_)));
+      if let VariableStatus::Resolved(values) = something_bigger_var {
           // Should contain: 1px, 2, #aabbcc (from var(--something)), "row", "column", 1px, 2, #aabbcc, 1px (from var(--something-else))
           // Expected: [1px, 2, #aabbcc] + ["row"] + ["column"] + [1px, 2, #aabbcc, 1px] = 9 values total
           assert_eq!(values.len(), 9);
@@ -170,10 +170,9 @@ fn test_variable_parsing_errors() {
     
     // Valid variable should be resolved
     let valid_var = resolver.get_variable("valid-var").unwrap();
-    assert!(matches!(valid_var.status, VariableResolutionStatus::Resolved(_)));
+    assert!(matches!(valid_var, VariableStatus::Resolved(_)));
     
     // Invalid variable should be marked as Error
     let invalid_var = resolver.get_variable("invalid-var").unwrap();
-    assert!(matches!(invalid_var.status, VariableResolutionStatus::Error));
-    assert!(invalid_var.values.is_empty()); // Should have empty values
+    assert!(matches!(invalid_var, VariableStatus::Error));
 }
