@@ -81,18 +81,20 @@ impl UssDiagnostics {
             }
         }
         
-        // Check if any diagnostics were added by children
-        let child_diagnostics_added = diagnostics.len() > initial_diagnostic_count;
+        // Check if any error diagnostics were added by children (warnings are fine, we should keep going)
+        let child_error_diagnostics_added = (initial_diagnostic_count..diagnostics.len())
+            .any(|i| diagnostics[i].severity >= Some(tower_lsp::lsp_types::DiagnosticSeverity::ERROR));
         
         match node.kind() {
             "rule_set" => self.validate_rule_set(node, content, diagnostics),
             "declaration" => {
-                // Only validate declaration if no child diagnostics were generated
+                // Only validate declaration if no child error diagnostics were generated
                 // This prevents redundant error messages when child nodes (like invalid tokens,
                 // syntax errors, or malformed values) have already reported issues.
                 // For example, if a property value contains a syntax error, we don't want to
                 // also report that the property itself is invalid - the child error is sufficient.
-                if !child_diagnostics_added {
+                // Warnings from children are fine and we should continue with validation.
+                if !child_error_diagnostics_added {
                     self.validate_declaration(node, content, diagnostics, source_url, variable_resolver);
                 }
             },
