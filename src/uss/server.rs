@@ -54,18 +54,107 @@ impl UssLanguageServer {
         }
     }
     
-    /// Open a document and parse it
+    /// Open and parse a new document
     async fn open_document(&self, uri: &Url, content: &str, version: i32) {
+        log::info!("[open_document] Starting to open document: {}", uri);
+        
         if let Ok(mut state) = self.state.lock() {
             state.document_manager.open_document(uri.clone(), content.to_string(), version);
+            log::info!("[open_document] Document opened in manager");
+            
+            // Extract variables with proper source URL for relative URL resolution
+            let project_url = if uri.scheme() == "file" {
+                log::info!("[open_document] URI scheme is 'file', attempting to convert to project URL");
+                if let Ok(file_path) = uri.to_file_path() {
+                    log::info!("[open_document] File path extracted: {:?}", file_path);
+                    let project_root = state.unity_manager.project_path();
+                    log::info!("[open_document] Project root: {:?}", project_root);
+                    
+                    match asset_url::create_project_url(&file_path, &project_root) {
+                        Ok(url) => {
+                            log::info!("[open_document] Successfully created project URL: {}", url);
+                            Some(url)
+                        }
+                        Err(e) => {
+                            log::warn!("[open_document] Failed to create project URL: {}", e);
+                            None
+                        }
+                    }
+                } else {
+                    log::warn!("[open_document] Failed to convert URI to file path");
+                    None
+                }
+            } else {
+                log::info!("[open_document] URI scheme is '{}', using URI directly as project URL", uri.scheme());
+                Some(uri.clone())
+            };
+            
+            log::info!("[open_document] Final project_url for variable extraction: {:?}", project_url);
+            
+            if let Some(document) = state.document_manager.get_document_mut(uri) {
+                log::info!("[open_document] Document found, extracting variables with source URL");
+                document.extract_variables_with_source_url(project_url.as_ref());
+                log::info!("[open_document] Variable extraction completed");
+            } else {
+                log::warn!("[open_document] Document not found in manager after opening");
+            }
+        } else {
+            log::error!("[open_document] Failed to acquire state lock");
         }
+        
+        log::info!("[open_document] Completed opening document: {}", uri);
     }
     
     /// Update a document with incremental changes
     async fn update_document(&self, uri: &Url, changes: Vec<TextDocumentContentChangeEvent>, version: i32) {
+        log::info!("[update_document] Starting to update document: {}", uri);
+        log::info!("[update_document] Number of changes: {}, version: {}", changes.len(), version);
+        
         if let Ok(mut state) = self.state.lock() {
             state.document_manager.update_document(uri, changes, version);
+            log::info!("[update_document] Document updated in manager");
+            
+            // Re-extract variables with proper source URL after changes
+            let project_url = if uri.scheme() == "file" {
+                log::info!("[update_document] URI scheme is 'file', attempting to convert to project URL");
+                if let Ok(file_path) = uri.to_file_path() {
+                    log::info!("[update_document] File path extracted: {:?}", file_path);
+                    let project_root = state.unity_manager.project_path();
+                    log::info!("[update_document] Project root: {:?}", project_root);
+                    
+                    match asset_url::create_project_url(&file_path, &project_root) {
+                        Ok(url) => {
+                            log::info!("[update_document] Successfully created project URL: {}", url);
+                            Some(url)
+                        }
+                        Err(e) => {
+                            log::warn!("[update_document] Failed to create project URL: {}", e);
+                            None
+                        }
+                    }
+                } else {
+                    log::warn!("[update_document] Failed to convert URI to file path");
+                    None
+                }
+            } else {
+                log::info!("[update_document] URI scheme is '{}', using URI directly as project URL", uri.scheme());
+                Some(uri.clone())
+            };
+            
+            log::info!("[update_document] Final project_url for variable extraction: {:?}", project_url);
+            
+            if let Some(document) = state.document_manager.get_document_mut(uri) {
+                log::info!("[update_document] Document found, re-extracting variables with source URL");
+                document.extract_variables_with_source_url(project_url.as_ref());
+                log::info!("[update_document] Variable re-extraction completed");
+            } else {
+                log::warn!("[update_document] Document not found in manager after update");
+            }
+        } else {
+            log::error!("[update_document] Failed to acquire state lock");
         }
+        
+        log::info!("[update_document] Completed updating document: {}", uri);
     }
     
     /// Generate semantic tokens for syntax highlighting

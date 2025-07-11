@@ -312,6 +312,66 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_url_with_base_url() {
+        // Create a project scheme base URL for testing relative path resolution
+        let base_url = Url::parse("project:/Assets/UI/Styles/main.uss").unwrap();
+        
+        // Test relative paths with proper base URL
+        let result = validate_url("../Images/button.png", Some(&base_url));
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert_eq!(resolved.as_str(), "project:/Assets/UI/Images/button.png");
+        
+        // Test current directory relative path
+        let result = validate_url("./icons/star.svg", Some(&base_url));
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert_eq!(resolved.as_str(), "project:/Assets/UI/Styles/icons/star.svg");
+        
+        // Test simple filename relative path
+        let result = validate_url("background.jpg", Some(&base_url));
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert_eq!(resolved.as_str(), "project:/Assets/UI/Styles/background.jpg");
+        
+        // Test parent directory navigation
+        let result = validate_url("../../Textures/wood.png", Some(&base_url));
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert_eq!(resolved.as_str(), "project:/Assets/Textures/wood.png");
+        
+        // Test absolute paths (should ignore base URL)
+        let result = validate_url("/Assets/Global/theme.png", Some(&base_url));
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert_eq!(resolved.as_str(), "project:/Assets/Global/theme.png");
+        
+        // Test project scheme URLs (should ignore base URL)
+        let result = validate_url("project:/Packages/com.unity.ui/icon.png", Some(&base_url));
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert_eq!(resolved.as_str(), "project:/Packages/com.unity.ui/icon.png");
+    }
+
+    #[test]
+    fn test_validate_url_with_deep_base_url() {
+        // Test with a deeper nested base URL
+        let base_url = Url::parse("project:/Assets/UI/Components/Buttons/Styles/button.uss").unwrap();
+        
+        // Test multiple parent directory navigation
+        let result = validate_url("../../../Images/icons/close.svg", Some(&base_url));
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert_eq!(resolved.as_str(), "project:/Assets/UI/Images/icons/close.svg");
+        
+        // Test navigation to project root and back
+        let result = validate_url("../../../../../Packages/com.example/textures/metal.jpg", Some(&base_url));
+        assert!(result.is_ok());
+        let resolved = result.unwrap();
+        assert_eq!(resolved.as_str(), "project:/Packages/com.example/textures/metal.jpg");
+    }
+
+    #[test]
     fn test_validate_url_string_with_special_chars() {
         // Test URL paths with valid special characters
         assert!(validate_url("image-with-dashes.png", None).is_ok());

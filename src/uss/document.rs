@@ -280,6 +280,14 @@ impl UssDocument {
     pub fn are_variables_resolved(&self) -> bool {
         self.variable_resolver.are_variables_resolved()
     }
+    
+    /// Re-extract and resolve variables with a source URL for proper relative URL resolution
+    /// This should be called after parsing when the project URL is available
+    pub fn extract_variables_with_source_url(&mut self, source_url: Option<&Url>) {
+        if let Some(tree) = &self.tree {
+            self.variable_resolver.add_variables_from_tree_with_source_url(tree.root_node(), &self.content, source_url);
+        }
+    }
 
     /// Convert byte offset to LSP position
     pub fn byte_to_position(&self, byte: usize) -> Position {

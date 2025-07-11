@@ -65,10 +65,15 @@ impl VariableResolver {
 
     /// Extract variables from a syntax tree and resolve them
     pub fn add_variables_from_tree(&mut self, root_node: Node, content: &str) {
+        self.add_variables_from_tree_with_source_url(root_node, content, None);
+    }
+    
+    /// Extract variables from a syntax tree and resolve them with source URL
+    pub fn add_variables_from_tree_with_source_url(&mut self, root_node: Node, content: &str, source_url: Option<&url::Url>) {
         self.variables.clear();
         
         // Extract variables and their values in a single pass
-        self.extract_variables_from_node(root_node, content);
+        self.extract_variables_from_node_with_source_url(root_node, content, source_url);
         
         // Resolve all variable dependencies
         self.resolve_all_variables();
@@ -92,6 +97,11 @@ impl VariableResolver {
 
     /// Extract variable declarations and their values from a syntax tree in a single pass
     fn extract_variables_from_node(&mut self, node: Node, content: &str) {
+        self.extract_variables_from_node_with_source_url(node, content, None);
+    }
+    
+    /// Extract variable declarations and their values from a syntax tree in a single pass with source URL
+    fn extract_variables_from_node_with_source_url(&mut self, node: Node, content: &str, source_url: Option<&url::Url>) {
         // Look for CSS custom property declarations (--variable-name: value;)
         if node.kind() == "declaration" {
             // Try different ways to find the property name
@@ -115,7 +125,7 @@ impl VariableResolver {
                     self.parsed_values.remove(&variable_name); // Remove parsed values for ambiguous variables
                 } else {
                     // Extract values immediately during traversal
-                    match self.extract_values_from_declaration_node(node, content) {
+                    match self.extract_values_from_declaration_node_with_source_url(node, content, source_url) {
                         Ok(values) => {
                             // Store parsed values and mark as unresolved initially
                             self.parsed_values.insert(variable_name.clone(), values);
@@ -133,7 +143,7 @@ impl VariableResolver {
         // Recursively process child nodes
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.extract_variables_from_node(child, content);
+            self.extract_variables_from_node_with_source_url(child, content, source_url);
         }
     }
 
@@ -145,9 +155,14 @@ impl VariableResolver {
     /// Extract UssValues from a declaration node using proper tree-sitter parsing
     /// Validates strict CSS declaration structure: property : values ;
     fn extract_values_from_declaration_node(&self, declaration_node: Node, content: &str) -> Result<Vec<UssValue>, ()> {
-        // Create default definitions and no source URL for variable resolution
+        self.extract_values_from_declaration_node_with_source_url(declaration_node, content, None)
+    }
+    
+    /// Extract UssValues from a declaration node using proper tree-sitter parsing with source URL
+    /// Validates strict CSS declaration structure: property : values ;
+    fn extract_values_from_declaration_node_with_source_url(&self, declaration_node: Node, content: &str, source_url: Option<&url::Url>) -> Result<Vec<UssValue>, ()> {
+        // Create default definitions
         let definitions = crate::uss::definitions::UssDefinitions::new();
-        let source_url: Option<&url::Url> = None;
         let child_count = declaration_node.child_count();
         
         // Validate minimum structure: property + colon + at least one value
