@@ -6,7 +6,6 @@ use tower_lsp::lsp_types::{ColorInformation, ColorPresentation, Position, Range,
 use tree_sitter::{Node, Tree};
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value::UssValue;
-use crate::uss::color::Color as UssColor;
 
 /// USS color information provider
 pub struct UssColorProvider {

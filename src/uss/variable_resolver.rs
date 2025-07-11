@@ -95,11 +95,6 @@ impl VariableResolver {
         self.resolved
     }
 
-    /// Extract variable declarations and their values from a syntax tree in a single pass
-    fn extract_variables_from_node(&mut self, node: Node, content: &str) {
-        self.extract_variables_from_node_with_source_url(node, content, None);
-    }
-    
     /// Extract variable declarations and their values from a syntax tree in a single pass with source URL
     fn extract_variables_from_node_with_source_url(&mut self, node: Node, content: &str, source_url: Option<&url::Url>) {
         // Look for CSS custom property declarations (--variable-name: value;)
@@ -116,7 +111,6 @@ impl VariableResolver {
             
             if property_text.starts_with("--") {
                 let variable_name = property_text[2..].to_string(); // Remove -- prefix
-                let range = Self::node_to_range(node);
                 
                 // Check if this variable already exists (ambiguous case)
                 if self.variables.contains_key(&variable_name) {
@@ -150,12 +144,6 @@ impl VariableResolver {
     /// Get text content of a node with content
     pub fn node_text(node: Node, content: &str) -> String {
         content[node.start_byte()..node.end_byte()].to_string()
-    }
-    
-    /// Extract UssValues from a declaration node using proper tree-sitter parsing
-    /// Validates strict CSS declaration structure: property : values ;
-    fn extract_values_from_declaration_node(&self, declaration_node: Node, content: &str) -> Result<Vec<UssValue>, ()> {
-        self.extract_values_from_declaration_node_with_source_url(declaration_node, content, None)
     }
     
     /// Extract UssValues from a declaration node using proper tree-sitter parsing with source URL
@@ -200,20 +188,6 @@ impl VariableResolver {
         }
         
         Ok(values)
-    }
-
-    /// Convert a tree-sitter node to LSP range
-    fn node_to_range(node: Node) -> Range {
-        Range {
-            start: tower_lsp::lsp_types::Position {
-                line: node.start_position().row as u32,
-                character: node.start_position().column as u32,
-            },
-            end: tower_lsp::lsp_types::Position {
-                line: node.end_position().row as u32,
-                character: node.end_position().column as u32,
-            },
-        }
     }
 
     /// Resolve all variables, handling dependencies and circular references

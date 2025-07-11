@@ -37,20 +37,6 @@ impl UssValueError {
             severity: tower_lsp::lsp_types::DiagnosticSeverity::ERROR,
         }
     }
-    
-    fn new_with_severity(node: Node, content: &str, message: String, severity: tower_lsp::lsp_types::DiagnosticSeverity) -> Self {
-        let node_text = node.utf8_text(content.as_bytes())
-            .unwrap_or("<invalid utf8>")
-            .to_string();
-        
-        Self {
-            node_kind: node.kind().to_string(),
-            node_text,
-            byte_range: (node.start_byte(), node.end_byte()),
-            message,
-            severity,
-        }
-    }
 }
 
 /// A concrete USS value that represents a single valid value in USS

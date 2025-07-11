@@ -24,11 +24,6 @@ impl UssParser {
     pub fn parse(&mut self, content: &str, old_tree: Option<&Tree>) -> Option<Tree> {
         self.parser.parse(content, old_tree)
     }
-    
-    /// Get the CSS language for tree-sitter
-    pub fn language() -> Language {
-        tree_sitter_css::language()
-    }
 }
 
 impl Default for UssParser {

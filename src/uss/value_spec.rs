@@ -3,7 +3,6 @@
 //! Contains types for defining and validating USS property values,
 //! including ValueType, ValueEntry, ValueFormat, and ValueSpec.
 
-use tree_sitter::Node;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value::UssValue;
 
@@ -169,7 +168,7 @@ impl ValueFormat {
     /// Check if a UssValue matches a specific ValueType
     fn is_value_of_type(&self, value: &UssValue, value_type: ValueType, definitions: &UssDefinitions) -> bool {
         match value {
-            UssValue::Numeric { unit: Some(unit_str), has_fractional, .. } => {
+            UssValue::Numeric { unit: Some(unit_str), has_fractional: _, .. } => {
                   // Check if this numeric value matches the expected type based on unit
                   match value_type {
                       ValueType::Length => unit_str == "px" || unit_str == "%",
@@ -206,161 +205,7 @@ impl ValueFormat {
             UssValue::VariableReference(_) => true, // Variables can match any type
         }
     }
-
-    /// Check if a node matches a specific ValueType
-    fn is_node_of_type(&self, node: Node, value_type: ValueType, content: &str) -> bool {
-        let node_kind = node.kind();
-        let node_text = node.utf8_text(content.as_bytes()).unwrap_or("");
-
-        match value_type {
-            ValueType::Length => {
-                // Length can be: integer_value with px/% unit, or plain "0"
-                match node_kind {
-                    "integer_value" | "float_value" => {
-                        // Check if it has a length unit (px, %) or is unitless 0
-                        let definitions = UssDefinitions::new();
-                        // First check if there's a unit child
-                        if node.child_count() > 1 {
-                            if let Some(unit_child) = node.child(1) {
-                                if unit_child.kind() == "unit" {
-                                    let unit = unit_child.utf8_text(content.as_bytes()).unwrap_or("");
-                                    return definitions.is_length_unit(unit);
-                                }
-                            }
-                        }
-                        // If no unit child, check if the text itself contains the unit
-                        for unit in ["px", "%"] {
-                            if node_text.ends_with(unit) {
-                                return true;
-                            }
-                        }
-                        // Unitless number - only valid if it's 0
-                        node_text == "0"
-                    }
-                    "plain_value" => {
-                        // Check for plain "0" or values with length units
-                        node_text == "0" || node_text.ends_with("px") || node_text.ends_with("%")
-                    }
-                    _ => false,
-                }
-            }
-            ValueType::Number => {
-                // Any numeric value without unit restrictions
-                matches!(node_kind, "integer_value" | "float_value" | "plain_value") &&
-                node_text.parse::<f64>().is_ok()
-            }
-            ValueType::Integer => {
-                // Integer values only
-                matches!(node_kind, "integer_value" | "plain_value") &&
-                node_text.parse::<i32>().is_ok()
-            }
-            ValueType::String => {
-                // String literals
-                node_kind == "string_value" || node_kind == "plain_value"
-            }
-            ValueType::Time => {
-                // Time values with s or ms units
-                let definitions = UssDefinitions::new();
-                match node_kind {
-                    "integer_value" | "float_value" => {
-                        if let Some(unit_child) = node.child(1) {
-                            let unit = unit_child.utf8_text(content.as_bytes()).unwrap_or("");
-                            definitions.is_time_unit(unit)
-                        } else {
-                            false
-                        }
-                    }
-                    "plain_value" => {
-                        for unit in ["s", "ms"] {
-                            if node_text.ends_with(unit) {
-                                return true;
-                            }
-                        }
-                        false
-                    }
-                    _ => false,
-                }
-            }
-            ValueType::Color => {
-                // Color values: hex, named colors, rgb(), rgba(), etc.
-                match node_kind {
-                    "color_value" => true,
-                    "call_expression" => {
-                        // Check for color functions like rgb(), rgba()
-                        if let Some(func_name) = node.child(0) {
-                            let func_text = func_name.utf8_text(content.as_bytes()).unwrap_or("");
-                            matches!(func_text, "rgb" | "rgba")
-                        } else {
-                            false
-                        }
-                    }
-                    "plain_value" => {
-                        // Named colors or hex values
-                        if node_text.starts_with('#') {
-                            // Validate hex color format
-                            let hex_part = &node_text[1..];
-                            (hex_part.len() == 3 || hex_part.len() == 6) && 
-                            hex_part.chars().all(|c| c.is_ascii_hexdigit())
-                        } else {
-                            // Check against comprehensive color keywords from UssDefinitions
-                            let definitions = UssDefinitions::new();
-                            definitions.is_valid_color_keyword(node_text)
-                        }
-                    }
-                    _ => false,
-                }
-            }
-            ValueType::Angle => {
-                // Angle values with deg, rad, grad, turn units
-                let definitions = UssDefinitions::new();
-                match node_kind {
-                    "integer_value" | "float_value" => {
-                        if let Some(unit_child) = node.child(1) {
-                            let unit = unit_child.utf8_text(content.as_bytes()).unwrap_or("");
-                            definitions.is_angle_unit(unit)
-                        } else {
-                            false
-                        }
-                    }
-                    "plain_value" => {
-                        for unit in ["deg", "rad", "grad", "turn"] {
-                            if node_text.ends_with(unit) {
-                                return true;
-                            }
-                        }
-                        false
-                    }
-                    _ => false,
-                }
-            }
-            ValueType::Keyword(expected_keyword) => {
-                // Exact keyword match
-                node_kind == "plain_value" && node_text == expected_keyword
-            }
-            ValueType::Asset => {
-                // Asset references: url() or resource() functions
-                match node_kind {
-                    "call_expression" => {
-                        if let Some(func_name) = node.child(0) {
-                            let func_text = func_name.utf8_text(content.as_bytes()).unwrap_or("");
-                            matches!(func_text, "url" | "resource")
-                        } else {
-                            false
-                        }
-                    }
-                    _ => false,
-                }
-            }
-            ValueType::PropertyName => {
-                // Property names for animation properties
-                node_kind == "plain_value" && 
-                node_text.chars().all(|c| c.is_alphanumeric() || c == '-')
-            }
-        }
-    }
 }
-
-
 
 /// Complete value specification for a property
 #[derive(Debug, Clone)]

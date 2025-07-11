@@ -9,7 +9,6 @@
 //! So we treat resource path just like url path.
 
 use std::cell::RefCell;
-use tower_lsp::lsp_types::{DiagnosticSeverity};
 use url::{SyntaxViolation, Url};
 
 /// Error type for asset string validation
@@ -56,20 +55,6 @@ pub struct AssetValidationResult {
 }
 
 impl AssetValidationResult {
-    pub fn new(url: Url) -> Self {
-        Self {
-            url,
-            warnings: Vec::new(),
-        }
-    }
-
-    pub fn with_warning(url: Url, warning: AssetValidationWarning) -> Self {
-        Self {
-            url,
-            warnings: vec![warning],
-        }
-    }
-
     pub fn with_warnings(url: Url, warnings: Vec<AssetValidationWarning>) -> Self {
         Self {
             url,
@@ -328,7 +313,7 @@ fn additional_error(url_path: &str, base_url: &Url) -> Option<AdditionalValidati
             SyntaxViolation::UnencodedAtSign => {
                 return Some(AdditionalValidationResult::Error(AssetValidationError::new("unencoded @ sign in username or password")));
             },
-            a => {
+            _ => {
                 // don't know error, so no error
                 //return Err(AssetValidationError::new("Invalid URL path"));
             }
