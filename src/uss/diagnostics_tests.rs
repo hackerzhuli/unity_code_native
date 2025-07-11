@@ -68,7 +68,7 @@ fn test_import_statement_validation() {
     
     // Should detect missing .uss extension warning
     let uss_extension_warnings: Vec<_> = results.iter()
-        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("missing-uss-extension".to_string())))
+        .filter(|d| d.code == Some(NumberOrString::String("missing-uss-extension".to_string())))
         .collect();
     
     assert!(!uss_extension_warnings.is_empty(), "Should detect missing .uss extension");

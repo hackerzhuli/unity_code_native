@@ -900,7 +900,7 @@ impl UssDiagnostics {
                             Ok(validation_result) => {
                                 let range = node_to_range(value_node, content);
                                 url_references.push(UrlReference {
-                                    url: validation_result.url,
+                                    url: validation_result.url.clone(),
                                     range,
                                 });
 
@@ -920,7 +920,7 @@ impl UssDiagnostics {
                                 }
 
                                 // Check for .uss extension warning
-                                if !import_path.ends_with(".uss") {
+                                if !validation_result.url.path().ends_with(".uss") {
                                     let range = node_to_range(value_node, content);
                                     diagnostics.push(Diagnostic {
                                         range,
