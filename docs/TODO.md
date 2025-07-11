@@ -1,0 +1,6 @@
+- [ ] 1. Add additional validation for url in uss that includes guid, if file path exists but guid doesn't match, show an warning, though this should be rare
+- [ ] 2. Improve hover on at rules in uss, because now it doesn't have any hover.
+- [ ] 3. Improve hover for url path in uss, so that we show a clickable link for a file that does exist
+- [ ] 4. Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy
+- [ ] 5. Improve hover for property to include syntax and examples and better description to make the hover doc for property better, also as for property value that is keyword, we should also include what that keyword does, hover docs is the most efficient way for user to get what he needed, so it must be good
+- [ ] 
