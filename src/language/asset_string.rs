@@ -8,7 +8,7 @@
 //!
 
 use std::cell::RefCell;
-use url::{ParseError, SyntaxViolation, Url};
+use url::{SyntaxViolation, Url};
 
 /// Error type for asset string validation
 #[derive(Debug, Clone, PartialEq)]
