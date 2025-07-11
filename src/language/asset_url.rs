@@ -53,7 +53,7 @@ impl std::error::Error for AssetValidationError {}
 /// use unity_code_native::language::asset_url::validate_url;
 /// use url::Url;
 /// 
-/// let base = Some(Url::parse("project:///Assets/UI/styles.uss").unwrap());
+/// let base = Some(Url::parse("project:///Assets/UI/a/b/c").unwrap());
 /// 
 /// // Valid project scheme URLs
 /// assert!(validate_url("project:/Assets/image.png", None).is_ok());
