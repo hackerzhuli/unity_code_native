@@ -5,6 +5,7 @@
 //! like diagnostics and autocomplete.
 
 use crate::uss::property_data::{create_standard_properties, create_unity_properties};
+use crate::uss::keyword_data::{KeywordInfo, create_keyword_info};
 use crate::uss::value_spec::ValueSpec;
 use crate::uss::color::Color;
 use crate::uss::constants::*;
@@ -33,6 +34,8 @@ pub struct PropertyInfo {
 pub struct UssDefinitions {
     /// USS properties with their metadata
     pub properties: HashMap<&'static str, PropertyInfo>,
+    /// USS keywords with their documentation
+    pub keywords: HashMap<&'static str, KeywordInfo>,
     /// Valid pseudo-classes
     pub valid_pseudo_classes: HashSet<&'static str>,
     /// Valid CSS color keywords with their hex values
@@ -252,8 +255,12 @@ impl UssDefinitions {
             valid_units.insert(unit);
         }
         
+        // Load keyword information
+        let keywords = create_keyword_info();
+        
         Self {
             properties,
+            keywords,
             valid_pseudo_classes,
             valid_color_keywords,
             valid_functions,
@@ -385,6 +392,32 @@ impl UssDefinitions {
     /// Get all properties with their information
     pub fn get_all_properties(&self) -> &HashMap<&'static str, PropertyInfo> {
         &self.properties
+    }
+    
+    /// Get keyword information by name
+    pub fn get_keyword_info(&self, keyword_name: &str) -> Option<&KeywordInfo> {
+        self.keywords.get(keyword_name)
+    }
+    
+    /// Check if a keyword is valid
+    pub fn is_valid_keyword(&self, keyword_name: &str) -> bool {
+        self.keywords.contains_key(keyword_name)
+    }
+    
+    /// Get keyword documentation
+    pub fn get_keyword_documentation(&self, keyword_name: &str) -> Option<&str> {
+        self.keywords.get(keyword_name)
+            .map(|info| info.doc)
+    }
+    
+    /// Get all keyword names
+    pub fn get_all_keyword_names(&self) -> Vec<&str> {
+        self.keywords.keys().copied().collect()
+    }
+    
+    /// Get all keywords with their information
+    pub fn get_all_keywords(&self) -> &HashMap<&'static str, KeywordInfo> {
+        &self.keywords
     }
 }
 

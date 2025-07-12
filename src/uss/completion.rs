@@ -287,13 +287,18 @@ impl UssCompletionProvider {
         );
 
         for suggestion in suggestions {
+            // now all suggetions are keywords so we can get docs from keyword itself
+            let mut doc = None;
+            if let Some(k) = self.definitions.get_keyword_info(suggestion) {
+                doc = Some(Documentation::MarkupContent(MarkupContent { kind: MarkupKind::Markdown, value: k.doc.to_string() }));
+            }
             let item = CompletionItem {
                 label: suggestion.to_string(),
                 kind: Some(CompletionItemKind::VALUE),
                 detail: Some(format!("Value for {}", property_name)),
                 insert_text: Some(format!(" {};", suggestion)), // add space before and semicolon after to complete it, we only offer complete suggetions after property
                 insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                documentation: None, // for now we don't have docs for keywords
+                documentation: doc, // for now we don't have docs for keywords
                 ..Default::default()
             };
             items.push(item);
