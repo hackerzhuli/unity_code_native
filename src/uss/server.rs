@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
+use tree_sitter::Tree;
 use url::Url;
 
 use crate::language::asset_url::{self, project_url_to_path};
@@ -521,42 +522,82 @@ impl LanguageServer for UssLanguageServer {
         let uri = params.text_document_position.text_document.uri;
         let position = params.text_document_position.position;
 
-        let completions = if let Ok(state) = self.state.lock() {
-            if let Some(document) = state.document_manager.get_document(&uri) {
-                if let Some(tree) = document.tree() {
-                    // Convert file system URI to project scheme URL for Unity compatibility
-                    let project_url = if uri.scheme() == FILE_SCHEME {
-                        if let Ok(file_path) = uri.to_file_path() {
-                            let project_root = state.unity_manager.project_path();
-                            asset_url::create_project_url_with_normalization(&file_path, &project_root)
-                                .ok()
-                        } else {
-                            None
-                        }
-                    } else {
-                        Some(uri.clone())
-                    };
+        // Debug logging
+        log::info!("Completion requested at {}:{} in {}", position.line, position.character, uri);
 
-                    state.completion_provider.complete(
-                        tree,
-                        document.content(),
-                        position,
-                        &state.unity_manager,
-                        project_url.as_ref(),
+        // Extract data from state without holding the lock across await points
+        let (document_content, tree_clone, project_root, has_document) = {
+            if let Ok(state) = self.state.lock() {
+                if let Some(document) = state.document_manager.get_document(&uri) {
+                    (
+                        document.content().to_string(),
+                        document.tree().cloned(),
+                        state.unity_manager.project_path().clone(),
+                        true,
                     )
                 } else {
-                    Vec::new()
+                    (String::new(), None, PathBuf::new(), false)
                 }
+            } else {
+                log::error!("Failed to lock state");
+                return Ok(None);
+            }
+        };
+
+        if !has_document {
+            log::warn!("Document not found for URI: {}", uri);
+            return Ok(None);
+        }
+
+        let tree_clone = match tree_clone {
+            Some(tree) => tree,
+            None => {
+                log::warn!("No syntax tree available for URI: {}", uri);
+                return Ok(None);
+            }
+        };
+
+        // Debug: log document content around cursor
+        let lines: Vec<&str> = document_content.lines().collect();
+        if let Some(line) = lines.get(position.line as usize) {
+            log::info!("Line content: '{}', cursor at char {}", line, position.character);
+        }
+
+        // Convert file system URI to project scheme URL for Unity compatibility
+        let project_url = if uri.scheme() == FILE_SCHEME {
+            if let Ok(file_path) = uri.to_file_path() {
+                asset_url::create_project_url_with_normalization(&file_path, &project_root)
+                    .ok()
+            } else {
+                None
+            }
+        } else {
+            Some(uri.clone())
+        };
+
+        // Generate completions without holding the lock
+        let completions = {
+            if let Ok(state) = self.state.lock() {
+                state.completion_provider.complete(
+                    &tree_clone,
+                    &document_content,
+                    position,
+                    &state.unity_manager,
+                    project_url.as_ref(),
+                )
             } else {
                 Vec::new()
             }
-        } else {
-            Vec::new()
         };
 
+        // Debug: log completion results
+        log::info!("Generated {} completion items", completions.len());
+
         if completions.is_empty() {
+            log::info!("Returning no completions");
             Ok(None)
         } else {
+            log::info!("Returning {} completions", completions.len());
             Ok(Some(CompletionResponse::Array(completions)))
         }
     }

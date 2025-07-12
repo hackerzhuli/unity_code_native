@@ -1,5 +1,5 @@
 use tower_lsp::lsp_types::{Position, Range};
-use tree_sitter::Node;
+use tree_sitter::{Node, Point};
 
 /// Convert tree-sitter node to LSP range
 pub(crate) fn node_to_range(node: Node, content: &str) -> Range {
@@ -86,14 +86,15 @@ pub fn find_node_of_type_at_position<'a>(
     position: Position,
     target_type: &str,
 ) -> Option<Node<'a>> {
-    let byte_offset = position_to_byte_offset(source, position)?;
-    
     // Find the deepest node at this position
-    let mut current = node.descendant_for_byte_range(byte_offset, byte_offset)?;
+    let point = Point::new(position.line as usize, position.character as usize);
+    let mut current = node.descendant_for_point_range(point, point)?;
     
     // Walk up the tree to find a node of one of the target types
     loop {
-        if target_type == current.kind() {
+        let current_kind = current.kind();
+        let current_text = current.utf8_text(source.as_bytes()).unwrap();
+        if target_type == current_kind {
             return Some(current);
         }
         
