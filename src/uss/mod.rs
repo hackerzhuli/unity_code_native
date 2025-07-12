@@ -52,3 +52,6 @@ mod function_node_tests;
 
 #[cfg(test)]
 mod completion_tests;
+
+#[cfg(test)]
+mod definitions_tests;
