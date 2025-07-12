@@ -5,6 +5,7 @@
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use crate::uss::definitions::UssDefinitions;
+use crate::uss::constants::*;
 
 /// USS semantic token provider
 pub struct UssHighlighter {
@@ -82,7 +83,7 @@ impl UssHighlighter {
         let node_type = node.kind();
         
         // Skip certain structural nodes that don't need highlighting
-        if matches!(node_type, "stylesheet" | "rule_set" | "block" | "selectors" | "declaration" | "arguments") {
+        if matches!(node_type, NODE_STYLESHEET | NODE_RULE_SET | NODE_BLOCK | NODE_SELECTORS | NODE_DECLARATION | NODE_ARGUMENTS) {
             // Process children for structural nodes
             for i in 0..node.child_count() {
                 if let Some(child) = node.child(i) {
@@ -94,10 +95,10 @@ impl UssHighlighter {
         
         // Map CSS node types to semantic token types
         let (token_type, modifiers) = match node_type {
-            "class_selector" => (0, 0), // CLASS
-            "id_selector" => (1, 0),    // VARIABLE
-            "tag_name" => (2, 0),       // TYPE
-            "property_name" => {
+            NODE_CLASS_SELECTOR => (0, 0), // CLASS
+            NODE_ID_SELECTOR => (1, 0),    // VARIABLE
+            NODE_TAG_NAME => (2, 0),       // TYPE
+            NODE_PROPERTY_NAME => {
                 // Check if it's a CSS custom property
                 if let Ok(text) = node.utf8_text(content.as_bytes()) {
                     if text.starts_with("--") {
@@ -111,7 +112,7 @@ impl UssHighlighter {
                     (3, 0) // PROPERTY
                 }
             },
-            "plain_value" => {
+            NODE_PLAIN_VALUE => {
                 // Check if this plain_value is actually a color keyword
                 if let Ok(text) = node.utf8_text(content.as_bytes()) {
                     let definitions = UssDefinitions::new();
@@ -124,19 +125,19 @@ impl UssHighlighter {
                     (4, 0) // NUMBER
                 }
             },
-            "integer_value" | "float_value" => (4, 0), // NUMBER
-            "string_value" => (5, 0),   // STRING
-            "color_value" => (4, 0),    // NUMBER (colors)
-            "comment" => (6, 0),        // COMMENT
-            "pseudo_class_selector" => (7, 0), // MODIFIER
-            "at_rule" => (8, 0),        // KEYWORD
-            "import_statement" => {
+            NODE_INTEGER_VALUE | NODE_FLOAT_VALUE => (4, 0), // NUMBER
+            NODE_STRING_VALUE => (5, 0),   // STRING
+            NODE_COLOR_VALUE => (4, 0),    // NUMBER (colors)
+            NODE_COMMENT => (6, 0),        // COMMENT
+            NODE_PSEUDO_CLASS_SELECTOR => (7, 0), // MODIFIER
+            NODE_AT_RULE => (8, 0),        // KEYWORD
+            NODE_IMPORT_STATEMENT => {
                 // Process children for import statements to highlight parts separately
                 for i in 0..node.child_count() {
                     if let Some(child) = node.child(i) {
                         // Check if this child is the @import keyword
                         if let Ok(text) = child.utf8_text(content.as_bytes()) {
-                            if text == "@import" {
+                            if text == KEYWORD_AT_IMPORT {
                                 // Highlight @import as KEYWORD
                                 let start = child.start_position();
                                 let end = child.end_position();
@@ -158,9 +159,9 @@ impl UssHighlighter {
                 }
                 return;
             },
-            "function_name" => (9, 0),  // FUNCTION
-            "class_name" => (0, 0),     // CLASS (for .class-name)
-            "id_name" => (1, 0),        // VARIABLE (for #id-name)
+            NODE_FUNCTION_NAME => (9, 0),  // FUNCTION
+            NODE_CLASS_NAME => (0, 0),     // CLASS (for .class-name)
+            NODE_ID_NAME => (1, 0),        // VARIABLE (for #id-name)
             _ => {
                 // Process children for unhandled nodes
                 for i in 0..node.child_count() {
@@ -187,7 +188,7 @@ impl UssHighlighter {
         // For some nodes, we might want to process children as well
         // (e.g., to handle nested structures)
         match node_type {
-            "call_expression" => {
+            NODE_CALL_EXPRESSION => {
                 // Process function name and arguments separately
                 for i in 0..node.child_count() {
                     if let Some(child) = node.child(i) {

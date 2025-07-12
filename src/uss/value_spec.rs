@@ -5,6 +5,7 @@
 
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value::UssValue;
+use crate::uss::constants::*;
 
 /// Basic value type that a property accepts
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -171,9 +172,9 @@ impl ValueFormat {
             UssValue::Numeric { unit: Some(unit_str), has_fractional: _, .. } => {
                   // Check if this numeric value matches the expected type based on unit
                   match value_type {
-                      ValueType::Length => unit_str == "px" || unit_str == "%",
-                      ValueType::Time => unit_str == "s" || unit_str == "ms",
-                      ValueType::Angle => matches!(unit_str.as_str(), "deg" | "rad" | "grad" | "turn"),
+                      ValueType::Length => unit_str == UNIT_PX || unit_str == UNIT_PERCENT,
+                       ValueType::Time => unit_str == UNIT_S || unit_str == UNIT_MS,
+                      ValueType::Angle => matches!(unit_str.as_str(), UNIT_DEG | UNIT_RAD | UNIT_GRAD | UNIT_TURN),
                       ValueType::Number => false, // Numbers with units don't match Number type
                       ValueType::Integer => false, // Integers with units don't match Integer type
                       _ => false,

@@ -1,4 +1,4 @@
-use crate::uss::{parser::UssParser, value::UssValue, variable_resolver::{VariableStatus, VariableResolver}};
+use crate::uss::{constants::UNIT_PX, parser::UssParser, value::UssValue, variable_resolver::{VariableStatus, VariableResolver}};
 
 fn create_test_tree(content: &str) -> Option<tree_sitter::Tree> {
     let mut parser = UssParser::new().unwrap();
@@ -137,15 +137,15 @@ fn test_complex_variable_dependencies() {
           assert_eq!(values.len(), 9);
           
           // Check exact values in order with equality assertions
-          assert_eq!(values[0], UssValue::Numeric { value: 1.0, unit: Some("px".to_string()), has_fractional: false });
+          assert_eq!(values[0], UssValue::Numeric { value: 1.0, unit: Some(UNIT_PX.to_string()), has_fractional: false });
           assert_eq!(values[1], UssValue::Numeric { value: 2.0, unit: None, has_fractional: false });
           assert_eq!(values[2], UssValue::Color(crate::uss::color::Color::new_rgb(170, 187, 204)));
           assert_eq!(values[3], UssValue::Identifier("row".to_string()));
           assert_eq!(values[4], UssValue::Identifier("column".to_string()));
-          assert_eq!(values[5], UssValue::Numeric { value: 1.0, unit: Some("px".to_string()), has_fractional: false });
+          assert_eq!(values[5], UssValue::Numeric { value: 1.0, unit: Some(UNIT_PX.to_string()), has_fractional: false });
           assert_eq!(values[6], UssValue::Numeric { value: 2.0, unit: None, has_fractional: false });
           assert_eq!(values[7], UssValue::Color(crate::uss::color::Color::new_rgb(170, 187, 204)));
-          assert_eq!(values[8], UssValue::Numeric { value: 1.0, unit: Some("px".to_string()), has_fractional: false });
+          assert_eq!(values[8], UssValue::Numeric { value: 1.0, unit: Some(UNIT_PX.to_string()), has_fractional: false });
       }
 }
 

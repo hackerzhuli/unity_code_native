@@ -17,6 +17,7 @@ use crate::uss::diagnostics::{UrlReference, UssDiagnostics};
 use crate::uss::document_manager::UssDocumentManager;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::hover::UssHoverProvider;
+use crate::uss::constants::*;
 
 /// USS Language Server
 pub struct UssLanguageServer {
@@ -64,7 +65,7 @@ impl UssLanguageServer {
                 .document_manager
                 .open_document(uri.clone(), content.to_string(), version);
             // Extract variables with proper source URL for relative URL resolution
-            let project_url = if uri.scheme() == "file" {
+            let project_url = if uri.scheme() == FILE_SCHEME {
                 if let Ok(file_path) = uri.to_file_path() {
                     let project_root = state.unity_manager.project_path();
                     match asset_url::create_project_url_with_normalization(
@@ -107,7 +108,7 @@ impl UssLanguageServer {
                 .document_manager
                 .update_document(uri, changes, version);
             // Re-extract variables with proper source URL after changes
-            let project_url = if uri.scheme() == "file" {
+            let project_url = if uri.scheme() == FILE_SCHEME {
                 if let Ok(file_path) = uri.to_file_path() {
                     let project_root = state.unity_manager.project_path();
                     match asset_url::create_project_url_with_normalization(
@@ -165,7 +166,7 @@ impl UssLanguageServer {
             // Check each URL reference for asset existence
             for url_ref in url_references {
                 // Handle project:// URLs manually since to_file_path() doesn't work with custom schemes
-                if url_ref.url.scheme() == "project" {
+                if url_ref.url.scheme() == PROJECT_SCHEME {
                     let url_path = url_ref.url.path();
 
                     // Remove leading slash if present and convert to PathBuf
@@ -385,7 +386,7 @@ impl LanguageServer for UssLanguageServer {
 
             if let Some(tree) = tree_clone {
                 // Convert file system URI to project scheme URL for Unity compatibility
-                let project_url = if uri.scheme() == "file" {
+                let project_url = if uri.scheme() == FILE_SCHEME {
                     // Convert file:// URI to project:// URI
                     if let Ok(file_path) = uri.to_file_path() {
                         let project_root = state.unity_manager.project_path();

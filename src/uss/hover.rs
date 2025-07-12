@@ -9,6 +9,7 @@ use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::definitions::UssDefinitions;
 use tower_lsp::lsp_types::{Hover, HoverContents, MarkupContent, MarkupKind, Position};
 use tree_sitter::{Node, Tree};
+use crate::uss::constants::*;
 
 /// Provides hover information for USS properties
 pub struct UssHoverProvider {
@@ -55,7 +56,7 @@ impl UssHoverProvider {
         let mut current = root.descendant_for_byte_range(byte_offset, byte_offset)?;
         
         // Walk up the tree to find a property declaration
-        while current.kind() != "property_name" && current.kind() != "declaration" {
+        while current.kind() != NODE_PROPERTY_NAME && current.kind() != NODE_DECLARATION {
             if let Some(parent) = current.parent() {
                 current = parent;
             } else {
@@ -64,15 +65,15 @@ impl UssHoverProvider {
         }
         
         // If we found a declaration, look for the property_name child
-        if current.kind() == "declaration" {
+        if current.kind() == NODE_DECLARATION {
             for child in current.children(&mut current.walk()) {
-                if child.kind() == "property_name" {
+                if child.kind() == NODE_PROPERTY_NAME {
                     return Some(child);
                 }
             }
         }
         
-        if current.kind() == "property_name" {
+        if current.kind() == NODE_PROPERTY_NAME {
             Some(current)
         } else {
             None

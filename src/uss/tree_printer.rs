@@ -87,6 +87,8 @@ fn collect_node_stats_recursive(node: Node, stats: &mut BTreeMap<String, usize>)
 
 #[cfg(test)]
 mod tests {
+    use crate::uss::constants::NODE_STYLESHEET;
+
     use super::*;
     use tree_sitter::{Language, Parser};
 
@@ -106,6 +108,6 @@ mod tests {
         // Test statistics collection
         let stats = collect_node_stats(root);
         assert!(!stats.is_empty());
-        assert!(stats.contains_key("stylesheet"));
+        assert!(stats.contains_key(NODE_STYLESHEET));
     }
 }

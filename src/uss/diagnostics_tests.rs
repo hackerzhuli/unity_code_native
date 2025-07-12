@@ -4,6 +4,7 @@ use crate::uss::tree_printer::print_tree_to_stdout;
 
 use super::diagnostics::*;
 use super::parser::UssParser;
+use crate::uss::constants::*;
 use tower_lsp::lsp_types::NumberOrString;
 use url::Url;
 
@@ -386,7 +387,7 @@ fn debug_function_structure() {
         let mut cursor = root.walk();
         
         fn find_call_expression<'a>(cursor: &mut tree_sitter::TreeCursor<'a>) -> Option<tree_sitter::Node<'a>> {
-            if cursor.node().kind() == "call_expression" {
+            if cursor.node().kind() == NODE_CALL_EXPRESSION {
                 return Some(cursor.node());
             }
             
@@ -411,7 +412,7 @@ fn debug_function_structure() {
                 
                 let non_comma_children: Vec<_> = (0..args_node.child_count())
                     .filter_map(|i| args_node.child(i))
-                    .filter(|child| child.kind() != ",")
+                    .filter(|child| child.kind() != NODE_COMMA)
                     .collect();
                 
                 println!("Non-comma children count: {}", non_comma_children.len());

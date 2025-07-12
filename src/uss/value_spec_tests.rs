@@ -5,6 +5,7 @@
 use crate::uss::value_spec::{ValueFormat, ValueType};
 use crate::uss::value::UssValue;
 use crate::uss::definitions::UssDefinitions;
+use crate::uss::constants::*;
 
 #[test]
 fn test_length_format() {
@@ -14,7 +15,7 @@ fn test_length_format() {
     // Valid length with px unit
     let values = vec![UssValue::Numeric { 
         value: 100.0, 
-        unit: Some("px".to_string()), 
+        unit: Some(UNIT_PX.to_string()), 
         has_fractional: false 
     }];
     assert!(length_format.is_match(&values, &definitions));
@@ -30,7 +31,7 @@ fn test_length_format() {
     // Valid length with % unit
     let values = vec![UssValue::Numeric { 
         value: 50.0, 
-        unit: Some("%".to_string()), 
+        unit: Some(UNIT_PERCENT.to_string()), 
         has_fractional: false 
     }];
     assert!(length_format.is_match(&values, &definitions));
@@ -101,14 +102,14 @@ fn test_sequence_format() {
     
     // Valid sequence
     let values = vec![
-        UssValue::Numeric { value: 10.0, unit: Some("px".to_string()), has_fractional: false },
-        UssValue::Numeric { value: 20.0, unit: Some("px".to_string()), has_fractional: false }
+        UssValue::Numeric { value: 10.0, unit: Some(UNIT_PX.to_string()), has_fractional: false },
+        UssValue::Numeric { value: 20.0, unit: Some(UNIT_PX.to_string()), has_fractional: false }
     ];
     assert!(two_length_format.is_match(&values, &definitions));
     
     // Invalid - wrong count
     let values = vec![
-        UssValue::Numeric { value: 10.0, unit: Some("px".to_string()), has_fractional: false }
+        UssValue::Numeric { value: 10.0, unit: Some(UNIT_PX.to_string()), has_fractional: false }
     ];
     assert!(!two_length_format.is_match(&values, &definitions));
 }
@@ -143,7 +144,7 @@ fn test_time_format() {
     // Valid time with seconds
     let values = vec![UssValue::Numeric { 
         value: 2.0, 
-        unit: Some("s".to_string()), 
+        unit: Some(UNIT_S.to_string()), 
         has_fractional: false 
     }];
     assert!(time_format.is_match(&values, &definitions));
@@ -151,7 +152,7 @@ fn test_time_format() {
     // Valid time with milliseconds
     let values = vec![UssValue::Numeric { 
         value: 500.0, 
-        unit: Some("ms".to_string()), 
+        unit: Some(UNIT_MS.to_string()), 
         has_fractional: false 
     }];
     assert!(time_format.is_match(&values, &definitions));
@@ -159,7 +160,7 @@ fn test_time_format() {
     // Invalid - wrong unit
     let values = vec![UssValue::Numeric { 
         value: 2.0, 
-        unit: Some("px".to_string()), 
+        unit: Some(UNIT_PX.to_string()), 
         has_fractional: false 
     }];
     assert!(!time_format.is_match(&values, &definitions));
@@ -173,7 +174,7 @@ fn test_angle_format() {
     // Valid angle with degrees
     let values = vec![UssValue::Numeric { 
         value: 45.0, 
-        unit: Some("deg".to_string()), 
+        unit: Some(UNIT_DEG.to_string()), 
         has_fractional: false 
     }];
     assert!(angle_format.is_match(&values, &definitions));
@@ -181,7 +182,7 @@ fn test_angle_format() {
     // Valid angle with radians
     let values = vec![UssValue::Numeric { 
         value: 1.57, 
-        unit: Some("rad".to_string()), 
+        unit: Some(UNIT_RAD.to_string()), 
         has_fractional: true 
     }];
     assert!(angle_format.is_match(&values, &definitions));
@@ -189,7 +190,7 @@ fn test_angle_format() {
     // Invalid - wrong unit
     let values = vec![UssValue::Numeric { 
         value: 45.0, 
-        unit: Some("px".to_string()), 
+        unit: Some(UNIT_PX.to_string()), 
         has_fractional: false 
     }];
     assert!(!angle_format.is_match(&values, &definitions));

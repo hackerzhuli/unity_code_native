@@ -5,6 +5,7 @@ use crate::language::asset_url::{validate_url};
 use crate::uss::uss_utils::convert_uss_string;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::color::Color;
+use crate::uss::constants::*;
 
 
 
@@ -101,7 +102,7 @@ impl UssValue {
         
         // Check opening parenthesis
         if let Some(Some(open)) = children.first() {
-            if open.kind() != "(" {
+            if open.kind() != NODE_OPEN_PAREN {
                 return Err(UssValueError::new(*open, content, "Expected opening parenthesis '('".to_string()));
             }
         } else {
@@ -110,7 +111,7 @@ impl UssValue {
         
         // Check closing parenthesis
         if let Some(Some(close)) = children.last() {
-            if close.kind() != ")" {
+            if close.kind() != NODE_CLOSE_PAREN {
                 return Err(UssValueError::new(*close, content, "Expected closing parenthesis ')'".to_string()));
             }
         } else {
@@ -133,7 +134,7 @@ impl UssValue {
             if i < children.len() - 2 {
                 let comma_index = i + 1;
                 if let Some(Some(comma_node)) = children.get(comma_index) {
-                    if comma_node.kind() != "," {
+                    if comma_node.kind() != NODE_COMMA {
                         return Err(UssValueError::new(*comma_node, content, "Expected comma separator".to_string()));
                     }
                 } else {
@@ -157,14 +158,14 @@ impl UssValue {
         let mut parsed_args = Vec::new();
         
         for (i, arg_node) in arg_nodes.iter().enumerate() {
-            if !matches!(arg_node.kind(), "integer_value" | "float_value") {
+            if !matches!(arg_node.kind(), NODE_INTEGER_VALUE | NODE_FLOAT_VALUE) {
                 return Err(UssValueError::new(*arg_node, content, format!("Argument {} must be a number, found {}", i + 1, arg_node.kind())));
             }
             
             // Check if the numeric value has a unit - color functions expect unitless numbers
             if arg_node.child_count() > 0 {
                 let child = arg_node.child(0).unwrap();
-                if child.kind() == "unit" {
+                if child.kind() == NODE_UNIT {
                     let unit_text = child.utf8_text(content.as_bytes())
                         .map_err(|_| UssValueError::new(child, content, "Invalid UTF-8 in unit text".to_string()))?;
                     return Err(UssValueError::new(*arg_node, content, format!("Argument {} must be a unitless number, found number with unit '{}'", i + 1, unit_text)));
@@ -206,15 +207,15 @@ impl UssValue {
             .map_err(|_| UssValueError::new(node, content, "Invalid UTF-8 in node text".to_string()))?;
         
         match node_kind {
-            "integer_value" | "float_value" => {
-                let has_fractional = node_kind == "float_value";
+            NODE_INTEGER_VALUE | NODE_FLOAT_VALUE => {
+                let has_fractional = node_kind == NODE_FLOAT_VALUE;
                 
                 // Check for unit child - must have 0 or 1 child, otherwise it's malformed
                 let unit = match node.child_count() {
                     0 => None,
                     1 => {
                         let child = node.child(0).unwrap();
-                        if child.kind() == "unit" {
+                        if child.kind() == NODE_UNIT {
                             child.utf8_text(content.as_bytes())
                                 .map_err(|_| UssValueError::new(child, content, "Invalid UTF-8 in unit text".to_string()))?
                                 .to_string()
@@ -250,19 +251,19 @@ impl UssValue {
                 
                 Ok(UssValue::Numeric { value, unit, has_fractional })
             }
-            "plain_value" => {
+            NODE_PLAIN_VALUE => {
                 // Handle plain value types - tree-sitter already classified valid colors as color_value
                 // If we're here with a # prefix, it's an invalid color that should be treated as identifier
                 Ok(UssValue::Identifier(node_text.to_string()))
             }
-            "string_value" => {
+            NODE_STRING_VALUE => {
                 // Convert USS string literal to actual string value
                 let converted_string = convert_uss_string(node_text)
                     .map_err(|uss_err| UssValueError::new(node, content, format!("Invalid string literal: {}", uss_err.message)))?;
                 
                 Ok(UssValue::String(converted_string))
             }
-            "color_value" => {
+            NODE_COLOR_VALUE => {
                 // Parse hex color value using the centralized Color::from_hex method
                 if let Some(color) = Color::from_hex(node_text) {
                     Ok(UssValue::Color(color))
@@ -270,7 +271,7 @@ impl UssValue {
                     Err(UssValueError::new(node, content, format!("Invalid hex color format: {}", node_text)))
                 }
             }
-            "call_expression" => {
+            NODE_CALL_EXPRESSION => {
                 // Handle function calls like url(), rgb(), var(), etc.
                 // Structure: call_expression -> function_name + arguments
                 let function_name_node = node.child(0)
@@ -294,7 +295,7 @@ impl UssValue {
                         }
                         
                         let var_node = arg_nodes[0];
-                        if var_node.kind() != "plain_value" {
+                        if var_node.kind() != NODE_PLAIN_VALUE {
                             return Err(UssValueError::new(var_node, content, format!("Expected plain_value for variable name, found {}", var_node.kind())));
                         }
                         
@@ -326,7 +327,7 @@ impl UssValue {
                         }
                         
                         let string_node = arg_nodes[0];
-                        if string_node.kind() != "string_value" {
+                        if string_node.kind() != NODE_STRING_VALUE {
                             return Err(UssValueError::new(string_node, content, format!("Expected string_value for url() argument, found {}", string_node.kind())));
                         }
                         
@@ -352,7 +353,7 @@ impl UssValue {
                         }
                         
                         let string_node = arg_nodes[0];
-                        if string_node.kind() != "string_value" {
+                        if string_node.kind() != NODE_STRING_VALUE {
                             return Err(UssValueError::new(string_node, content, format!("Expected string_value for resource() argument, found {}", string_node.kind())));
                         }
                         

@@ -6,6 +6,7 @@
 use crate::language::asset_url::validate_url;
 use crate::language::tree_utils::{byte_to_position, node_to_range};
 use crate::uss::definitions::UssDefinitions;
+use crate::uss::constants::*;
 use crate::uss::tree_printer;
 use crate::uss::value::UssValue;
 use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
@@ -77,7 +78,7 @@ impl UssDiagnostics {
         if let Some(url) = source_url {
             assert_eq!(
                 url.scheme(),
-                "project",
+                PROJECT_SCHEME,
                 "Source URL must use project scheme for Unity compatibility, got: {}",
                 url
             );
@@ -117,7 +118,7 @@ impl UssDiagnostics {
         let initial_diagnostic_count = diagnostics.len();
 
         // Check for syntax errors - only report for ERROR nodes directly, not for nodes that contain errors
-        if node.kind() == "ERROR" {
+        if node.kind() == NODE_ERROR {
             self.add_syntax_error(node, content, diagnostics);
         }
 
@@ -142,8 +143,8 @@ impl UssDiagnostics {
             });
 
         match node.kind() {
-            "rule_set" => self.validate_rule_set(node, content, diagnostics),
-            "declaration" => {
+            NODE_RULE_SET => self.validate_rule_set(node, content, diagnostics),
+            NODE_DECLARATION => {
                 // Only validate declaration if no child error diagnostics were generated
                 // This prevents redundant error messages when child nodes (like invalid tokens,
                 // syntax errors, or malformed values) have already reported issues.
@@ -160,17 +161,17 @@ impl UssDiagnostics {
                     );
                 }
             }
-            "call_expression" => {
+            NODE_CALL_EXPRESSION => {
                 self.validate_function_call(node, content, diagnostics, source_url, url_references)
             }
-            "pseudo_class_selector" => self.validate_pseudo_class(node, content, diagnostics),
-            "at_rule"
-            | "charset_statement"
-            | "import_statement"
-            | "keyframes_statement"
-            | "media_statement"
-            | "namespace_statement"
-            | "supports_statement" => {
+            NODE_PSEUDO_CLASS_SELECTOR => self.validate_pseudo_class(node, content, diagnostics),
+            NODE_AT_RULE
+            | NODE_CHARSET_STATEMENT
+            | NODE_IMPORT_STATEMENT
+            | NODE_KEYFRAMES_STATEMENT
+            | NODE_MEDIA_STATEMENT
+            | NODE_NAMESPACE_STATEMENT
+            | NODE_SUPPORTS_STATEMENT => {
                 self.validate_at_rule(node, content, diagnostics, source_url, url_references)
             }
             _ => {}
@@ -226,7 +227,7 @@ impl UssDiagnostics {
         }
 
         // If this is an ERROR node itself, use its range directly
-        if node.kind() == "ERROR" {
+        if node.kind() == NODE_ERROR {
             return node_to_range(node, content);
         }
 
@@ -256,7 +257,7 @@ impl UssDiagnostics {
             loop {
                 let current_node = cursor.node();
 
-                if current_node.kind() == "ERROR" {
+                if current_node.kind() == NODE_ERROR {
                     error_nodes.push(current_node);
                 }
 
@@ -331,9 +332,9 @@ impl UssDiagnostics {
         // Check if this rule set is nested inside another rule set
         let mut parent = node.parent();
         while let Some(p) = parent {
-            if p.kind() == "block" {
+            if p.kind() == NODE_BLOCK {
                 if let Some(grandparent) = p.parent() {
-                    if grandparent.kind() == "rule_set" {
+                    if grandparent.kind() == NODE_RULE_SET {
                         let range = node_to_range(node, content);
                         diagnostics.push(Diagnostic {
                             range,
@@ -361,7 +362,7 @@ impl UssDiagnostics {
         variable_resolver: Option<&VariableResolver>,
     ) {
         if let Some(property_node) = node.child(0) {
-            if property_node.kind() == "property_name" {
+            if property_node.kind() == NODE_PROPERTY_NAME {
                 let property_name = property_node.utf8_text(content.as_bytes()).unwrap_or("");
 
                 // Check if property is valid
@@ -387,7 +388,7 @@ impl UssDiagnostics {
                 for i in 2..node.child_count() {
                     if let Some(child) = node.child(i) {
                         // Skip semicolons and whitespace
-                        if child.kind() != ";" && !child.kind().is_empty() {
+                        if child.kind() != NODE_SEMICOLON && !child.kind().is_empty() {
                             value_nodes.push(child);
                         }
                     }
@@ -655,7 +656,7 @@ impl UssDiagnostics {
                             if let Some(args_node) = node.child(1) {
                                 // first argument is '(', second is actual argument
                                 if let Some(arg_node) = args_node.child(1) {
-                                    if arg_node.kind() == "string_value" {
+                                    if arg_node.kind() == NODE_STRING_VALUE {
                                         let arg_range = node_to_range(arg_node, content);
                                         url_references.push(UrlReference {
                                             url: url.clone(),
@@ -689,7 +690,7 @@ impl UssDiagnostics {
         diagnostics: &mut Vec<Diagnostic>,
         source_url: Option<&Url>,
     ) {
-        if node.kind() != "string_value" {
+        if node.kind() != NODE_STRING_VALUE {
             return;
         }
 
@@ -786,7 +787,7 @@ impl UssDiagnostics {
         url_references: &mut Vec<UrlReference>,
     ) {
         match node.kind() {
-            "import_statement" => {
+            NODE_IMPORT_STATEMENT => {
                 self.validate_import_statement(
                     node,
                     content,
@@ -849,7 +850,7 @@ impl UssDiagnostics {
         // we expect the third child to be a ";"
         if node.child_count() > 2 {
             let semi_node = node.child(2).unwrap();
-            if semi_node.kind() != ";" {
+            if semi_node.kind() != NODE_SEMICOLON {
                 let range = node_to_range(semi_node, content);
                 diagnostics.push(Diagnostic {
                     range,

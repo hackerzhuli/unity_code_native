@@ -6,6 +6,7 @@ use tower_lsp::lsp_types::{ColorInformation, ColorPresentation, Position, Range,
 use tree_sitter::{Node, Tree};
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value::UssValue;
+use crate::uss::constants::*;
 
 /// USS color information provider
 pub struct UssColorProvider {
@@ -35,7 +36,7 @@ impl UssColorProvider {
         let node_type = node.kind();
         
         match node_type {
-            "color_value" | "plain_value" | "call_expression" => {
+            NODE_COLOR_VALUE | NODE_PLAIN_VALUE | NODE_CALL_EXPRESSION => {
                 if let Some(color_info) = self.extract_color_from_uss_value(node, content) {
                     colors.push(color_info);
                 }

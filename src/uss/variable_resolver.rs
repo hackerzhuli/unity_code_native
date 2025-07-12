@@ -24,6 +24,7 @@ use std::collections::{HashMap, HashSet};
 use tower_lsp::lsp_types::Range;
 use tree_sitter::Node;
 use crate::uss::value::UssValue;
+use crate::uss::constants::*;
 
 /// Status and value of a CSS custom property variable
 #[derive(Debug, Clone, PartialEq)]
@@ -98,7 +99,7 @@ impl VariableResolver {
     /// Extract variable declarations and their values from a syntax tree in a single pass with source URL
     fn extract_variables_from_node_with_source_url(&mut self, node: Node, content: &str, source_url: Option<&url::Url>) {
         // Look for CSS custom property declarations (--variable-name: value;)
-        if node.kind() == "declaration" {
+        if node.kind() == NODE_DECLARATION {
             // Try different ways to find the property name
             let property_text = if let Some(property_node) = node.child_by_field_name("property") {
                 Self::node_text(property_node, content)
@@ -160,7 +161,7 @@ impl VariableResolver {
         
         // Second child must be colon
         if let Some(colon_node) = declaration_node.child(1) {
-            if colon_node.kind() != ":" {
+            if colon_node.kind() != NODE_COLON {
                 return Err(());
             }
         } else {
@@ -169,7 +170,7 @@ impl VariableResolver {
         
         // Check if semicolon exists as last child
         let has_semicolon = declaration_node.child(child_count - 1)
-            .map(|n| n.kind()) == Some(";");
+            .map(|n| n.kind()) == Some(NODE_SEMICOLON);
         let value_end_index = if has_semicolon { child_count - 1 } else { child_count };
         
         // Extract values between colon and semicolon (or end)
