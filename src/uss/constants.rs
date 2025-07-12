@@ -23,6 +23,10 @@ pub const NODE_SELECTORS: &str = "selectors";
 // Property and value nodes
 /// USS property name (e.g., `color`, `-unity-font`)
 pub const NODE_PROPERTY_NAME: &str = "property_name";
+
+/// Incomplete property name in error node when user is still typing the property name before typing colon
+pub const NODE_ATTRIBUTE_NAME: &'static str = "attribute_name";
+
 /// Plain text value without quotes (e.g., `red`, `bold`)
 pub const NODE_PLAIN_VALUE: &str = "plain_value";
 /// Quoted string value (e.g., `"Arial"`, `'bold'`)

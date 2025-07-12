@@ -70,6 +70,10 @@ impl UssCompletionProvider {
                 CompletionType::PropertyValue { property_name } => {
                     self.complete_property_value(&property_name, current_node, content)
                 }
+                CompletionType::Property => {
+                    log::info!("Property name completion");
+                    self.complete_property_names(context.current_node, content)
+                }
                 CompletionType::PseudoClass => {
                     log::info!("Pseudo classes completion");
                     self.complete_pseudo_classes()
@@ -116,6 +120,26 @@ impl UssCompletionProvider {
                         position,
                     );
                 }
+                
+                // Check if we're typing a property name within a block
+                if let Some(_block_node) = find_node_of_type_at_position(
+                    tree.root_node(),
+                    content,
+                    last_pos,
+                    NODE_BLOCK,
+                ) {
+                    // Check if current node is a property name being typed
+                    // Note: incomplete property names are parsed as "attribute_name" in ERROR nodes
+                    if current_node.kind() == NODE_ATTRIBUTE_NAME &&
+                        current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)
+                        {
+                        return CompletionContext {
+                            t: CompletionType::Property,
+                            current_node: Some(current_node),
+                            position,
+                        };
+                    }
+                }
             }
         }
 
@@ -136,6 +160,18 @@ impl UssCompletionProvider {
     ) -> CompletionContext<'a> {
         if let Some(property_name_node) = declaration_node.child(0) {
             if property_name_node.kind() == NODE_PROPERTY_NAME {
+                // Check if we're still typing the property name
+                // Note: incomplete property names might be parsed as "attribute_name" in ERROR nodes
+                if current_node.kind() == NODE_PROPERTY_NAME ||
+                   (current_node.kind() == "attribute_name" && 
+                    current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)) {
+                    return CompletionContext {
+                        t: CompletionType::Property,
+                        current_node: Some(current_node),
+                        position,
+                    };
+                }
+                
                 let property_name = property_name_node
                     .utf8_text(content.as_bytes())
                     .unwrap_or("")
@@ -228,12 +264,6 @@ impl UssCompletionProvider {
                     detail: Some(format!("Keyword value for {}", property_name)),
                     insert_text: Some(format!("{} ", keyword)), // Add space after value
                     insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                    additional_text_edits: Some(
-                        vec![self.create_semicolon_edit(partial_value)]
-                            .into_iter()
-                            .filter_map(|x| x)
-                            .collect(),
-                    ),
                     ..Default::default()
                 };
                 items.push(item);
@@ -307,6 +337,57 @@ impl UssCompletionProvider {
         items
     }
 
+    /// Complete property names
+    fn complete_property_names(
+        &self,
+        current_node: Option<tree_sitter::Node>,
+        content: &str,
+    ) -> Vec<CompletionItem> {
+        let partial_text = if let Some(node) = current_node {
+            node.utf8_text(content.as_bytes()).unwrap_or("").to_lowercase()
+        } else {
+            String::new()
+        };
+
+        // Only provide completions if user has typed at least one character
+        if partial_text.is_empty() {
+            return Vec::new();
+        }
+
+        self.definitions
+            .get_all_property_names()
+            .iter()
+            .filter(|name| {
+                name.starts_with(&partial_text)
+            })
+            .map(|name| {
+                let property_info = self.definitions.get_property_info(name);
+                let description = property_info
+                    .as_ref()
+                    .map(|info| info.description.to_string())
+                    .unwrap_or_else(|| format!("USS property: {}", name));
+                
+                let documentation_url = property_info
+                    .as_ref()
+                    .map(|info| info.documentation_url.clone());
+
+                CompletionItem {
+                    label: name.to_string(),
+                    kind: Some(CompletionItemKind::PROPERTY),
+                    detail: Some(description),
+                    documentation: documentation_url.map(|url| {
+                        Documentation::MarkupContent(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: format!("[Documentation]({})", url),
+                        })
+                    }),
+                    insert_text: Some(format!("{}: ", name)),
+                    ..Default::default()
+                }
+            })
+            .collect()
+    }
+
     /// Complete pseudo-classes
     pub(super) fn complete_pseudo_classes(&self) -> Vec<CompletionItem> {
         let mut items = Vec::new();
@@ -326,39 +407,6 @@ impl UssCompletionProvider {
         }
 
         items
-    }
-
-    /// Add common CSS values that work with most properties
-    fn add_common_values(&self, items: &mut Vec<CompletionItem>, partial_value: &str) {
-        let common_values = ["inherit", "initial", "unset", "auto", "none"];
-        let partial_lower = partial_value.to_lowercase();
-
-        for value in common_values {
-            if partial_value.is_empty() || value.to_lowercase().starts_with(&partial_lower) {
-                items.push(CompletionItem {
-                    label: value.to_string(),
-                    kind: Some(CompletionItemKind::KEYWORD),
-                    detail: Some("Common CSS value".to_string()),
-                    insert_text: Some(format!("{} ", value)), // Add space after value
-                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                    additional_text_edits: Some(
-                        vec![self.create_semicolon_edit(partial_value)]
-                            .into_iter()
-                            .filter_map(|x| x)
-                            .collect(),
-                    ),
-                    ..Default::default()
-                });
-            }
-        }
-    }
-
-    /// Create a text edit to add a semicolon at the end of the declaration if needed
-    fn create_semicolon_edit(&self, _partial_value: &str) -> Option<TextEdit> {
-        // For now, we'll implement this as a placeholder
-        // In a full implementation, we'd need to check if a semicolon already exists
-        // and determine the correct position to insert it
-        None
     }
 }
 
