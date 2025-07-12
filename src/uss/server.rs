@@ -13,6 +13,7 @@ use crate::language::asset_url::{self, project_url_to_path};
 use crate::language::document::DocumentVersion;
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::color_provider::UssColorProvider;
+use crate::uss::completion::UssCompletionProvider;
 use crate::uss::diagnostics::{UssDiagnostics};
 use crate::uss::document_manager::UssDocumentManager;
 use crate::uss::highlighting::UssHighlighter;
@@ -37,6 +38,7 @@ struct UssServerState {
     diagnostics: UssDiagnostics,
     hover_provider: UssHoverProvider,
     color_provider: UssColorProvider,
+    completion_provider: UssCompletionProvider,
     unity_manager: UnityProjectManager,
 }
 
@@ -50,6 +52,7 @@ impl UssLanguageServer {
             diagnostics: UssDiagnostics::new(),
             hover_provider: UssHoverProvider::new(),
             color_provider: UssColorProvider::new(),
+            completion_provider: UssCompletionProvider::new(),
             unity_manager: UnityProjectManager::new(project_path),
         };
 
@@ -263,6 +266,13 @@ impl LanguageServer for UssLanguageServer {
                 )),
                 hover_provider: Some(HoverProviderCapability::Simple(true)),
                 color_provider: Some(ColorProviderCapability::Simple(true)),
+                completion_provider: Some(CompletionOptions {
+                    resolve_provider: Some(false),
+                    trigger_characters: Some(vec![":".to_string()]),
+                    all_commit_characters: None,
+                    work_done_progress_options: WorkDoneProgressOptions::default(),
+                    completion_item: None,
+                }),
                 ..Default::default()
             },
             ..Default::default()
@@ -504,6 +514,50 @@ impl LanguageServer for UssLanguageServer {
             Ok(presentations)
         } else {
             Ok(Vec::new())
+        }
+    }
+
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
+
+        let completions = if let Ok(state) = self.state.lock() {
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                if let Some(tree) = document.tree() {
+                    // Convert file system URI to project scheme URL for Unity compatibility
+                    let project_url = if uri.scheme() == FILE_SCHEME {
+                        if let Ok(file_path) = uri.to_file_path() {
+                            let project_root = state.unity_manager.project_path();
+                            asset_url::create_project_url_with_normalization(&file_path, &project_root)
+                                .ok()
+                        } else {
+                            None
+                        }
+                    } else {
+                        Some(uri.clone())
+                    };
+
+                    state.completion_provider.complete(
+                        tree,
+                        document.content(),
+                        position,
+                        &state.unity_manager,
+                        project_url.as_ref(),
+                    )
+                } else {
+                    Vec::new()
+                }
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+
+        if completions.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(CompletionResponse::Array(completions)))
         }
     }
 }

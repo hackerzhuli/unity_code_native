@@ -6,6 +6,7 @@ TODO list:
 - [ ] Add support for tss files, also note that "theme://default" (or something like that) is actually valid url in tss import statement, it is a special case. Should not create an error for that.
 - [ ] Let our uss file use the same icon as css file in vs code
 - [ ] Format document and format selection, try to figure out a way to use exising css format ability in VS Code or what ever that can avoid to do it ourselves, because format is the same for uss as css
+- [ ] Basic refactor feature to rename id selectors and class selector in a uss file
 
 TODO for consideration:
 - [ ] (We should do this later, it is complex because it involves Unity Editor) Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy

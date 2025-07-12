@@ -17,6 +17,7 @@ pub mod color;
 pub mod tree_printer;
 pub mod value_spec;
 pub mod color_provider;
+pub mod completion;
 pub mod variable_resolver;
 pub mod value;
 pub mod uss_utils;
@@ -48,3 +49,6 @@ mod import_node_tests;
 
 #[cfg(test)]
 mod function_node_tests;
+
+#[cfg(test)]
+mod completion_tests;
