@@ -55,3 +55,52 @@ pub fn find_node_by_type<'a>(node: Node<'a>, target_type: &str) -> Option<Node<'
     }
     None
 }
+
+/// Converts LSP position to byte offset
+pub fn position_to_byte_offset(source: &str, position: Position) -> Option<usize> {
+    let mut line = 0;
+    let mut col = 0;
+    
+    for (i, ch) in source.char_indices() {
+        if line == position.line as usize && col == position.character as usize {
+            return Some(i);
+        }
+        
+        if ch == '\n' {
+            line += 1;
+            col = 0;
+        } else {
+            col += 1;
+        }
+    }
+    
+    None
+}
+
+/// Finds a child node of a specific type at the given position
+/// This is a general function that can find any node type at a position
+/// by walking up the tree from the deepest node at that position
+pub fn find_node_of_type_at_position<'a>(
+    node: Node<'a>,
+    source: &str,
+    position: Position,
+    target_types: &[&str],
+) -> Option<Node<'a>> {
+    let byte_offset = position_to_byte_offset(source, position)?;
+    
+    // Find the deepest node at this position
+    let mut current = node.descendant_for_byte_range(byte_offset, byte_offset)?;
+    
+    // Walk up the tree to find a node of one of the target types
+    loop {
+        if target_types.contains(&current.kind()) {
+            return Some(current);
+        }
+        
+        if let Some(parent) = current.parent() {
+            current = parent;
+        } else {
+            return None;
+        }
+    }
+}

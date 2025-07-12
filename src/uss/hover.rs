@@ -7,6 +7,7 @@
 
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::definitions::UssDefinitions;
+use crate::language::tree_utils::{find_node_of_type_at_position, find_node_by_type};
 use tower_lsp::lsp_types::{Hover, HoverContents, MarkupContent, MarkupKind, Position};
 use tree_sitter::{Node, Tree};
 use crate::uss::constants::*;
@@ -32,85 +33,19 @@ impl UssHoverProvider {
         position: Position,
         unity_manager: &UnityProjectManager,
     ) -> Option<Hover> {
-        let node = self.find_property_at_position(tree, source, position)?;
-        let property_name = self.extract_property_name(&node, source)?;
-        
-        if self.definitions.is_predefined_property(&property_name) {
-            Some(self.create_hover_content(&property_name, unity_manager))
-        } else {
-            None
-        }
-    }
-
-    /// Finds the property node at the given position
-    fn find_property_at_position<'a>(
-        &self,
-        tree: &'a Tree,
-        source: &str,
-        position: Position,
-    ) -> Option<Node<'a>> {
-        let root = tree.root_node();
-        let byte_offset = self.position_to_byte_offset(source, position)?;
-        
-        // Find the deepest node at this position
-        let mut current = root.descendant_for_byte_range(byte_offset, byte_offset)?;
-        
-        // Walk up the tree to find a property declaration
-        while current.kind() != NODE_PROPERTY_NAME && current.kind() != NODE_DECLARATION {
-            if let Some(parent) = current.parent() {
-                current = parent;
-            } else {
-                return None;
-            }
-        }
-        
-        // If we found a declaration, look for the property_name child
-        if current.kind() == NODE_DECLARATION {
-            for child in current.children(&mut current.walk()) {
-                if child.kind() == NODE_PROPERTY_NAME {
-                    return Some(child);
+        // See if we are in a declaration node
+        if let Some(declaration_node) = find_node_of_type_at_position(tree.root_node(), source, position, &[NODE_DECLARATION, NODE_PROPERTY_NAME]){
+            if let Some(property_name_node) = declaration_node.child(0){
+                if let Ok(property_name) = property_name_node.utf8_text(source.as_bytes()){
+                    if self.definitions.is_predefined_property(&property_name) 
+                    {
+                        return Some(self.create_hover_content(&property_name, unity_manager));
+                    }
                 }
             }
         }
-        
-        if current.kind() == NODE_PROPERTY_NAME {
-            Some(current)
-        } else {
-            None
-        }
-    }
 
-    /// Extracts the property name from a node
-    fn extract_property_name(&self, node: &Node, source: &str) -> Option<String> {
-        let start = node.start_byte();
-        let end = node.end_byte();
-        
-        if start < source.len() && end <= source.len() {
-            Some(source[start..end].to_string())
-        } else {
-            None
-        }
-    }
-
-    /// Converts LSP position to byte offset
-    fn position_to_byte_offset(&self, source: &str, position: Position) -> Option<usize> {
-        let mut line = 0;
-        let mut col = 0;
-        
-        for (i, ch) in source.char_indices() {
-            if line == position.line as usize && col == position.character as usize {
-                return Some(i);
-            }
-            
-            if ch == '\n' {
-                line += 1;
-                col = 0;
-            } else {
-                col += 1;
-            }
-        }
-        
-        None
+        return None;
     }
 
     /// Creates hover content for a property
@@ -179,15 +114,15 @@ mod tests {
 
     #[test]
     fn test_position_to_byte_offset() {
-        let provider = UssHoverProvider::new();
+        use crate::language::tree_utils::position_to_byte_offset;
         let source = "color: red;\nfont-size: 12px;";
         
         // Test position at start of "color"
-        let offset = provider.position_to_byte_offset(source, Position::new(0, 0));
+        let offset = position_to_byte_offset(source, Position::new(0, 0));
         assert_eq!(offset, Some(0));
         
         // Test position at start of "font-size"
-        let offset = provider.position_to_byte_offset(source, Position::new(1, 0));
+        let offset = position_to_byte_offset(source, Position::new(1, 0));
         assert_eq!(offset, Some(12));
     }
 
