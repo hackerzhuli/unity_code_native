@@ -342,11 +342,27 @@ impl LanguageServer for UssLanguageServer {
         if let Some(state) = state {
             if let Some(document) = state.document_manager.get_document(&uri) {
                 if let Some(tree) = document.tree() {
+                    // Convert file system URI to project scheme URL for Unity compatibility
+                    let project_url = if uri.scheme() == "file" {
+                        // Convert file:// URI to project:// URI
+                        if let Ok(file_path) = uri.to_file_path() {
+                            let project_root = state.unity_manager.project_path();
+                            crate::language::asset_url::create_project_url_with_normalization(&file_path, &project_root)
+                                .ok()
+                        } else {
+                            None
+                        }
+                    } else {
+                        // If it's already a project:// URI or other scheme, use as-is
+                        Some(uri.clone())
+                    };
+                    
                     let hover = state.hover_provider.hover(
                         tree,
                         document.content(),
                         position,
                         &state.unity_manager,
+                        project_url.as_ref(),
                     );
                     return Ok(hover);
                 }
