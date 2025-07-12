@@ -39,3 +39,12 @@ mod value_tests;
 
 #[cfg(test)]
 mod variable_resolver_tests;
+
+#[cfg(test)]
+mod url_function_node_tests;
+
+#[cfg(test)]
+mod import_node_tests;
+
+#[cfg(test)]
+mod function_node_tests;
