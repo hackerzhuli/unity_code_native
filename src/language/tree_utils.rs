@@ -84,7 +84,7 @@ pub fn find_node_of_type_at_position<'a>(
     node: Node<'a>,
     source: &str,
     position: Position,
-    target_types: &[&str],
+    target_type: &str,
 ) -> Option<Node<'a>> {
     let byte_offset = position_to_byte_offset(source, position)?;
     
@@ -93,7 +93,7 @@ pub fn find_node_of_type_at_position<'a>(
     
     // Walk up the tree to find a node of one of the target types
     loop {
-        if target_types.contains(&current.kind()) {
+        if target_type == current.kind() {
             return Some(current);
         }
         

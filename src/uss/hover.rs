@@ -34,12 +34,14 @@ impl UssHoverProvider {
         unity_manager: &UnityProjectManager,
     ) -> Option<Hover> {
         // See if we are in a declaration node
-        if let Some(declaration_node) = find_node_of_type_at_position(tree.root_node(), source, position, &[NODE_DECLARATION, NODE_PROPERTY_NAME]){
+        if let Some(declaration_node) = find_node_of_type_at_position(tree.root_node(), source, position, NODE_DECLARATION){
             if let Some(property_name_node) = declaration_node.child(0){
-                if let Ok(property_name) = property_name_node.utf8_text(source.as_bytes()){
-                    if self.definitions.is_predefined_property(&property_name) 
-                    {
-                        return Some(self.create_hover_content(&property_name, unity_manager));
+                if property_name_node.kind() == NODE_PROPERTY_NAME{
+                    if let Ok(property_name) = property_name_node.utf8_text(source.as_bytes()){
+                        if self.definitions.is_predefined_property(&property_name) 
+                        {
+                            return Some(self.create_hover_content_for_property(&property_name, unity_manager));
+                        }
                     }
                 }
             }
@@ -49,7 +51,7 @@ impl UssHoverProvider {
     }
 
     /// Creates hover content for a property
-    fn create_hover_content(
+    fn create_hover_content_for_property(
         &self,
         property_name: &str,
         unity_manager: &UnityProjectManager,
@@ -127,22 +129,11 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_property_name() {
-        let provider = UssHoverProvider::new();
-        let source = "color: red;";
-        
-        // Test the extract_property_name method with a mock scenario
-        // In practice, this would be called with actual tree-sitter nodes
-        // For now, we just test that the provider can be created
-        assert!(provider.definitions.is_valid_property("color"));
-    }
-
-    #[test]
     fn test_create_hover_content() {
         let provider = UssHoverProvider::new();
         let unity_manager = UnityProjectManager::new(PathBuf::from("/test/project"));
         
-        let hover = provider.create_hover_content("color", &unity_manager);
+        let hover = provider.create_hover_content_for_property("color", &unity_manager);
         
         if let HoverContents::Markup(content) = hover.contents {
             assert!(content.value.contains("**color**"));
