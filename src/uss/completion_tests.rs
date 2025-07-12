@@ -553,3 +553,91 @@ fn test_tag_selector_completion_case_insensitive() {
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     assert!(labels.contains(&"Button".to_string()), "Should include 'Button' tag (case insensitive)");
 }
+
+#[test]
+fn test_tag_selector_completion_no_empty_input() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: no completions when no characters are typed
+    let content = "";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position at the beginning
+    let position = Position {
+        line: 0,
+        character: 0,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should not have any tag completions for empty input
+    let tag_completions: Vec<_> = completions.iter()
+        .filter(|c| c.detail == Some("Unity UI element".to_string()))
+        .collect();
+    assert!(tag_completions.is_empty(), "Should not provide tag completions for empty input");
+}
+
+#[test]
+fn test_class_selector_excludes_self() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: when typing ".my" and there's a class ".my", it should not suggest itself
+    let content = ".my { color: red; }\n.my-class { margin: 10px; }\n.my";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position after '.my' (the incomplete selector)
+    let position = Position {
+        line: 2,
+        character: 3,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have completions but not include the exact match "my"
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(!labels.contains(&"my".to_string()), "Should not include the exact match 'my' that user is typing");
+    assert!(labels.contains(&"my-class".to_string()), "Should include 'my-class' which starts with 'my'");
+}
+
+#[test]
+fn test_id_selector_excludes_self() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: when typing "#my" and there's an ID "#my", it should not suggest itself
+    let content = "#my { color: red; }\n#my-id { margin: 10px; }\n#my";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position after '#my' (the incomplete selector)
+    let position = Position {
+        line: 2,
+        character: 3,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have completions but not include the exact match "my"
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(!labels.contains(&"my".to_string()), "Should not include the exact match 'my' that user is typing");
+    assert!(labels.contains(&"my-id".to_string()), "Should include 'my-id' which starts with 'my'");
+}

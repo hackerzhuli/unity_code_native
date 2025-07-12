@@ -530,7 +530,10 @@ impl UssCompletionProvider {
                 if partial_text.is_empty() {
                     true // Show all classes when just typed '.'
                 } else {
-                    class_name.to_lowercase().starts_with(&partial_text.to_lowercase())
+                    // Exclude exact matches and only show classes that start with partial_text but are longer
+                    let class_lower = class_name.to_lowercase();
+                    let partial_lower = partial_text.to_lowercase();
+                    class_lower.starts_with(&partial_lower) && class_lower != partial_lower
                 }
             })
             .map(|class_name| {
@@ -563,7 +566,10 @@ impl UssCompletionProvider {
                 if partial_text.is_empty() {
                     true // Show all IDs when just typed '#'
                 } else {
-                    id_name.to_lowercase().starts_with(&partial_text.to_lowercase())
+                    // Exclude exact matches and only show IDs that start with partial_text but are longer
+                    let id_lower = id_name.to_lowercase();
+                    let partial_lower = partial_text.to_lowercase();
+                    id_lower.starts_with(&partial_lower) && id_lower != partial_lower
                 }
             })
             .map(|id_name| {
