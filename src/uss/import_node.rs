@@ -20,19 +20,15 @@ impl<'a> ImportNode<'a> {
     /// 
     /// Returns Some(ImportNode) if the node represents a valid import statement structure:
     /// - Node must be an import statement
+    /// - Nodes themselves must not contain errors
     /// - Must have exactly one argument node after @import
     /// - Argument must be either a string or function
     /// - Must be followed by a semicolon
     /// 
-    /// Returns None if:
-    /// - Node is not an import statement
-    /// - Structure doesn't match expected format
-    /// - Syntax tree contains error nodes (no diagnostics pushed in this case)
-    /// 
     /// # Arguments
     /// * `node` - The tree-sitter node to validate
     /// * `content` - The source code content
-    /// * `diagnostics` - Optional vector to push validation errors to
+    /// * `diagnostics` - Optional vector to push validation errors to (no diagnostics will be pushed if nodes themselves contain errors)
     pub fn from_node(
         node: Node<'a>,
         content: &str,
@@ -53,7 +49,7 @@ impl<'a> ImportNode<'a> {
         let mut import_value_node = None;
 
         // first node must be @import, second node is url function or a string, third node must be ; to end the statement, and nothing after that
-        // first node is already checked so no need to check that
+        // the tree says it is a import statement, so we assume tree sitter already checked so no need to check that
         if node.child_count() > 1 {
             import_value_node = Some(node.child(1).unwrap());
         } else {
