@@ -23,6 +23,7 @@ pub mod uss_utils;
 pub mod constants;
 pub mod import_node;
 pub mod function_node;
+pub mod url_function_node;
 
 #[cfg(test)]
 mod diagnostics_tests;
