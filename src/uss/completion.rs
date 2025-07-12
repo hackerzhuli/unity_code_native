@@ -44,6 +44,8 @@ pub(super) enum CompletionType {
     ClassSelector,
     /// Completing ID selectors after '#'
     IdSelector,
+    /// Completing tag selectors
+    TagSelector,
     /// Completing inside function arguments
     FunctionArgument,
     /// Unknown context
@@ -92,6 +94,10 @@ impl UssCompletionProvider {
                 CompletionType::IdSelector => {
                     log::info!("ID selector completion");
                     self.complete_id_selectors(tree, content, current_node)
+                }
+                CompletionType::TagSelector => {
+                    log::info!("Tag selector completion");
+                    self.complete_tag_selectors(tree, content, current_node)
                 }
                 _ => {
                     log::info!("No completion context matched");
@@ -468,6 +474,24 @@ impl UssCompletionProvider {
             });
         }
 
+        // Check if current node is a tag selector being typed
+        if current_node.kind() == NODE_TAG_NAME {
+            return Some(CompletionContext {
+                t: CompletionType::TagSelector,
+                current_node: Some(current_node),
+                position,
+            });
+        }
+        
+        // Check if current node is a partial tag name (attribute_name in ERROR node)
+        if current_node.kind() == NODE_ATTRIBUTE_NAME && 
+           current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR) {
+            return Some(CompletionContext {
+                t: CompletionType::TagSelector,
+                current_node: Some(current_node),
+                position,
+            });
+        }
         
         // Check if we're directly on a '.' or '#' token
         if current_node.kind() == "." {
@@ -548,6 +572,41 @@ impl UssCompletionProvider {
                     kind: Some(CompletionItemKind::CONSTANT),
                     detail: Some("ID selector".to_string()),
                     insert_text: Some(id_name),
+                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                    ..Default::default()
+                }
+            })
+            .collect()
+    }
+
+    /// Complete tag selectors
+    fn complete_tag_selectors(
+        &self,
+        _tree: &Tree,
+        content: &str,
+        current_node: Node,
+    ) -> Vec<CompletionItem> {
+        let partial_text = current_node.utf8_text(content.as_bytes()).unwrap_or("").to_lowercase();
+        
+        // Only provide completions if user has typed at least one character
+        if partial_text.is_empty() {
+            return Vec::new();
+        }
+        
+        // Hardcoded list of Unity UI tags for now
+        let unity_tags = vec!["Button", "Label", "Slider", "Dropdown"];
+        
+        unity_tags
+            .into_iter()
+            .filter(|tag_name| {
+                tag_name.to_lowercase().starts_with(&partial_text)
+            })
+            .map(|tag_name| {
+                CompletionItem {
+                    label: tag_name.to_string(),
+                    kind: Some(CompletionItemKind::CLASS), // Using CLASS kind for UI elements
+                    detail: Some("Unity UI element".to_string()),
+                    insert_text: Some(tag_name.to_string()),
                     insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
                     ..Default::default()
                 }

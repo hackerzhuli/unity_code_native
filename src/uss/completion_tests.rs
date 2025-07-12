@@ -453,3 +453,103 @@ fn test_no_selector_completion_in_declaration_block() {
         .collect();
     assert!(class_completions.is_empty(), "Should not provide class selector completions inside declaration blocks");
 }
+
+#[test]
+fn test_tag_selector_completion() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: completion for partial tag name
+    let content = "Button { color: red; }\nLabel { margin: 10px; }\nBu";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position after 'Bu'
+    let position = Position {
+        line: 2,
+        character: 2,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have completions for tags starting with 'Bu'
+    assert!(!completions.is_empty(), "Should have tag completions");
+    
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"Button".to_string()), "Should include 'Button' tag");
+    assert!(!labels.contains(&"Label".to_string()), "Should not include 'Label' tag");
+    assert!(!labels.contains(&"Slider".to_string()), "Should not include 'Slider' tag");
+    
+    // Verify completion item properties
+    let button_completion = completions.iter().find(|c| c.label == "Button").unwrap();
+    assert_eq!(button_completion.kind, Some(CompletionItemKind::CLASS));
+    assert_eq!(button_completion.detail, Some("Unity UI element".to_string()));
+    assert_eq!(button_completion.insert_text, Some("Button".to_string()));
+}
+
+#[test]
+fn test_tag_selector_completion_partial_match() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: completion for 'S' should match 'Slider'
+    let content = "Button { color: red; }\nS {color:blue}";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position after 'S'
+    let position = Position {
+        line: 1,
+        character: 1,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have completions for tags starting with 'S'
+    assert!(!completions.is_empty(), "Should have tag completions");
+    
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"Slider".to_string()), "Should include 'Slider' tag");
+    assert!(!labels.contains(&"Button".to_string()), "Should not include 'Button' tag");
+    assert!(!labels.contains(&"Label".to_string()), "Should not include 'Label' tag");
+}
+
+#[test]
+fn test_tag_selector_completion_case_insensitive() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: lowercase 'b' should match 'Button'
+    let content = "b";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position after 'b'
+    let position = Position {
+        line: 0,
+        character: 1,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have case-insensitive completions
+    assert!(!completions.is_empty(), "Should have case-insensitive tag completions");
+    
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"Button".to_string()), "Should include 'Button' tag (case insensitive)");
+}
