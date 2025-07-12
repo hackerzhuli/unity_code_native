@@ -1,15 +1,17 @@
-//! USS Tree-sitter Node Kind Constants
+//! USS and Tree-sitter CSS Node Kind Constants
 //!
 //! This module contains all the constant for uss language and tree-sitter node kinds
 //! used throughout the USS language support. Centralizing these constants helps
 //! prevent mistakes and makes the code more maintainable.
-
-/// Tree-sitter node kinds for USS/CSS syntax tree
+//! 
+//! Tree-sitter node kinds for USS/CSS syntax tree
+//! 
+//! Note that the parse is CSS parser, so there are node kinds that is not supported in USS
 
 // Basic structural nodes
-/// Root node of the USS/CSS syntax tree
+/// Root node of the USS syntax tree
 pub const NODE_STYLESHEET: &str = "stylesheet";
-/// A CSS rule containing selectors and a declaration block
+/// A USS rule containing selectors and a declaration block
 pub const NODE_RULE_SET: &str = "rule_set";
 /// A block of declarations enclosed in curly braces
 pub const NODE_BLOCK: &str = "block";
@@ -19,7 +21,7 @@ pub const NODE_DECLARATION: &str = "declaration";
 pub const NODE_SELECTORS: &str = "selectors";
 
 // Property and value nodes
-/// CSS property name (e.g., `color`, `-unity-font`)
+/// USS property name (e.g., `color`, `-unity-font`)
 pub const NODE_PROPERTY_NAME: &str = "property_name";
 /// Plain text value without quotes (e.g., `red`, `bold`)
 pub const NODE_PLAIN_VALUE: &str = "plain_value";
@@ -31,29 +33,29 @@ pub const NODE_COLOR_VALUE: &str = "color_value";
 pub const NODE_INTEGER_VALUE: &str = "integer_value";
 /// Floating-point numeric value (e.g., `1.5`, `0.75`)
 pub const NODE_FLOAT_VALUE: &str = "float_value";
-/// CSS unit identifier (e.g., `px`, `%`, `em`)
+/// USS unit identifier (e.g., `px`, `%`, `em`)
 pub const NODE_UNIT: &str = "unit";
 
 // Function calls
-/// CSS function call (e.g., `rgb()`, `url()`, `resource()`)
+/// USS function call (e.g., `rgb()`, `url()`, `resource()`)
 pub const NODE_CALL_EXPRESSION: &str = "call_expression";
-/// Name of a CSS function (e.g., `rgb`, `url`, `resource`)
+/// Name of a USS function (e.g., `rgb`, `url`, `resource`)
 pub const NODE_FUNCTION_NAME: &str = "function_name";
-/// Arguments passed to a CSS function
+/// Arguments passed to a USS function
 pub const NODE_ARGUMENTS: &str = "arguments";
 
 // Selector types
-/// CSS class selector (e.g., `.my-class`)
+/// USS class selector (e.g., `.my-class`)
 pub const NODE_CLASS_SELECTOR: &str = "class_selector";
 /// Name part of a class selector (e.g., `my-class` in `.my-class`)
 pub const NODE_CLASS_NAME: &str = "class_name";
-/// CSS ID selector (e.g., `#my-id`)
+/// USS ID selector (e.g., `#my-id`)
 pub const NODE_ID_SELECTOR: &str = "id_selector";
 /// Name part of an ID selector (e.g., `my-id` in `#my-id`)
 pub const NODE_ID_NAME: &str = "id_name";
 /// HTML/Unity UI element tag name (e.g., `Button`, `Label`)
 pub const NODE_TAG_NAME: &str = "tag_name";
-/// CSS pseudo-class selector (e.g., `:hover`, `:active`)
+/// USS pseudo-class selector (e.g., `:hover`, `:active`)
 pub const NODE_PSEUDO_CLASS_SELECTOR: &str = "pseudo_class_selector";
 
 // At-rules
@@ -61,17 +63,17 @@ pub const NODE_PSEUDO_CLASS_SELECTOR: &str = "pseudo_class_selector";
 pub const NODE_AT_RULE: &str = "at_rule";
 /// The literal `@import` keyword
 pub const KEYWORD_AT_IMPORT: &str = "@import";
-/// CSS import statement for external stylesheets
+/// USS import statement for external stylesheets
 pub const NODE_IMPORT_STATEMENT: &str = "import_statement";
-/// CSS charset declaration statement
+/// CSS charset declaration statement (not supported in USS)
 pub const NODE_CHARSET_STATEMENT: &str = "charset_statement";
-/// CSS keyframes animation definition
+/// CSS keyframes animation definition (not supported in USS)
 pub const NODE_KEYFRAMES_STATEMENT: &str = "keyframes_statement";
-/// CSS media query statement
+/// CSS media query statement (not supported in USS)
 pub const NODE_MEDIA_STATEMENT: &str = "media_statement";
-/// CSS namespace declaration statement
+/// CSS namespace declaration statement (not supported in USS)
 pub const NODE_NAMESPACE_STATEMENT: &str = "namespace_statement";
-/// CSS feature query statement
+/// CSS feature query statement (not supported in USS)
 pub const NODE_SUPPORTS_STATEMENT: &str = "supports_statement";
 
 // Punctuation and operators
@@ -87,7 +89,7 @@ pub const NODE_OPEN_PAREN: &str = "(";
 pub const NODE_CLOSE_PAREN: &str = ")";
 
 // Comments
-/// CSS comment block (e.g., `/* comment */`)
+/// USS comment block (e.g., `/* comment */`)
 pub const NODE_COMMENT: &str = "comment";
 
 // Error and special nodes
