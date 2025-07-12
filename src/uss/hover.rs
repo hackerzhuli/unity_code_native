@@ -5,18 +5,18 @@
 //! - Documentation URLs
 //! - Unity version compatibility
 
+use std::path::PathBuf;
+
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::definitions::UssDefinitions;
-use crate::language::tree_utils::{find_node_of_type_at_position, find_node_by_type};
+use crate::language::tree_utils::{find_node_of_type_at_position};
 use crate::uss::import_node::ImportNode;
 use crate::uss::url_function_node::UrlFunctionNode;
 use crate::uss::uss_utils::convert_uss_string;
-use crate::language::asset_url::validate_url;
+use crate::language::asset_url::{project_url_to_path, project_url_to_relative_path, validate_url};
 use tower_lsp::lsp_types::{Hover, HoverContents, MarkupContent, MarkupKind, Position, Url};
 use tree_sitter::{Node, Tree};
 use crate::uss::constants::*;
-
-/// Provides hover information for USS properties
 pub struct UssHoverProvider {
     definitions: UssDefinitions,
 }
@@ -78,31 +78,34 @@ impl UssHoverProvider {
         let mut diagnostics = Vec::new();
         let import = ImportNode::from_node(import_node, source, &mut diagnostics)?;
         
-        let mut content = String::from("**USS @import Statement**\n\n");
+        let mut content = String::from("**@import Statement**\n\n");
         
+        // Check if the current import resolves to a file and add a link if it exists
+        if let Some(import_path) = self.extract_path_from_node(import.argument_node, source) {
+            if let Some((file_path, url)) = self.resolve_import_file_path(&import_path, unity_manager, source_url) {
+                if let Some(relative_path) = project_url_to_relative_path(&url){
+                    content.push_str(&format!("Asset path: `{}`\n\n", relative_path));
+                }
+        
+                if file_path.exists() {
+                    if let Ok(file_url) = Url::from_file_path(&file_path) {
+                        content.push_str(&format!("📁 [Open file]({})\n\n", file_url));
+                    }
+                } else {
+                    content.push_str("❌ File not found\n\n");
+                }
+            }
+        }
+
         // Add documentation about what @import does
         content.push_str("Imports styles from another USS file into the current stylesheet.\n\n");
         
         // Add usage examples
         content.push_str("**Examples:**\n");
         content.push_str("```css\n");
-        content.push_str("@import \"Assets/UI/Common/base.uss\";\n");
-        content.push_str("@import url(\"project://Assets/UI/Themes/dark.uss\");\n");
-        content.push_str("@import \"../shared/variables.uss\";\n");
+        content.push_str("@import url(\"project:///Assets/UI/styles/common.uss\");\n");
+        content.push_str("@import \"./common.uss\";\n");
         content.push_str("```\n\n");
-        
-        // Check if the current import resolves to a file and add a link if it exists
-        if let Some(import_path) = self.extract_path_from_node(import.argument_node, source) {
-            if let Some(file_path) = self.resolve_import_file_path(&import_path, unity_manager, source_url) {
-                if file_path.exists() {
-                    if let Ok(file_url) = Url::from_file_path(&file_path) {
-                        content.push_str(&format!("📁 [Open imported file]({})", file_url));
-                    }
-                } else {
-                    content.push_str("❌ File not found");
-                }
-            }
-        }
         
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
@@ -124,10 +127,13 @@ impl UssHoverProvider {
         let url_function = UrlFunctionNode::from_node(call_node, source, None, source_url, None)?;
         
         let mut content = format!("**url()**\n\n");
-        content.push_str(&format!("URL: `{}`\n\n", url_function.url()));
-        
+
         // Try to resolve the file path and check if it exists
-        if let Some(file_path) = self.resolve_url_file_path(url_function.url(), unity_manager, source_url) {
+        if let Some((file_path, url)) = self.resolve_import_file_path(url_function.url(), unity_manager, source_url) {
+            if let Some(relative_path) = project_url_to_relative_path(&url){
+                content.push_str(&format!("Asset path: `{}`\n\n", relative_path));
+            }
+        
             if file_path.exists() {
                 // Create a file:// URL for the resolved path
                 if let Ok(file_url) = Url::from_file_path(&file_path) {
@@ -171,29 +177,16 @@ impl UssHoverProvider {
         import_path: &str,
         unity_manager: &UnityProjectManager,
         source_url: Option<&Url>,
-    ) -> Option<std::path::PathBuf> {
+    ) -> Option<(PathBuf, Url)> {
         // Try to validate the URL first to get a proper project URL
         if let Ok(validation_result) = validate_url(import_path, source_url) {
             // Convert project URL to file system path
             let project_root = unity_manager.project_path();
-            let url_path = validation_result.url.path();
-            if url_path.starts_with("/Assets/") || url_path.starts_with("/Packages/") {
-                let relative_path = &url_path[1..]; // Remove leading slash
-                return Some(project_root.join(relative_path));
+            if let Some(path) = project_url_to_path(project_root, &validation_result.url){
+                return Some((path, validation_result.url));
             }
         }
         None
-    }
-
-    /// Resolves a URL function path to an absolute file system path
-    fn resolve_url_file_path(
-        &self,
-        url_path: &str,
-        unity_manager: &UnityProjectManager,
-        source_url: Option<&Url>,
-    ) -> Option<std::path::PathBuf> {
-        // Reuse the same logic as import resolution
-        self.resolve_import_file_path(url_path, unity_manager, source_url)
     }
 
     /// Creates hover content for a property

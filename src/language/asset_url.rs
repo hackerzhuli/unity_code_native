@@ -8,8 +8,9 @@
 //! But actually it can be absolute just like url path, it works but it is not recommended.
 //! So we treat resource path just like url path.
 
-use std::cell::RefCell;
+use std::{cell::RefCell, path::{Path, PathBuf}};
 use url::{SyntaxViolation, Url};
+use urlencoding::decode;
 
 /// Error type for asset string validation
 #[derive(Debug, Clone, PartialEq)]
@@ -182,6 +183,38 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<AssetValidation
     }
 }
 
+/// Returns the absolute file path for a given URL.
+/// the url should be in project scheme
+pub fn project_url_to_path(project_root: &Path, url: &Url) -> Option<PathBuf>{
+    if url.scheme() != "project" {
+        return None;
+    }
+
+    if let Some(relative_path) = project_url_to_relative_path(url) {
+        let mut p = PathBuf::new();
+        p.push(project_root);
+        p.push(relative_path.as_str()); 
+        return Some(p);
+    }
+    
+    None
+}
+
+/// Returns the absolute file path for a given URL.
+/// the url should be in project scheme
+pub fn project_url_to_relative_path(url: &Url) -> Option<String>{
+    if url.scheme() != "project" {
+        return None;
+    }
+
+    if let Ok(relative_path) = decode(url.path()) {
+        return Some(relative_path.chars().skip(1).collect()); // remove leading slash
+    }
+    
+    None
+}
+
+
 /// Creates a project scheme URL from normalized file path and project root path
 ///
 /// Converts a file system path to a Unity project scheme URL.
@@ -298,7 +331,7 @@ fn additional_error(url_path: &str, base_url: &Url) -> Option<AdditionalValidati
                 // ignore
             },
             SyntaxViolation::NonUrlCodePoint => {
-                let message = "there are characters that are not valid in URLs. You may be using space or other reserved characters in URL, consider use percent encoding instead.".to_string();
+                let message = "There are characters that are not valid in URLs. You may be using space or other reserved characters in URL, consider use percent encoding instead.".to_string();
                 return Some(AdditionalValidationResult::Warning(AssetValidationWarning::new(message)));
             },
             SyntaxViolation::NullInFragment => {
@@ -598,5 +631,18 @@ mod tests {
     fn test_error_display() {
         let error = AssetValidationError::new("Test error");
         assert_eq!(error.to_string(), "Asset validation error: Test error");
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn test_project_url_to_path() {
+        let path = project_url_to_path(Path::new("f:\\a\\b\\c"), &Url::parse("project:///Assets/hello.txt").unwrap());
+        assert_eq!(path.unwrap().to_string_lossy(), "f:\\a\\b\\c\\Assets/hello.txt");
+    }
+
+    #[test]
+    fn test_project_url_to_relative_path() {
+        let path = project_url_to_relative_path(&Url::parse("project:///Assets/hello.txt").unwrap());
+        assert_eq!(path.unwrap(), "Assets/hello.txt");
     }
 }

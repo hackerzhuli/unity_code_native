@@ -2,14 +2,14 @@
 //!
 //! Provides Language Server Protocol features for USS files using tower-lsp.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use url::Url;
 
-use crate::language::asset_url;
+use crate::language::asset_url::{self, project_url_to_path};
 use crate::language::document::DocumentVersion;
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::color_provider::UssColorProvider;
@@ -156,7 +156,7 @@ impl UssLanguageServer {
         url_references: Vec<UrlReference>,
         uri: Url,
         current_version: DocumentVersion,
-        project_root: std::path::PathBuf,
+        project_root: PathBuf,
     ) {
         let client = self.client.clone();
         let state = self.state.clone();
@@ -168,23 +168,18 @@ impl UssLanguageServer {
             for url_ref in url_references {
                 // Handle project:// URLs manually since to_file_path() doesn't work with custom schemes
                 if url_ref.url.scheme() == PROJECT_SCHEME {
-                    let url_path = url_ref.url.path();
-
-                    // Remove leading slash if present and convert to PathBuf
-                    let asset_path = url_path.strip_prefix('/').unwrap_or(url_path);
-                    let full_path = project_root.join(asset_path);
-
-                    // Check if the asset file exists
-
-                    if !full_path.exists() {
-                        asset_diagnostics.push(Diagnostic {
-                            range: url_ref.range,
-                            severity: Some(DiagnosticSeverity::WARNING),
-                            code: Some(NumberOrString::String("asset-not-found".to_string())),
-                            source: Some("uss".to_string()),
-                            message: format!("Asset doesn't exist on path: {}", asset_path),
-                            ..Default::default()
-                        });
+                    if let Some(full_path) = project_url_to_path(&project_root, &url_ref.url) {
+                        // Check if the asset file exists
+                        if !full_path.exists() {
+                            asset_diagnostics.push(Diagnostic {
+                                range: url_ref.range,
+                                severity: Some(DiagnosticSeverity::WARNING),
+                                code: Some(NumberOrString::String("asset-not-found".to_string())),
+                                source: Some("uss".to_string()),
+                                message: format!("Asset doesn't exist on path: {}", full_path.display()),
+                                ..Default::default()
+                            });
+                        }
                     }
                 }
             }
