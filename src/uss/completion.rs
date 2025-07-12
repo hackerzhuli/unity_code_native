@@ -95,6 +95,10 @@ impl UssCompletionProvider {
         if position.character > 0 {
             // The tree have trouble finding the right node if we're looking at the cursor
             // We need to go back one character to be safe, the one that the user just typed
+            // Note that we have a limitation here, we can get the `:` in the tree right after the user typed it
+            // If user type spaces after that, then we can't locate the node the cursor is at because there is no node for just spaces after colon
+            // That means we don't have a good way to get auto completion for that case now
+            // So in that case we don't provide auto completion at all
             let last_pos = Position::new(position.line, position.character - 1);
 
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
@@ -201,7 +205,7 @@ impl UssCompletionProvider {
         }
 
         // keywords that we want to filter against
-        let valid_keywords = self.get_keywors_for_keyword_based_property(property_name);
+        let valid_keywords = self.get_keywords_for_keyword_based_property(property_name);
 
         if valid_keywords.is_empty() {
             return Vec::new();
@@ -241,7 +245,7 @@ impl UssCompletionProvider {
     }
 
     /// if a property is a single value and keyword only or is a color then get the valid keywords for them
-    fn get_keywors_for_keyword_based_property(&self, property_name: &str) -> Vec<&str> {
+    fn get_keywords_for_keyword_based_property(&self, property_name: &str) -> Vec<&str> {
         let mut valid_keywords: Vec<&str> = Vec::new();
 
         // Check if this is a keyword-only property
@@ -277,42 +281,24 @@ impl UssCompletionProvider {
 
         let mut suggestions: Vec<&str> = Vec::new();
 
-        if let Some(property_info) = self.definitions.get_property_info(property_name) {
-            suggestions.extend_from_slice(
-                self.get_keywors_for_keyword_based_property(property_name)
-                    .as_slice(),
-            );
+        suggestions.extend_from_slice(
+            self.get_keywords_for_keyword_based_property(property_name)
+                .as_slice(),
+        );
 
-            for suggestion in suggestions {
-                let item = CompletionItem {
-                    label: suggestion.to_string(),
-                    kind: Some(CompletionItemKind::VALUE),
-                    detail: Some(format!("Value for {}", property_name)),
-                    insert_text: Some(format!("{} ", suggestion)), // Add space after value
-                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                    additional_text_edits: Some(
-                        vec![self.create_semicolon_edit("")]
-                            .into_iter()
-                            .filter_map(|x| x)
-                            .collect(),
-                    ),
-                    documentation: if !property_info.description.is_empty() {
-                        Some(Documentation::MarkupContent(MarkupContent {
-                            kind: MarkupKind::Markdown,
-                            value: format!(
-                                "**{}**\n\n{}",
-                                property_name, property_info.description
-                            ),
-                        }))
-                    } else {
-                        None
-                    },
-                    ..Default::default()
-                };
-                items.push(item);
-            }
+        for suggestion in suggestions {
+            let item = CompletionItem {
+                label: suggestion.to_string(),
+                kind: Some(CompletionItemKind::VALUE),
+                detail: Some(format!("Value for {}", property_name)),
+                insert_text: Some(format!(" {};", suggestion)), // add space before and semicolon after to complete it, we only offer complete suggetions after property
+                insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                documentation: None, // for now we don't have docs for keywords
+                ..Default::default()
+            };
+            items.push(item);
         }
-
+        
         items
     }
 
