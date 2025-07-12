@@ -5,21 +5,7 @@ use crate::uss::definitions::UssDefinitions;
 mod tests {
     use super::*;
     use crate::uss::{constants::{NODE_PLAIN_VALUE, NODE_STRING_VALUE, NODE_INTEGER_VALUE, NODE_FLOAT_VALUE, NODE_COLOR_VALUE, NODE_CALL_EXPRESSION, UNIT_PX}, parser::UssParser};
-
-    fn find_node_by_type<'a>(node: tree_sitter::Node<'a>, target_type: &str) -> Option<tree_sitter::Node<'a>> {
-        if node.kind() == target_type {
-            return Some(node);
-        }
-        
-        for i in 0..node.child_count() {
-            if let Some(child) = node.child(i) {
-                if let Some(found) = find_node_by_type(child, target_type) {
-                    return Some(found);
-                }
-            }
-        }
-        None
-    }
+    use crate::language::tree_utils::find_node_by_type;
 
     #[test]
     fn test_from_node_with_mock_nodes() {

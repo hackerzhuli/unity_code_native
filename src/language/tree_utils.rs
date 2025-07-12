@@ -38,3 +38,20 @@ pub(crate) fn byte_to_position(byte_offset: usize, content: &str) -> Position {
         character: character as u32,
     }
 }
+
+/// Find the first node of a specific type in the syntax tree
+/// Performs a depth-first search to locate a node with the target type
+pub fn find_node_by_type<'a>(node: Node<'a>, target_type: &str) -> Option<Node<'a>> {
+    if node.kind() == target_type {
+        return Some(node);
+    }
+    
+    for i in 0..node.child_count() {
+        if let Some(child) = node.child(i) {
+            if let Some(found) = find_node_by_type(child, target_type) {
+                return Some(found);
+            }
+        }
+    }
+    None
+}

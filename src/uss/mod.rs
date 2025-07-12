@@ -21,6 +21,7 @@ pub mod variable_resolver;
 pub mod value;
 pub mod uss_utils;
 pub mod constants;
+pub mod import_node;
 
 #[cfg(test)]
 mod diagnostics_tests;
