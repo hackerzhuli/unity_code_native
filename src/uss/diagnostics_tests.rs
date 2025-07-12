@@ -538,7 +538,7 @@ fn test_url_function_missing_argument() {
     
     // Should detect missing argument error
     let missing_arg_errors: Vec<_> = results.iter()
-        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-value".to_string())))
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("url-invalid-argument-count".to_string())))
         .collect();
     
     assert!(!missing_arg_errors.is_empty(), "Should detect missing argument in url() function");
@@ -574,7 +574,7 @@ fn test_url_function_too_many_arguments() {
     
     // Should detect too many arguments error
     let arg_count_errors: Vec<_> = results.iter()
-        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-value".to_string())))
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("url-invalid-argument-count".to_string())))
         .collect();
     
     assert!(!arg_count_errors.is_empty(), "Should detect too many arguments in url() function");
@@ -610,7 +610,7 @@ fn test_url_function_invalid_argument_type() {
     
     // Should detect invalid argument type error
     let type_errors: Vec<_> = results.iter()
-        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-value".to_string())))
+        .filter(|d| d.code == Some(NumberOrString::String("url-invalid-argument-type".to_string())))
         .collect();
     
     assert!(!type_errors.is_empty(), "Should detect invalid argument type in url() function");

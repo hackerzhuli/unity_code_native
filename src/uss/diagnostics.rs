@@ -9,6 +9,7 @@ use crate::uss::definitions::UssDefinitions;
 use crate::uss::constants::*;
 use crate::uss::import_node::ImportNode;
 use crate::uss::tree_printer;
+use crate::uss::url_function_node::UrlFunctionNode;
 use crate::uss::value::UssValue;
 use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
 use tower_lsp::lsp_types::*;
@@ -641,78 +642,31 @@ impl UssDiagnostics {
         source_url: Option<&Url>,
         url_references: &mut Vec<UrlReference>,
     ) {
-        // Check if this is a url() function call (not resource())
-        if let Some(function_name_node) = node.child(0) {
-            let function_name = function_name_node
-                .utf8_text(content.as_bytes())
-                .unwrap_or("");
+        // Try to parse as UrlFunctionNode - this handles function name checking and argument extraction
+        if let Some(url_function_node) = UrlFunctionNode::from_node(node, content, Some(diagnostics)) {
+            // Validate the URL and add to references
+            match validate_url(url_function_node.url(), source_url) {
+                Ok(validation_result) => {
+                    let arg_range = url_function_node.argument_range(content);
+                    url_references.push(UrlReference {
+                        url: validation_result.url.clone(),
+                        range: arg_range,
+                    });
 
-            if function_name == "url" {
-                // Parse the function call using UssValue
-                match UssValue::from_node(node, content, &self.definitions, source_url) {
-                    Ok(uss_value) => {
-                        //eprintln!("DEBUG: Successfully parsed UssValue: {:?}", uss_value);
-                        if let UssValue::Url(url) = uss_value {
-                            // Find the argument node (excluding the function name and parentheses)
-                            if let Some(args_node) = node.child(1) {
-                                // first argument is '(', second is actual argument
-                                if let Some(arg_node) = args_node.child(1) {
-                                    if arg_node.kind() == NODE_STRING_VALUE {
-                                        let arg_range = node_to_range(arg_node, content);
-                                        url_references.push(UrlReference {
-                                            url: url.clone(),
-                                            range: arg_range,
-                                        });
-
-                                        self.add_url_argument_warning(
-                                            arg_node,
-                                            content,
-                                            diagnostics,
-                                            source_url,
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Err(_) => {
-                        //eprintln!("DEBUG: Failed to parse UssValue: {:?}", e);
+                    // Add any URL validation warnings
+                    for warning in &validation_result.warnings {
+                        diagnostics.push(Diagnostic {
+                            range: arg_range,
+                            severity: Some(DiagnosticSeverity::WARNING),
+                            code: Some(NumberOrString::String("url-warning".to_string())),
+                            source: Some("uss".to_string()),
+                            message: warning.message.clone(),
+                            ..Default::default()
+                        });
                     }
                 }
-            }
-        }
-    }
-
-    /// try to find if a url argument node contains warnings
-    fn add_url_argument_warning(
-        &self,
-        node: Node<'_>,
-        content: &str,
-        diagnostics: &mut Vec<Diagnostic>,
-        source_url: Option<&Url>,
-    ) {
-        if node.kind() != NODE_STRING_VALUE {
-            return;
-        }
-
-        if let Ok(arg_value) = UssValue::from_node(node, content, &self.definitions, source_url) {
-            if let UssValue::String(arg_str) = arg_value {
-                if let Ok(validation_result) =
-                    crate::language::asset_url::validate_url(arg_str.as_str(), source_url)
-                {
-                    if !validation_result.warnings.is_empty() {
-                        for warning in validation_result.warnings {
-                            let range = node_to_range(node, content);
-                            diagnostics.push(Diagnostic {
-                                range,
-                                severity: Some(DiagnosticSeverity::WARNING),
-                                code: Some(NumberOrString::String("url-warning".to_string())),
-                                source: Some("uss".to_string()),
-                                message: warning.message,
-                                ..Default::default()
-                            });
-                        }
-                    }
+                Err(_) => {
+                    // URL validation failed - UrlFunctionNode already added syntax diagnostics
                 }
             }
         }
@@ -794,7 +748,7 @@ impl UssDiagnostics {
                     // Use ImportNode for structural validation
                     if let Some(import_node) = ImportNode::from_node(node, content, diagnostics) {
                         // If ImportNode was successfully created, validate the import value
-                        this.validate_import_value_node(
+                        this.validate_import_argument_node(
                             content,
                             diagnostics,
                             source_url,
@@ -828,7 +782,10 @@ impl UssDiagnostics {
     }
 
     /// validate the value node of import statement, must be a url function or a string
-    fn validate_import_value_node(
+    ///
+    /// ### Parameters
+    /// `url_references` only non url function UrlReferences will be collected, url functions is expected to collect them by themselves
+    fn validate_import_argument_node(
         &self,
         content: &str,
         diagnostics: &mut Vec<Diagnostic>,
@@ -898,11 +855,8 @@ impl UssDiagnostics {
                             }
                         }
                     }
-                    UssValue::Url(_) => {
-                        // since URL is valid, so first child is "(", ignore
-                        if let Some(arg) = value_node.child(1) {
-                            self.add_url_argument_warning(arg, content, diagnostics, source_url);
-                        }
+                    UssValue::Url(url) => {
+                        
                     }
                     _ => {
                         // Import value is neither a string nor a url function

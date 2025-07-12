@@ -12,9 +12,11 @@ use crate::uss::constants::{NODE_STRING_VALUE, NODE_PLAIN_VALUE};
 
 /// Represents a validated USS url() function call with extracted URL string
 #[derive(Debug, Clone)]
-pub struct UrlFunctionNode {
-    /// The extracted URL string (without quotes and with escapes processed)
+pub struct UrlFunctionNode<'a> {
+    /// The extracted URL string (the actual value, without quotes and with escapes processed)
     pub url_string: String,
+    /// The argument node containing the URL
+    pub argument_node: Node<'a>,
 }
 
 #[cfg(test)]
@@ -361,7 +363,7 @@ mod tests {
 }
 
 
-impl<'a> UrlFunctionNode {
+impl<'a> UrlFunctionNode<'a> {
     /// Attempts to create a UrlFunctionNode from a tree-sitter node
     /// 
     /// Returns Some(UrlFunctionNode) if:
@@ -377,7 +379,7 @@ impl<'a> UrlFunctionNode {
         node: Node<'a>,
         content: &str,
         mut diagnostics: Option<&mut Vec<Diagnostic>>,
-    ) -> Option<UrlFunctionNode> {
+    ) -> Option<UrlFunctionNode<'a>> {
         // First validate as a general function
         let function_node = FunctionNode::from_node(node, content, diagnostics.as_deref_mut())?;
         
@@ -470,6 +472,7 @@ impl<'a> UrlFunctionNode {
         
         Some(UrlFunctionNode {
             url_string,
+            argument_node: arg_node,
         })
     }
     
@@ -481,6 +484,11 @@ impl<'a> UrlFunctionNode {
     /// Check if the URL is empty
     pub fn is_empty(&self) -> bool {
         self.url_string.is_empty()
+    }
+    
+    /// Get the range of the argument node
+    pub fn argument_range(&self, content: &str) -> Range {
+        node_to_range(self.argument_node, content)
     }
     
 
