@@ -13,11 +13,12 @@ use crate::language::asset_url;
 use crate::language::document::DocumentVersion;
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::color_provider::UssColorProvider;
-use crate::uss::diagnostics::{UrlReference, UssDiagnostics};
+use crate::uss::diagnostics::{UssDiagnostics};
 use crate::uss::document_manager::UssDocumentManager;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::hover::UssHoverProvider;
 use crate::uss::constants::*;
+use crate::uss::url_function_node::UrlReference;
 
 /// USS Language Server
 pub struct UssLanguageServer {

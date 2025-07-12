@@ -249,7 +249,7 @@ impl UssValue {
                     }
                     "url" => {
                         // Use UrlFunctionNode for basic validation, then validate URL
-                        let url_function = UrlFunctionNode::from_node(node, content, None)
+                        let url_function = UrlFunctionNode::from_node(node, content, None, None, None)
                             .ok_or_else(|| UssValueError::new(node, content, "Invalid url() function structure".to_string()))?;
                         
                         // Validate and parse the URL

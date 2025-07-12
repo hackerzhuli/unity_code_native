@@ -9,22 +9,12 @@ use crate::uss::definitions::UssDefinitions;
 use crate::uss::constants::*;
 use crate::uss::import_node::ImportNode;
 use crate::uss::tree_printer;
-use crate::uss::url_function_node::UrlFunctionNode;
+use crate::uss::url_function_node::{UrlFunctionNode, UrlReference};
 use crate::uss::value::UssValue;
 use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use url::Url;
-
-/// Represents a URL found in USS code along with its location range
-/// Used for future asset validation (file existence checks, etc.)
-#[derive(Debug, Clone)]
-pub struct UrlReference {
-    /// The URL found in the USS code
-    pub url: Url,
-    /// The LSP range of the URL (for url() functions, this is just the argument range, not including the function name)
-    pub range: Range,
-}
 
 /// USS diagnostic analyzer
 pub struct UssDiagnostics {
@@ -643,15 +633,12 @@ impl UssDiagnostics {
         url_references: &mut Vec<UrlReference>,
     ) {
         // Try to parse as UrlFunctionNode - this handles function name checking and argument extraction
-        if let Some(url_function_node) = UrlFunctionNode::from_node(node, content, Some(diagnostics)) {
+        if let Some(url_function_node) = UrlFunctionNode::from_node(node, content, Some(diagnostics), source_url, Some(url_references)) {
+
             // Validate the URL and add to references
             match validate_url(url_function_node.url(), source_url) {
                 Ok(validation_result) => {
-                    let arg_range = url_function_node.argument_range(content);
-                    url_references.push(UrlReference {
-                        url: validation_result.url.clone(),
-                        range: arg_range,
-                    });
+                    let arg_range = node_to_range(url_function_node.argument_node, content);
 
                     // Add any URL validation warnings
                     for warning in &validation_result.warnings {
