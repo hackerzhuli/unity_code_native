@@ -14,6 +14,9 @@ use crate::uss::constants::*;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value_spec::{ValueFormat, ValueType};
 
+// Import additional constants for selector completion
+use crate::uss::constants::{NODE_CLASS_SELECTOR, NODE_CLASS_NAME, NODE_ID_SELECTOR, NODE_ID_NAME};
+
 /// USS completion provider
 pub struct UssCompletionProvider {
     pub(crate) definitions: UssDefinitions,
@@ -37,6 +40,10 @@ pub(super) enum CompletionType {
     Property,
     /// Completing pseudo-classes after ':'
     PseudoClass,
+    /// Completing class selectors after '.'
+    ClassSelector,
+    /// Completing ID selectors after '#'
+    IdSelector,
     /// Completing inside function arguments
     FunctionArgument,
     /// Unknown context
@@ -78,6 +85,14 @@ impl UssCompletionProvider {
                     log::info!("Pseudo classes completion");
                     self.complete_pseudo_classes()
                 }
+                CompletionType::ClassSelector => {
+                    log::info!("Class selector completion");
+                    self.complete_class_selectors(tree, content, current_node)
+                }
+                CompletionType::IdSelector => {
+                    log::info!("ID selector completion");
+                    self.complete_id_selectors(tree, content, current_node)
+                }
                 _ => {
                     log::info!("No completion context matched");
                     Vec::new()
@@ -106,6 +121,11 @@ impl UssCompletionProvider {
             let last_pos = Position::new(position.line, position.character - 1);
 
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
+                // Check for selector completion context first
+                if let Some(selector_context) = self.analyze_selector_context(tree, content, current_node, position) {
+                    return selector_context;
+                }
+                
                 if let Some(declaration_node) = find_node_of_type_at_position(
                     tree.root_node(),
                     content,
@@ -407,6 +427,254 @@ impl UssCompletionProvider {
         }
 
         items
+    }
+
+    /// Analyze if we're in a selector completion context
+    fn analyze_selector_context<'a>(
+        &self,
+        tree: &'a Tree,
+        content: &str,
+        current_node: Node<'a>,
+        position: Position,
+    ) -> Option<CompletionContext<'a>> {
+        // Check if we're in a selector context (not inside a block)
+        if find_node_of_type_at_position(
+            tree.root_node(),
+            content,
+            Position::new(position.line, position.character.saturating_sub(1)),
+            NODE_BLOCK,
+        ).is_some() {
+            return None; // We're inside a declaration block, not in selector context
+        }
+
+        // Check if current node is a class selector being typed
+        if current_node.kind() == NODE_CLASS_SELECTOR || 
+           (current_node.kind() == NODE_CLASS_NAME && 
+            current_node.parent().map(|p| p.kind()) == Some(NODE_CLASS_SELECTOR)) {
+            return Some(CompletionContext {
+                t: CompletionType::ClassSelector,
+                current_node: Some(current_node),
+                position,
+            });
+        }
+
+        // Check if current node is an ID selector being typed
+        if current_node.kind() == NODE_ID_SELECTOR || 
+           (current_node.kind() == NODE_ID_NAME && 
+            current_node.parent().map(|p| p.kind()) == Some(NODE_ID_SELECTOR)) {
+            return Some(CompletionContext {
+                t: CompletionType::IdSelector,
+                current_node: Some(current_node),
+                position,
+            });
+        }
+
+        // Check if we're typing after '.' or '#' (incomplete selectors in ERROR nodes)
+        if current_node.kind() == NODE_ERROR {
+            // Look for class_selector or id_selector children in the ERROR node
+            for i in 0..current_node.child_count() {
+                if let Some(child) = current_node.child(i) {
+                    let child_kind = child.kind();
+                    if child_kind == NODE_CLASS_SELECTOR {
+                        return Some(CompletionContext {
+                            t: CompletionType::ClassSelector,
+                            current_node: Some(current_node),
+                            position,
+                        });
+                    } else if child_kind == NODE_ID_SELECTOR {
+                        return Some(CompletionContext {
+                            t: CompletionType::IdSelector,
+                            current_node: Some(current_node),
+                            position,
+                        });
+                    }
+                }
+            }
+            
+            // Check the text content for incomplete selectors
+            let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
+            if node_text.starts_with('.') {
+                return Some(CompletionContext {
+                    t: CompletionType::ClassSelector,
+                    current_node: Some(current_node),
+                    position,
+                });
+            }
+            if node_text.starts_with('#') {
+                return Some(CompletionContext {
+                    t: CompletionType::IdSelector,
+                    current_node: Some(current_node),
+                    position,
+                });
+            }
+        }
+        
+        // Check if we're directly on a '.' or '#' token
+        if current_node.kind() == "." {
+            return Some(CompletionContext {
+                t: CompletionType::ClassSelector,
+                current_node: Some(current_node),
+                position,
+            });
+        }
+        
+        if current_node.kind() == "#" {
+            return Some(CompletionContext {
+                t: CompletionType::IdSelector,
+                current_node: Some(current_node),
+                position,
+            });
+        }
+
+        None
+    }
+
+    /// Complete class selectors
+    fn complete_class_selectors(
+        &self,
+        tree: &Tree,
+        content: &str,
+        current_node: Node,
+    ) -> Vec<CompletionItem> {
+        let partial_text = self.extract_partial_selector_text(current_node, content, '.');
+        
+        let existing_classes = self.extract_class_selectors_from_document(tree, content);
+        
+        existing_classes
+            .into_iter()
+            .filter(|class_name| {
+                if partial_text.is_empty() {
+                    true // Show all classes when just typed '.'
+                } else {
+                    class_name.to_lowercase().starts_with(&partial_text.to_lowercase())
+                }
+            })
+            .map(|class_name| {
+                CompletionItem {
+                    label: class_name.clone(),
+                    kind: Some(CompletionItemKind::CLASS),
+                    detail: Some("Class selector".to_string()),
+                    insert_text: Some(class_name),
+                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                    ..Default::default()
+                }
+            })
+            .collect()
+    }
+
+    /// Complete ID selectors
+    fn complete_id_selectors(
+        &self,
+        tree: &Tree,
+        content: &str,
+        current_node: Node,
+    ) -> Vec<CompletionItem> {
+        let partial_text = self.extract_partial_selector_text(current_node, content, '#');
+        
+        let existing_ids = self.extract_id_selectors_from_document(tree, content);
+        
+        existing_ids
+            .into_iter()
+            .filter(|id_name| {
+                if partial_text.is_empty() {
+                    true // Show all IDs when just typed '#'
+                } else {
+                    id_name.to_lowercase().starts_with(&partial_text.to_lowercase())
+                }
+            })
+            .map(|id_name| {
+                CompletionItem {
+                    label: id_name.clone(),
+                    kind: Some(CompletionItemKind::CONSTANT),
+                    detail: Some("ID selector".to_string()),
+                    insert_text: Some(id_name),
+                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                    ..Default::default()
+                }
+            })
+            .collect()
+    }
+
+    /// Extract partial selector text (without the prefix character)
+    fn extract_partial_selector_text(&self, current_node: Node, content: &str, prefix: char) -> String {
+        let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
+        
+        if current_node.kind() == NODE_CLASS_NAME || current_node.kind() == NODE_ID_NAME {
+            // We're in the name part of the selector
+            return node_text.to_string();
+        }
+        
+        if current_node.kind() == NODE_ERROR && node_text.starts_with(prefix) {
+            // We're in an incomplete selector, extract the part after the prefix
+            return node_text.chars().skip(1).collect();
+        }
+        
+        // Handle case where we're directly on the prefix token
+        if (current_node.kind() == "." && prefix == '.') || (current_node.kind() == "#" && prefix == '#') {
+            // Just typed the prefix, return empty string to show all completions
+            return String::new();
+        }
+        
+        String::new()
+    }
+
+    /// Extract all class selectors from the document
+    fn extract_class_selectors_from_document(&self, tree: &Tree, content: &str) -> Vec<String> {
+        let (class_names, _) = self.collect_all_selectors_from_document(tree, content);
+        class_names.into_iter().collect()
+    }
+
+    /// Extract all ID selectors from the document
+    fn extract_id_selectors_from_document(&self, tree: &Tree, content: &str) -> Vec<String> {
+        let (_, id_names) = self.collect_all_selectors_from_document(tree, content);
+        id_names.into_iter().collect()
+    }
+
+    /// Collect all selectors from the document, separating classes and IDs
+    fn collect_all_selectors_from_document(&self, tree: &Tree, content: &str) -> (HashSet<String>, HashSet<String>) {
+        let mut class_names = HashSet::new();
+        let mut id_names = HashSet::new();
+        self.collect_selectors_recursive(tree.root_node(), content, &mut class_names, &mut id_names);
+        (class_names, id_names)
+    }
+
+    /// Recursively collect selector names from the syntax tree
+    fn collect_selectors_recursive(
+        &self,
+        node: Node,
+        content: &str,
+        class_collector: &mut HashSet<String>,
+        id_collector: &mut HashSet<String>,
+    ) {
+        // Collect class names that are children of class selectors
+        if node.kind() == NODE_CLASS_NAME {
+            if let Some(parent) = node.parent() {
+                if parent.kind() == NODE_CLASS_SELECTOR {
+                    if let Ok(name) = node.utf8_text(content.as_bytes()) {
+                        if !name.is_empty() {
+                            class_collector.insert(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Collect ID names that are children of ID selectors
+        if node.kind() == NODE_ID_NAME {
+            if let Some(parent) = node.parent() {
+                if parent.kind() == NODE_ID_SELECTOR {
+                    if let Ok(name) = node.utf8_text(content.as_bytes()) {
+                        if !name.is_empty() {
+                            id_collector.insert(name.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        for child in node.children(&mut node.walk()) {
+            self.collect_selectors_recursive(child, content, class_collector, id_collector);
+        }
     }
 }
 

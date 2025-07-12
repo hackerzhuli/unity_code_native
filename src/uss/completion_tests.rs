@@ -1,4 +1,4 @@
-use tower_lsp::lsp_types::Position;
+use tower_lsp::lsp_types::{Position, CompletionItemKind};
 use std::path::PathBuf;
 
 use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
@@ -159,8 +159,6 @@ fn test_property_name_completion_partial_match() {
     assert!(!labels.contains(&"color".to_string()), "Should not include 'color' property");
 }
 
-
-
 #[test]
 fn test_property_name_completion_case_insensitive() {
     let mut parser = UssParser::new().unwrap();
@@ -189,4 +187,204 @@ fn test_property_name_completion_case_insensitive() {
     
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     assert!(labels.contains(&"color".to_string()), "Should include 'color' property");
+}
+
+#[test]
+fn test_class_selector_completion_after_dot() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: completion after typing '.'
+    let content = ".my-class { color: red; }\n.another-class { margin: 10px; }\n.";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position right after the last '.'
+    let position = Position {
+        line: 2,
+        character: 1,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have completions for existing class selectors
+    assert!(!completions.is_empty(), "Should have class selector completions");
+    
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"my-class".to_string()), "Should include 'my-class'");
+    assert!(labels.contains(&"another-class".to_string()), "Should include 'another-class'");
+    
+    // Verify completion item properties
+    let my_class_completion = completions.iter().find(|c| c.label == "my-class").unwrap();
+    assert_eq!(my_class_completion.kind, Some(CompletionItemKind::CLASS));
+    assert_eq!(my_class_completion.detail, Some("Class selector".to_string()));
+    assert_eq!(my_class_completion.insert_text, Some("my-class".to_string()));
+}
+
+#[test]
+fn test_class_selector_partial_completion() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: partial class name completion
+    let content = ".my-class { color: red; }\n.my-other { margin: 10px; }\n.another { padding: 5px; }\n.my";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position after '.my'
+    let position = Position {
+        line: 3,
+        character: 3,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have completions for classes starting with 'my'
+    assert!(!completions.is_empty(), "Should have partial class completions");
+    
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"my-class".to_string()), "Should include 'my-class'");
+    assert!(labels.contains(&"my-other".to_string()), "Should include 'my-other'");
+    assert!(!labels.contains(&"another".to_string()), "Should not include 'another'");
+}
+
+#[test]
+fn test_id_selector_completion_after_hash() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: completion after typing '#'
+    let content = "#my-id { color: red; }\n#another-id { margin: 10px; }\n.some-class { padding: 5px; }\n#";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position right after the last '#'
+    let position = Position {
+        line: 3,
+        character: 1,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have completions for existing ID selectors only
+    assert!(!completions.is_empty(), "Should have ID selector completions");
+    
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"my-id".to_string()), "Should include 'my-id'");
+    assert!(labels.contains(&"another-id".to_string()), "Should include 'another-id'");
+    assert!(!labels.contains(&"some-class".to_string()), "Should not include class selectors");
+    
+    // Verify completion item properties
+    let my_id_completion = completions.iter().find(|c| c.label == "my-id").unwrap();
+    assert_eq!(my_id_completion.kind, Some(CompletionItemKind::CONSTANT));
+    assert_eq!(my_id_completion.detail, Some("ID selector".to_string()));
+    assert_eq!(my_id_completion.insert_text, Some("my-id".to_string()));
+}
+
+#[test]
+fn test_id_selector_partial_completion() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: partial ID name completion
+    let content = "#my-id { color: red; }\n#my-other-id { margin: 10px; }\n#different { padding: 5px; }\n#my";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position after '#my'
+    let position = Position {
+        line: 3,
+        character: 3,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have completions for IDs starting with 'my'
+    assert!(!completions.is_empty(), "Should have partial ID completions");
+    
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"my-id".to_string()), "Should include 'my-id'");
+    assert!(labels.contains(&"my-other-id".to_string()), "Should include 'my-other-id'");
+    assert!(!labels.contains(&"different".to_string()), "Should not include 'different'");
+}
+
+#[test]
+fn test_selector_completion_case_insensitive() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: case insensitive selector completion
+    let content = ".MyClass { color: red; }\n.ANOTHER { margin: 10px; }\n.my";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position after '.my'
+    let position = Position {
+        line: 2,
+        character: 3,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have case-insensitive completions
+    assert!(!completions.is_empty(), "Should have case-insensitive completions");
+    
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"MyClass".to_string()), "Should include 'MyClass' (case preserved)");
+}
+
+#[test]
+fn test_no_selector_completion_in_declaration_block() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+    
+    // Test case: should not provide selector completion inside declaration blocks
+    let content = ".my-class {\n    color: .\n}";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position after the '.' inside the declaration block
+    let position = Position {
+        line: 1,
+        character: 12,
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should not provide selector completions inside declaration blocks
+    // (This should either be empty or provide property value completions)
+    let class_completions: Vec<_> = completions.iter()
+        .filter(|c| c.kind == Some(CompletionItemKind::CLASS))
+        .collect();
+    assert!(class_completions.is_empty(), "Should not provide class selector completions inside declaration blocks");
 }
