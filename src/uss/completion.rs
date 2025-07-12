@@ -539,7 +539,7 @@ impl UssCompletionProvider {
             .map(|class_name| {
                 CompletionItem {
                     label: class_name.clone(),
-                    kind: Some(CompletionItemKind::CLASS),
+                    kind: Some(CompletionItemKind::COLOR),
                     detail: Some("Class selector".to_string()),
                     insert_text: Some(class_name),
                     insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
