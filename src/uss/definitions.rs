@@ -345,38 +345,6 @@ impl UssDefinitions {
         vec![UNIT_S, UNIT_MS]
     }
     
-    /// Get valid keyword values for a specific property
-    pub fn get_valid_keyword_values_for_property(&self, property_name: &str) -> Option<&'static [&'static str]> {
-        match property_name {
-            "display" => Some(&["flex", "none", "initial"]),
-            "position" => Some(&["absolute", "relative", "initial"]),
-            "flex-direction" => Some(&["row", "row-reverse", "column", "column-reverse", "initial"]),
-            "justify-content" => Some(&["flex-start", "flex-end", "center", "space-between", "space-around", "initial"]),
-            "align-items" | "align-self" => Some(&["auto", "flex-start", "flex-end", "center", "stretch", "initial"]),
-            "-unity-background-scale-mode" => Some(&["stretch-to-fill", "scale-and-crop", "scale-to-fit", "initial"]),
-            "-unity-font-style" => Some(&["normal", "italic", "bold", "bold-and-italic", "initial"]),
-            "-unity-text-align" => Some(&[
-                "upper-left", "middle-left", "lower-left", 
-                "upper-center", "middle-center", "lower-center", 
-                "upper-right", "middle-right", "lower-right", "initial"
-            ]),
-            "white-space" => Some(&["normal", "nowrap", "initial"]),
-            "text-overflow" => Some(&["clip", "ellipsis", "initial"]),
-            _ => None,
-        }
-    }
-    
-    /// Check if a value is valid for a specific property
-    pub fn is_valid_value_for_property(&self, property_name: &str, value: &str) -> bool {
-        if let Some(valid_values) = self.get_valid_keyword_values_for_property(property_name) {
-            valid_values.contains(&value)
-        } else {
-            // For properties without specific validation, allow any value
-            // This includes numeric values, custom values, etc.
-            true
-        }
-    }
-    
     /// Get property information including description and metadata
     pub fn get_property_info(&self, property_name: &str) -> Option<&PropertyInfo> {
         self.properties.get(property_name)

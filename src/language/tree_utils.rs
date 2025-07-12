@@ -77,6 +77,14 @@ pub fn position_to_byte_offset(source: &str, position: Position) -> Option<usize
     None
 }
 
+pub fn find_node_at_position<'a>(
+    node: Node<'a>,
+    position: Position,
+) -> Option<Node<'a>> {
+    let point = Point::new(position.line as usize, position.character as usize);
+    node.descendant_for_point_range(point, point)
+}
+
 /// Finds a child node of a specific type at the given position
 /// This is a general function that can find any node type at a position
 /// by walking up the tree from the deepest node at that position

@@ -38,6 +38,15 @@ pub struct ValueEntry {
     /// All valid value types for this entry
     pub types: Vec<ValueType>
 }
+impl ValueEntry {
+    fn is_keyword_only(&self) -> bool {
+        return self.types.iter().all(|vt| matches!(vt, ValueType::Keyword(_)));
+    }
+    
+    fn is_color_only(&self) -> bool {
+        return self.types.iter().all(|vt| matches!(vt, ValueType::Color) || matches!(vt, ValueType::Keyword("initial")));
+    }
+}
 
 /// Specific value format with exact type and count requirements
 #[derive(Debug, Clone)]
@@ -206,6 +215,14 @@ impl ValueFormat {
             UssValue::VariableReference(_) => true, // Variables can match any type
         }
     }
+    
+    fn is_keyword_only(&self) -> bool {
+        return self.entries.len() == 1 && self.entries[0].is_keyword_only();
+    }
+    
+    fn is_color_only(&self) -> bool {
+        return self.entries.len() == 1 && self.entries[0].is_color_only();
+    }
 }
 
 /// Complete value specification for a property
@@ -271,5 +288,13 @@ impl ValueSpec {
     /// Create a ValueSpec with multiple possible formats
     pub fn multiple_formats(formats: Vec<ValueFormat>) -> Self {
         Self { formats }
+    }
+    
+    pub(crate) fn is_keyword_only(&self) -> bool {
+        self.formats.len() == 1 && self.formats[0].is_keyword_only()
+    }
+    
+    pub(crate) fn is_color_only(&self) -> bool {
+        return self.formats.len() == 1 && self.formats[0].is_color_only();
     }
 }
