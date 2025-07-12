@@ -7,6 +7,7 @@ use crate::language::asset_url::validate_url;
 use crate::language::tree_utils::{byte_to_position, node_to_range};
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::constants::*;
+use crate::uss::import_node::ImportNode;
 use crate::uss::tree_printer;
 use crate::uss::value::UssValue;
 use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
@@ -788,13 +789,21 @@ impl UssDiagnostics {
     ) {
         match node.kind() {
             NODE_IMPORT_STATEMENT => {
-                self.validate_import_statement(
-                    node,
-                    content,
-                    diagnostics,
-                    source_url,
-                    url_references,
-                );
+                {
+                    let this = &self;
+                    // Use ImportNode for structural validation
+                    if let Some(import_node) = ImportNode::from_node(node, content, diagnostics) {
+                        // If ImportNode was successfully created, validate the import value
+                        this.validate_import_value_node(
+                            content,
+                            diagnostics,
+                            source_url,
+                            url_references,
+                            import_node.argument_node,
+                        );
+                    }
+                    // If ImportNode::from_node returns None, it has already added appropriate diagnostics
+                };
             }
             _ => {
                 // Generic at-rule that's not an import - these are not supported
@@ -811,55 +820,6 @@ impl UssDiagnostics {
                     message: format!(
                         "Unsupported at-rule '{}'. Only @import is supported in USS",
                         at_rule_text
-                    ),
-                    ..Default::default()
-                });
-            }
-        }
-    }
-
-    /// Validate import statement structure and values
-    fn validate_import_statement(
-        &self,
-        node: Node,
-        content: &str,
-        diagnostics: &mut Vec<Diagnostic>,
-        source_url: Option<&Url>,
-        url_references: &mut Vec<UrlReference>,
-    ) {
-        // Import statement structure: import_statement -> @import + (string_value | call_expression)
-        // Find the value child that contains the import path (either string or url() function)
-        let mut import_value_node = None;
-
-        // first node must be @import,  second node is url function or a string, third node must be ; to end the statement, and nothing after that
-        // first node is already checked so no need to check that
-        if node.child_count() > 1 {
-            import_value_node = Some(node.child(1).unwrap());
-        }
-
-        if let Some(value_node) = import_value_node {
-            self.validate_import_value_node(
-                content,
-                diagnostics,
-                source_url,
-                url_references,
-                value_node,
-            );
-        }
-
-        // we expect the third child to be a ";"
-        if node.child_count() > 2 {
-            let semi_node = node.child(2).unwrap();
-            if semi_node.kind() != NODE_SEMICOLON {
-                let range = node_to_range(semi_node, content);
-                diagnostics.push(Diagnostic {
-                    range,
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    code: Some(NumberOrString::String("missing-semicolon".to_string())),
-                    source: Some("uss".to_string()),
-                    message: format!(
-                        "Import statement is expecting a semicolon, but found {}",
-                        semi_node.utf8_text(content.as_bytes()).unwrap_or("None")
                     ),
                     ..Default::default()
                 });
