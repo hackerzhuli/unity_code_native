@@ -290,8 +290,7 @@ impl UssCompletionProvider {
             }
         }
 
-        // For non-keyword-only properties, don't provide completions after typing
-        Vec::new()
+        items
     }
 
     /// if a property is a single value and keyword only or is a color then get the valid keywords for them
@@ -469,45 +468,6 @@ impl UssCompletionProvider {
             });
         }
 
-        // Check if we're typing after '.' or '#' (incomplete selectors in ERROR nodes)
-        if current_node.kind() == NODE_ERROR {
-            // Look for class_selector or id_selector children in the ERROR node
-            for i in 0..current_node.child_count() {
-                if let Some(child) = current_node.child(i) {
-                    let child_kind = child.kind();
-                    if child_kind == NODE_CLASS_SELECTOR {
-                        return Some(CompletionContext {
-                            t: CompletionType::ClassSelector,
-                            current_node: Some(current_node),
-                            position,
-                        });
-                    } else if child_kind == NODE_ID_SELECTOR {
-                        return Some(CompletionContext {
-                            t: CompletionType::IdSelector,
-                            current_node: Some(current_node),
-                            position,
-                        });
-                    }
-                }
-            }
-            
-            // Check the text content for incomplete selectors
-            let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
-            if node_text.starts_with('.') {
-                return Some(CompletionContext {
-                    t: CompletionType::ClassSelector,
-                    current_node: Some(current_node),
-                    position,
-                });
-            }
-            if node_text.starts_with('#') {
-                return Some(CompletionContext {
-                    t: CompletionType::IdSelector,
-                    current_node: Some(current_node),
-                    position,
-                });
-            }
-        }
         
         // Check if we're directly on a '.' or '#' token
         if current_node.kind() == "." {
@@ -675,11 +635,5 @@ impl UssCompletionProvider {
         for child in node.children(&mut node.walk()) {
             self.collect_selectors_recursive(child, content, class_collector, id_collector);
         }
-    }
-}
-
-impl Default for UssCompletionProvider {
-    fn default() -> Self {
-        Self::new()
     }
 }

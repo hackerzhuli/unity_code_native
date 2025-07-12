@@ -23,7 +23,7 @@ fn test_pseudo_class_completion() {
 }
 
 #[test]
-fn test_simple_completion_after_colon() {
+fn test_property_value_simple_completion_after_colon() {
     let mut parser = UssParser::new().unwrap();
     let provider = UssCompletionProvider::new();
     
@@ -58,6 +58,71 @@ fn test_simple_completion_after_colon() {
     // Should have a reasonable number of completions (color has many options)
     assert!(completions.len() > 50, "Should have many color completion options");
 }
+
+#[test]
+fn test_property_value_completion_after_typing() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: cursor right after colon
+    let content = ".some { \n    color: ro \n}";
+    let length = content.len();
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position right after ro
+    let position = Position {
+        line: 1,
+        character: 13,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    // Should have completions for color property
+    assert!(!completions.is_empty(), "Should have completions after colon");
+
+    // Verify we have some expected color completions
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"rosybrown".to_string()), "Should include 'rosybrown' color");
+    assert!(labels.contains(&"royalblue".to_string()), "Should include 'royalblue' color");
+}
+
+#[test]
+fn test_property_value_completion_after_typing_keyword() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: cursor right after ro
+    let content = ".some { \n    flex-direction: ro \n}";
+    let length = content.len();
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position right after ro
+    let position = Position {
+        line: 1,
+        character: 22,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+    );
+
+    assert!(!completions.is_empty(), "Should have completions after colon");
+
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"row".to_string()), "Should include 'row' keyword");
+    assert!(labels.contains(&"row-reverse".to_string()), "Should include 'row-reverse' keyword");
+}
+
 
 #[test]
 fn test_property_name_completion() {
