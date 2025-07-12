@@ -1,0 +1,5 @@
+
+.a {
+    background-image: url(image\ with\ space.jpg);
+    background-image: url(im\age.jpg);
+}

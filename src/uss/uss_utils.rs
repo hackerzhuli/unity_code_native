@@ -215,7 +215,7 @@ more\"").unwrap(), "testmore");
         assert_eq!(convert_uss_string("\"test\\
 more\"").unwrap(), "testmore");
     }
-
+    
     #[test]
     fn test_unicode_replacement() {
         // Codepoint above Unicode maximum should be replaced
