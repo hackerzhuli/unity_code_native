@@ -6,6 +6,8 @@ use crate::uss::uss_utils::convert_uss_string;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::color::Color;
 use crate::uss::constants::*;
+use crate::uss::function_node::FunctionNode;
+use crate::uss::url_function_node::UrlFunctionNode;
 
 
 
@@ -79,85 +81,17 @@ impl UssValue {
         }
     }
 
-    /// Validate general function argument structure and extract argument nodes
-    /// 
-    /// Expected structure: function_name(arg1, arg2, ..., argN)
-    /// Where args_node contains: (, arg1, ,, arg2, ,, ..., ,, argN, )
-    /// 
-    /// Returns a vector of argument nodes if structure is valid
-    fn validate_function_args_structure<'a>(node: Node<'a>, content: &'a str) -> Result<Vec<Node<'a>>, UssValueError> {
-        let args_node = node.child(1)
-            .ok_or_else(|| UssValueError::new(node, content, "Function missing arguments".to_string()))?;
-        
-        if args_node.child_count() == 0 {
-            return Err(UssValueError::new(args_node, content, "Function has no arguments".to_string()));
-        }
-        
-        // Check if child count is odd (should be: ( + args + commas + ))
-        if args_node.child_count() % 2 == 0 {
-            return Err(UssValueError::new(args_node, content, "Invalid argument structure".to_string()));
-        }
-        
-        let children: Vec<_> = (0..args_node.child_count()).map(|i| args_node.child(i)).collect();
-        
-        // Check opening parenthesis
-        if let Some(Some(open)) = children.first() {
-            if open.kind() != NODE_OPEN_PAREN {
-                return Err(UssValueError::new(*open, content, "Expected opening parenthesis '('".to_string()));
-            }
-        } else {
-            return Err(UssValueError::new(args_node, content, "Missing opening parenthesis".to_string()));
-        }
-        
-        // Check closing parenthesis
-        if let Some(Some(close)) = children.last() {
-            if close.kind() != NODE_CLOSE_PAREN {
-                return Err(UssValueError::new(*close, content, "Expected closing parenthesis ')'".to_string()));
-            }
-        } else {
-            return Err(UssValueError::new(args_node, content, "Missing closing parenthesis".to_string()));
-        }
-        
-        let mut arg_nodes = Vec::new();
-        
-        // Extract argument nodes (skip first and last which are parentheses)
-        for i in (1..children.len() - 1).step_by(2) {
-            let arg_node = if let Some(Some(arg_node)) = children.get(i) {
-                *arg_node
-            } else {
-                return Err(UssValueError::new(args_node, content, format!("Missing argument at position {}", (i + 1) / 2)));
-            };
-            
-            arg_nodes.push(arg_node);
-            
-            // Check comma (except for the last argument)
-            if i < children.len() - 2 {
-                let comma_index = i + 1;
-                if let Some(Some(comma_node)) = children.get(comma_index) {
-                    if comma_node.kind() != NODE_COMMA {
-                        return Err(UssValueError::new(*comma_node, content, "Expected comma separator".to_string()));
-                    }
-                } else {
-                    return Err(UssValueError::new(args_node, content, format!("Missing comma after argument {}", (i + 1) / 2)));
-                }
-            }
-        }
-        
-        Ok(arg_nodes)
-    }
-    
-    /// Parse and validate color function arguments structure
-    /// 
-    /// Expected structure: function_name(arg1, arg2, ..., argN)
-    /// Where args_node contains: (, arg1, ,, arg2, ,, ..., ,, argN, )
+    /// Parse and validate color function arguments using FunctionNode
     /// 
     /// Returns a vector of parsed numeric values if all arguments are valid
     fn parse_color_function_args(node: Node, content: &str) -> Result<Vec<f32>, UssValueError> {
-        let arg_nodes = Self::validate_function_args_structure(node, content)?;
+        // Use FunctionNode to validate basic structure
+        let function_node = FunctionNode::from_node(node, content, None)
+            .ok_or_else(|| UssValueError::new(node, content, "Invalid function structure".to_string()))?;
         
         let mut parsed_args = Vec::new();
         
-        for (i, arg_node) in arg_nodes.iter().enumerate() {
+        for (i, arg_node) in function_node.argument_nodes.iter().enumerate() {
             if !matches!(arg_node.kind(), NODE_INTEGER_VALUE | NODE_FLOAT_VALUE) {
                 return Err(UssValueError::new(*arg_node, content, format!("Argument {} must be a number, found {}", i + 1, arg_node.kind())));
             }
@@ -272,104 +206,87 @@ impl UssValue {
                 }
             }
             NODE_CALL_EXPRESSION => {
-                // Handle function calls like url(), rgb(), var(), etc.
-                // Structure: call_expression -> function_name + arguments
-                let function_name_node = node.child(0)
-                    .ok_or_else(|| UssValueError::new(node, content, "Call expression missing function name".to_string()))?;
+                // Use FunctionNode to validate structure and extract function name and arguments
+                let function_node = FunctionNode::from_node(node, content, None)
+                    .ok_or_else(|| UssValueError::new(node, content, "Invalid function call structure".to_string()))?;
                 
-                if function_name_node.has_error() {
-                    return Err(UssValueError::new(function_name_node, content, "Function name has parsing errors".to_string()));
-                }
-                
-                let function_name_text = function_name_node.utf8_text(content.as_bytes())
-                    .map_err(|_| UssValueError::new(function_name_node, content, "Invalid UTF-8 in function name".to_string()))?
-                    .to_string();
-                
-                match function_name_text.as_str() {
+                match function_node.function_name.as_str() {
                     "var" => {
-                        // Extract variable name from var(--variable-name)
-                        let arg_nodes = Self::validate_function_args_structure(node, content)?;
-                        
-                        if arg_nodes.len() != 1 {
-                            return Err(UssValueError::new(node, content, format!("var() function expects 1 argument, found {}", arg_nodes.len())));
+                        // var() function: var(custom-property-name, fallback-value?)
+                        if function_node.argument_nodes.is_empty() || function_node.argument_nodes.len() > 2 {
+                            return Err(UssValueError::new(node, content, "var() function expects 1 or 2 arguments".to_string()));
                         }
                         
-                        let var_node = arg_nodes[0];
-                        if var_node.kind() != NODE_PLAIN_VALUE {
-                            return Err(UssValueError::new(var_node, content, format!("Expected plain_value for variable name, found {}", var_node.kind())));
+                        // First argument must be an identifier (custom property name)
+                        let var_name_node = function_node.argument_nodes[0];
+                        if var_name_node.kind() != NODE_PLAIN_VALUE {
+                            return Err(UssValueError::new(var_name_node, content, "First argument of var() must be a plain value".to_string()));
                         }
                         
-                        let var_name_text = var_node.utf8_text(content.as_bytes())
-                            .map_err(|_| UssValueError::new(var_node, content, "Invalid UTF-8 in variable name".to_string()))?;
+                        let var_name_text = var_name_node.utf8_text(content.as_bytes())
+                            .map_err(|_| UssValueError::new(var_name_node, content, "Invalid UTF-8 in variable name".to_string()))?;
                         
                         if !var_name_text.starts_with("--") {
-                            return Err(UssValueError::new(var_node, content, "Variable name must start with '--'".to_string()));
+                            return Err(UssValueError::new(var_name_node, content, "Variable name must start with '--'".to_string()));
                         }
+                        
                         if var_name_text.len() <= 2 {
-                            return Err(UssValueError::new(var_node, content, "Variable name cannot be empty after '--'".to_string()));
+                            return Err(UssValueError::new(var_name_node, content, "Variable name cannot be empty after '--'".to_string()));
                         }
                         
                         // Remove the -- prefix for internal storage
                         let var_name = &var_name_text[2..];
                         // Validate variable name contains only valid characters
                         if !var_name.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
-                            return Err(UssValueError::new(var_node, content, format!("Invalid characters in variable name '{}'", var_name)));
+                            return Err(UssValueError::new(var_name_node, content, format!("Invalid characters in variable name '{}'", var_name)));
                         }
+                        
+                        // Note: UssValue::VariableReference only stores the variable name
+                        // Fallback value handling would need to be implemented at a higher level
+                        // if needed in the future
                         
                         Ok(UssValue::VariableReference(var_name.to_string()))
                     }
                     "url" => {
-                        // Validate that url function has exactly one string argument
-                        let arg_nodes = Self::validate_function_args_structure(node, content)?;
-                        
-                        if arg_nodes.len() != 1 {
-                            return Err(UssValueError::new(node, content, format!("url() function expects 1 argument, found {}", arg_nodes.len())));
-                        }
-                        
-                        let string_node = arg_nodes[0];
-                        if string_node.kind() != NODE_STRING_VALUE {
-                            return Err(UssValueError::new(string_node, content, format!("Expected string_value for url() argument, found {}", string_node.kind())));
-                        }
-                        
-                        let string_text = string_node.utf8_text(content.as_bytes())
-                            .map_err(|_| UssValueError::new(string_node, content, "Invalid UTF-8 in string argument".to_string()))?;
-                        
-                        // Convert USS string literal to actual string value
-                        let converted_string = convert_uss_string(string_text)
-                            .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
+                        // Use UrlFunctionNode for basic validation, then validate URL
+                        let url_function = UrlFunctionNode::from_node(node, content, None)
+                            .ok_or_else(|| UssValueError::new(node, content, "Invalid url() function structure".to_string()))?;
                         
                         // Validate and parse the URL
-                        let result = validate_url(&converted_string, source_url)
-                            .map_err(|e| UssValueError::new(string_node, content, e.message))?;
-
+                        let result = validate_url(&url_function.url_string, source_url)
+                            .map_err(|e| UssValueError::new(node, content, e.message))?;
+                        
                         Ok(UssValue::Url(result.url))
                     }
                     "resource" => {
-                        // Validate that resource function has exactly one string argument
-                        let arg_nodes = Self::validate_function_args_structure(node, content)?;
-                        
-                        if arg_nodes.len() != 1 {
-                            return Err(UssValueError::new(node, content, format!("resource() function expects 1 argument, found {}", arg_nodes.len())));
+                        // resource() function: resource("path/to/resource")
+                        if function_node.argument_nodes.len() != 1 {
+                            return Err(UssValueError::new(node, content, "resource() function expects exactly 1 argument".to_string()));
                         }
                         
-                        let string_node = arg_nodes[0];
-                        if string_node.kind() != NODE_STRING_VALUE {
-                            return Err(UssValueError::new(string_node, content, format!("Expected string_value for resource() argument, found {}", string_node.kind())));
+                        let arg_node = function_node.argument_nodes[0];
+                        if !matches!(arg_node.kind(), NODE_STRING_VALUE | NODE_PLAIN_VALUE) {
+                            return Err(UssValueError::new(arg_node, content, "resource() argument must be a string or plain value".to_string()));
                         }
                         
-                        let string_text = string_node.utf8_text(content.as_bytes())
-                            .map_err(|_| UssValueError::new(string_node, content, "Invalid UTF-8 in string argument".to_string()))?;
-                        
-                        // Convert USS string literal to actual string value
-                        let converted_string = convert_uss_string(string_text)
-                            .map_err(|uss_err| UssValueError::new(string_node, content, format!("Invalid string literal: {}", uss_err.message)))?;
+                        let resource_string = if arg_node.kind() == NODE_STRING_VALUE {
+                            // Convert USS string literal to actual string value
+                            convert_uss_string(arg_node.utf8_text(content.as_bytes())
+                                .map_err(|_| UssValueError::new(arg_node, content, "Invalid UTF-8 in resource string".to_string()))?)
+                                .map_err(|uss_err| UssValueError::new(arg_node, content, format!("Invalid string literal: {}", uss_err.message)))?
+                        } else {
+                            // Plain value - use as-is
+                            arg_node.utf8_text(content.as_bytes())
+                                .map_err(|_| UssValueError::new(arg_node, content, "Invalid UTF-8 in resource path".to_string()))?
+                                .to_string()
+                        };
                         
                         // For resource functions, we use a fixed base URL since Unity's resource system
                         // doesn't resolve relative paths in the same way as regular URLs
                         let resource_base = Url::parse("project:///Assets/Resources/").ok();
-                        let result = validate_url(&converted_string, resource_base.as_ref())
-                            .map_err(|e| UssValueError::new(string_node, content, e.message))?;
-
+                        let result = validate_url(&resource_string, resource_base.as_ref())
+                            .map_err(|e| UssValueError::new(node, content, e.message))?;
+                        
                         Ok(UssValue::Resource(result.url))
                     }
                     "rgb" => {
@@ -407,7 +324,7 @@ impl UssValue {
 
                     _ => {
                         // Unknown function
-                        Err(UssValueError::new(node, content, format!("Unknown function '{}'", function_name_text)))
+                        Err(UssValueError::new(node, content, format!("Unknown function '{}'", function_node.function_name)))
                     }
                 }
             }
