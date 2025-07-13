@@ -538,6 +538,23 @@ impl UssCompletionProvider {
             });
         }
 
+        // partial pseudo class being typed after a selector
+        if current_node.kind() == NODE_CLASS_NAME {
+            if let Some(parent) = current_node.parent(){
+                if parent.kind() == NODE_PSEUDO_CLASS_SELECTOR {
+                    if let Some(prev) = current_node.prev_sibling(){
+                        if prev.kind() == NODE_COLON {
+                            return Some(CompletionContext {
+                                t: CompletionType::PseudoClass,
+                                current_node: Some(current_node),
+                                position,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
         // Check if current node is an ID selector being typed
         if current_node.kind() == NODE_ID_SELECTOR
             || (current_node.kind() == NODE_ID_NAME
@@ -616,6 +633,8 @@ impl UssCompletionProvider {
             // Check if this colon is part of a selector (not a property declaration)
             // We can check if the colon's parent is a pseudo_class_selector or if it's in an ERROR node in selector context
             if let Some(parent) = current_node.parent() {
+                let parent_text = parent.utf8_text(content.as_bytes()).unwrap_or("");
+
                 // If parent is ERROR, check if there's a selector before this colon
                 if parent.kind() == NODE_ERROR {
                     // Check previous sibling - pseudo-class must come after a selector
@@ -629,6 +648,20 @@ impl UssCompletionProvider {
                                 current_node: Some(current_node),
                                 position,
                             });
+                        }
+                    }
+
+                    // parent is also just colon, then check parent's prev sibling
+                    if parent_text == ":" {
+                        if let Some(parent_prev_sibling) = parent.prev_sibling() {
+                            if parent_prev_sibling.kind() == NODE_SELECTORS
+                            {
+                                return Some(CompletionContext {
+                                    t: CompletionType::PseudoClass,
+                                    current_node: Some(current_node),
+                                    position,
+                                });
+                            }
                         }
                     }
                 }

@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 use tower_lsp::lsp_types::{CompletionItemKind, Position};
 use tree_sitter::Node;
-
+use tree_printer::print_tree;
 use crate::test_utils::get_project_root;
 use crate::unity_project_manager::UnityProjectManager;
-use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
+use crate::uss::{completion::UssCompletionProvider, parser::UssParser, tree_printer};
 
 // Helper function to print tree structure for debugging
 fn print_tree_recursive(node: Node, content: &str, depth: usize) {
@@ -196,6 +196,72 @@ fn test_pseudo_class_completion_multiple_selectors() {
     assert!(
         labels.contains(&"hover".to_string()),
         "Should include 'hover' pseudo-class"
+    );
+}
+
+#[test]
+fn test_pseudo_class_completion_with_block_after() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: colon in property declaration should not trigger pseudo-class completion
+    let content = ".button: {\n color:red \n}";
+    let tree = parser.parse(content, None).unwrap();
+
+    print_tree(tree.root_node(), content, 10);
+
+    // Position right after the colon in property declaration
+    let position = Position {
+        line: 0,
+        character: 8,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should have pseudo-class completions
+    assert!(
+        !completions.is_empty(),
+        "Should have pseudo-class completions in complex selector"
+    );
+}
+
+#[test]
+fn test_pseudo_class_completion_partial_with_block_after() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: colon in property declaration should not trigger pseudo-class completion
+    let content = ".button:h {\n color:red \n}";
+    let tree = parser.parse(content, None).unwrap();
+
+    print_tree(tree.root_node(), content, 10);
+
+    // Position right after the colon in property declaration
+    let position = Position {
+        line: 0,
+        character: 9,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should have pseudo-class completions
+    assert!(
+        !completions.is_empty(),
+        "Should have pseudo-class completions in complex selector"
     );
 }
 

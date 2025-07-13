@@ -17,14 +17,8 @@ use uss::server::start_uss_language_server;
 use uxml_schema_manager::UxmlSchemaManager;
 use log::{error, info};
 
-mod debug_completion;
-use debug_completion::debug_completion;
-
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    debug_completion();
-    return;
-    
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
