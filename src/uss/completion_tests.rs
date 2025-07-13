@@ -1,8 +1,20 @@
 use tower_lsp::lsp_types::{Position, CompletionItemKind};
 use std::path::PathBuf;
+use tree_sitter::Node;
 
 use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
 use crate::unity_project_manager::UnityProjectManager;
+
+// Helper function to print tree structure for debugging
+fn print_tree_recursive(node: Node, content: &str, depth: usize) {
+    let indent = "  ".repeat(depth);
+    let text = node.utf8_text(content.as_bytes()).unwrap_or("<invalid>");
+    println!("{}{}[{}]: '{}'", indent, node.kind(), node.id(), text);
+    
+    for child in node.children(&mut node.walk()) {
+        print_tree_recursive(child, content, depth + 1);
+    }
+}
 
 #[test]
 fn test_completion_provider_creation() {
@@ -679,59 +691,160 @@ fn test_url_function_completion_basic() {
 }
 
 #[test]
-fn test_url_function_completion_resource() {
+fn test_url_completion_with_real_assets() {
     let mut parser = UssParser::new().unwrap();
-    let temp_dir = std::env::temp_dir().join("test_unity_project");
-    let provider = UssCompletionProvider::new_with_project_root(&temp_dir);
+    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let provider = UssCompletionProvider::new_with_project_root(&project_root);
     
-    // Test case: cursor inside resource() function
-    let content = ".some { \n    background-image: resource(\"/\"); \n}";
+    // Test case: cursor inside url() function pointing to Assets directory
+    let content = ".some { \n    background-image: url(\"project:/Assets/\"); \n}";
     let tree = parser.parse(content, None).unwrap();
     
-    // Position inside the resource string after "/"
+    // Position inside the URL string at the end of "Assets/"
     let position = Position {
         line: 1,
-        character: 32, // After "/"
+        character: 43, // At the end of "Assets/" but before closing quote
     };
+    
+
     
     let completions = provider.complete(
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
+        &UnityProjectManager::new(project_root.clone()),
         None,
     );
 
-    // Should detect URL completion context for resource() function
+    // Should provide completions for directories in Assets
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    
+    assert!(labels.contains(&"Resources".to_string()), "Should include Resources directory");
+    assert!(labels.contains(&"UI".to_string()), "Should include UI directory");
+    assert!(labels.contains(&"examples".to_string()), "Should include examples directory");
 }
 
 #[test]
-fn test_url_completion_with_sample_assets() {
+fn test_url_completion_resources_directory() {
     let mut parser = UssParser::new().unwrap();
-    let sample_dir = PathBuf::from("f:\\projects\\rs\\unity_code_native\\Assets\\examples");
-    let provider = UssCompletionProvider::new_with_project_root(&sample_dir);
+    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let provider = UssCompletionProvider::new_with_project_root(&project_root);
     
-    // Test case: cursor inside url() function pointing to sample directory
-    let content = ".some { \n    background-image: url(\"project://meta/\"); \n}";
+    // Test case: cursor inside url() function pointing to Resources directory
+    let content = ".icon { \n    background-image: url(\"project:/Assets/Resources/\"); \n}";
     let tree = parser.parse(content, None).unwrap();
     
-    // Position inside the URL string after "meta/"
+    // Debug: Print the content to verify character positions
+    println!("Debug: Content line 1: '{}'", content.lines().nth(1).unwrap_or(""));
+    println!("Debug: Character positions: 0123456789012345678901234567890123456789012345678901234567890");
+    
+    // Position inside the URL string after "Resources/"
     let position = Position {
         line: 1,
-        character: 42, // After "meta/"
+        character: 53, // At the end of "Resources/" but before closing quote
     };
     
     let completions = provider.complete(
         &tree,
         content,
         position,
-        &UnityProjectManager::new(sample_dir.clone()),
+        &UnityProjectManager::new(project_root.clone()),
         None,
     );
 
-    // Should provide completions for files in the meta directory
-    // This test uses the actual sample directory structure
+    // Should provide completions for subdirectories in Resources
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    // The sample directory should contain texture_with_multiple_sprites_example.png
-    // and uxml_example.uxml based on the conversation history
+    println!("Debug: Available completions: {:?}", labels);
+    println!("Debug: Number of completions: {}", completions.len());
+    assert!(labels.contains(&"Icons".to_string()), "Should include Icons directory");
+    assert!(labels.contains(&"Textures".to_string()), "Should include Textures directory");
+}
+
+#[test]
+fn test_url_completion_specific_files() {
+    let mut parser = UssParser::new().unwrap();
+    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let provider = UssCompletionProvider::new_with_project_root(&project_root);
+    
+    // Test case: cursor inside url() function pointing to Icons directory
+    let content = ".icon { \n    background-image: url(\"project:/Assets/Resources/Icons/\"); \n}";
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position inside the URL string after "Icons/"
+    let position = Position {
+        line: 1,
+        character: 59, // At the end of "Icons/" but before closing quote
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(project_root.clone()),
+        None,
+    );
+
+    // Should provide completions for files in Icons directory
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"icon.png".to_string()), "Should include icon.png file");
+}
+
+#[test]
+fn test_import_statement_completion_with_real_assets() {
+    let mut parser = UssParser::new().unwrap();
+    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let provider = UssCompletionProvider::new_with_project_root(&project_root);
+    
+    // Test case: cursor inside import statement string pointing to UI directory
+    let content = "@import \"project:/Assets/UI/\";"; 
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position inside the import string after "UI/"
+    let position = Position {
+        line: 0,
+        character: 28, // At the end of "UI/" but before closing quote
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(project_root.clone()),
+        None,
+    );
+
+    // Should provide completions for items in UI directory
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"Components".to_string()), "Should include Components directory");
+    assert!(labels.contains(&"Styles".to_string()), "Should include Styles directory");
+    assert!(labels.contains(&"MainWindow.uxml".to_string()), "Should include MainWindow.uxml file");
+}
+
+#[test]
+fn test_url_completion_uss_files() {
+    let mut parser = UssParser::new().unwrap();
+    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let provider = UssCompletionProvider::new_with_project_root(&project_root);
+    
+    // Test case: cursor inside url() function pointing to UI/Styles directory
+    let content = "@import url(\"project:/Assets/UI/Styles/\");"; 
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Position inside the URL string after "Styles/"
+    let position = Position {
+        line: 0,
+        character: 39, // At the end of "Styles/" but before closing quote
+    };
+    
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(project_root.clone()),
+        None,
+    );
+
+    // Should provide completions for USS files in Styles directory
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(labels.contains(&"main.uss".to_string()), "Should include main.uss file");
 }

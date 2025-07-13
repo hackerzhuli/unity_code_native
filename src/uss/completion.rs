@@ -150,46 +150,50 @@ impl UssCompletionProvider {
             let last_pos = Position::new(position.line, position.character - 1);
 
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
-                // Check for selector completion context first
-                if let Some(selector_context) = self.analyze_selector_context(tree, content, current_node, position) {
-                    return selector_context;
-                }
-                
-                if let Some(declaration_node) = find_node_of_type_at_position(
-                    tree.root_node(),
+            // Check for selector completion context first
+            if let Some(selector_context) = self.analyze_selector_context(tree, content, current_node, position) {
+                return selector_context;
+            }
+            
+            // Check if we're inside an import statement
+            if let Some(import_context) = self.analyze_import_context(tree, content, current_node, position) {
+                return import_context;
+            }
+            
+            if let Some(declaration_node) = find_node_of_type_at_position(
+                tree.root_node(),
+                content,
+                last_pos,
+                NODE_DECLARATION,
+            ) {
+                return self.analyze_declaration_context(
+                    declaration_node,
                     content,
-                    last_pos,
-                    NODE_DECLARATION,
-                ) {
-                    //log::info!("Found declaration node, analyzing declaration context");
-                    return self.analyze_declaration_context(
-                        declaration_node,
-                        content,
-                        current_node,
+                    current_node,
+                    position,
+                );
+            }
+            
+            // Check if we're typing a property name within a block
+            if let Some(_block_node) = find_node_of_type_at_position(
+                tree.root_node(),
+                content,
+                last_pos,
+                NODE_BLOCK,
+            ) {
+                // Check if current node is a property name being typed
+                // Note: incomplete property names are parsed as "attribute_name" in ERROR nodes
+                if current_node.kind() == NODE_ATTRIBUTE_NAME &&
+                    current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)
+                    {
+                    return CompletionContext {
+                        t: CompletionType::Property,
+                        current_node: Some(current_node),
                         position,
-                    );
-                }
-                
-                // Check if we're typing a property name within a block
-                if let Some(_block_node) = find_node_of_type_at_position(
-                    tree.root_node(),
-                    content,
-                    last_pos,
-                    NODE_BLOCK,
-                ) {
-                    // Check if current node is a property name being typed
-                    // Note: incomplete property names are parsed as "attribute_name" in ERROR nodes
-                    if current_node.kind() == NODE_ATTRIBUTE_NAME &&
-                        current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)
-                        {
-                        return CompletionContext {
-                            t: CompletionType::Property,
-                            current_node: Some(current_node),
-                            position,
-                        };
-                    }
+                    };
                 }
             }
+        }
         }
 
         return CompletionContext {
@@ -683,6 +687,62 @@ impl UssCompletionProvider {
         id_names.into_iter().collect()
     }
 
+    /// Analyze if we're inside an import statement and return appropriate context
+    fn analyze_import_context<'a>(
+        &self,
+        tree: &'a Tree,
+        content: &str,
+        current_node: Node<'a>,
+        position: Position,
+    ) -> Option<CompletionContext<'a>> {
+        // Check if we're inside an import statement
+        if let Some(import_node) = find_node_of_type_at_position(
+            tree.root_node(),
+            content,
+            Position::new(position.line, position.character.saturating_sub(1)),
+            NODE_IMPORT_STATEMENT,
+        ) {
+            // First check if we're inside a url() function within the import
+            if let Some(url_context) = self.analyze_url_function_context(current_node, content, position) {
+                return Some(url_context);
+            }
+            
+            // Check if we're inside a string node (direct import path)
+            if current_node.kind() == NODE_STRING_VALUE {
+                let string_content = current_node.utf8_text(content.as_bytes()).unwrap_or("");
+                // Remove quotes from the string
+                let url_string = if string_content.len() >= 2 {
+                    string_content[1..string_content.len()-1].to_string()
+                } else {
+                    string_content.to_string()
+                };
+                
+                // Calculate cursor position within the URL string
+                let string_start = current_node.start_position();
+                let cursor_offset = if position.line as usize == string_start.row {
+                    if position.character as usize > string_start.column + 1 { // +1 for opening quote
+                         position.character as usize - string_start.column - 1
+                     } else {
+                         0
+                     }
+                } else {
+                    0
+                };
+                
+                return Some(CompletionContext {
+                    t: CompletionType::UrlFunction {
+                        url_string,
+                        cursor_position: cursor_offset,
+                    },
+                    current_node: Some(current_node),
+                    position,
+                });
+            }
+        }
+        
+        None
+    }
+
     /// Analyze if we're inside a URL function and return appropriate context
     fn analyze_url_function_context<'a>(
         &self,
@@ -697,7 +757,8 @@ impl UssCompletionProvider {
             if node.kind() == "call_expression" {
                 if let Some(function_name_node) = node.child(0) {
                     let function_name = function_name_node.utf8_text(content.as_bytes()).unwrap_or("");
-                    if function_name == "url" || function_name == "resource" {
+                    
+                    if function_name == "url" {
                         // We're inside a URL function, extract the URL string and cursor position
                         if let Some((url_string, cursor_pos)) = self.extract_url_string_and_position(node, content, position) {
                             return Some(CompletionContext {
@@ -746,9 +807,10 @@ impl UssCompletionProvider {
                         
                         // Calculate cursor position within the URL string
                         let string_start = arg_child.start_position();
+                        
                         let cursor_offset = if position.line as usize == string_start.row {
                             if position.character as usize > string_start.column + 1 { // +1 for opening quote
-                                (position.character as usize - string_start.column - 1)
+                                position.character as usize - string_start.column - 1
                             } else {
                                 0
                             }
