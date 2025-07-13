@@ -5,6 +5,7 @@
 
 pub mod uss;
 pub mod unity_project_manager;
+pub mod unity_asset_database;
 pub mod server;
 pub mod monitor;
 pub mod logging;
