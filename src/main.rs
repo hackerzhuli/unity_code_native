@@ -5,6 +5,7 @@ mod unity_project_manager;
 mod unity_asset_database;
 mod uss;
 mod language;
+mod test_utils;
 
 use std::env;
 use std::path::PathBuf;

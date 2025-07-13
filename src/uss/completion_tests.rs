@@ -4,6 +4,7 @@ use tree_sitter::Node;
 
 use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
 use crate::unity_project_manager::UnityProjectManager;
+use crate::test_utils::get_project_root;
 
 // Helper function to print tree structure for debugging
 fn print_tree_recursive(node: Node, content: &str, depth: usize) {
@@ -657,7 +658,7 @@ fn test_id_selector_excludes_self() {
 #[test]
 fn test_url_completion_with_real_assets() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let project_root = get_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
     
     // Test case: cursor inside url() function pointing to Assets directory
@@ -691,16 +692,12 @@ fn test_url_completion_with_real_assets() {
 #[test]
 fn test_url_completion_resources_directory() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let project_root = get_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
     
     // Test case: cursor inside url() function pointing to Resources directory
     let content = ".icon { \n    background-image: url(\"project:/Assets/Resources/\"); \n}";
     let tree = parser.parse(content, None).unwrap();
-    
-    // Debug: Print the content to verify character positions
-    println!("Debug: Content line 1: '{}'", content.lines().nth(1).unwrap_or(""));
-    println!("Debug: Character positions: 0123456789012345678901234567890123456789012345678901234567890");
     
     // Position inside the URL string after "Resources/"
     let position = Position {
@@ -718,8 +715,6 @@ fn test_url_completion_resources_directory() {
 
     // Should provide completions for subdirectories in Resources
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    println!("Debug: Available completions: {:?}", labels);
-    println!("Debug: Number of completions: {}", completions.len());
     assert!(labels.contains(&"Icons".to_string()), "Should include Icons directory");
     assert!(labels.contains(&"Textures".to_string()), "Should include Textures directory");
 }
@@ -727,7 +722,7 @@ fn test_url_completion_resources_directory() {
 #[test]
 fn test_url_completion_specific_files() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let project_root = get_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
     
     // Test case: cursor inside url() function pointing to Icons directory
@@ -756,7 +751,7 @@ fn test_url_completion_specific_files() {
 #[test]
 fn test_import_statement_completion_with_real_assets() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let project_root = get_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
     
     // Test case: cursor inside import statement string pointing to UI directory
@@ -787,7 +782,7 @@ fn test_import_statement_completion_with_real_assets() {
 #[test]
 fn test_url_completion_uss_files() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = PathBuf::from("f:\\projects\\rs\\unity_code_native");
+    let project_root = get_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
     
     // Test case: cursor inside url() function pointing to UI/Styles directory

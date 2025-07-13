@@ -7,10 +7,6 @@ edition = "2024"
 name = "unity_code_native"
 path = "src/main.rs"
 
-[lib]
-name = "unity_code_native"
-path = "src/lib.rs"
-
 [dependencies]
 sysinfo = "0.29"
 csv = "1.3"
