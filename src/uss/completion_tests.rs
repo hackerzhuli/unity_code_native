@@ -671,8 +671,6 @@ fn test_url_completion_with_real_assets() {
         character: 43, // At the end of "Assets/" but before closing quote
     };
     
-
-    
     let completions = provider.complete(
         &tree,
         content,

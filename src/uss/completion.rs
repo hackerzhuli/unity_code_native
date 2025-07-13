@@ -794,9 +794,9 @@ impl UssCompletionProvider {
     ) -> Option<(String, usize)> {
         // Find the string argument inside the URL function
         for child in url_function_node.children(&mut url_function_node.walk()) {
-            if child.kind() == "arguments" {
+            if child.kind() == NODE_ARGUMENTS {
                 for arg_child in child.children(&mut child.walk()) {
-                    if arg_child.kind() == "string_value" {
+                    if arg_child.kind() == NODE_STRING_VALUE {
                         let string_content = arg_child.utf8_text(content.as_bytes()).unwrap_or("");
                         // Remove quotes from the string
                         let url_string = if string_content.len() >= 2 {
