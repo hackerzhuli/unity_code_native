@@ -405,6 +405,11 @@ impl UrlCompletionProvider {
             return Ok(Vec::new());
         }
 
+        // Check if we're at the project root level
+        let project_root = self.asset_database.project_root();
+        let is_project_root = directory_path == project_root;
+        log::debug!("Is project root: {}", is_project_root);
+
         let mut entries = Vec::new();
         let mut total_files = 0;
         let mut skipped_meta = 0;
@@ -424,6 +429,15 @@ impl UrlCompletionProvider {
                             continue;
                         }
                         
+                        // At project root, only show Assets and Packages directories
+                        if is_project_root {
+                            let is_directory = entry.path().is_dir();
+                            if !is_directory || (file_name_str != "Assets" && file_name_str != "Packages") {
+                                filtered_out += 1;
+                                continue;
+                            }
+                        }
+                        
                         // Filter by prefix (case-insensitive)
                         if filename_prefix.is_empty() || file_name_str.to_lowercase().starts_with(&filename_prefix.to_lowercase()) {
                             let is_directory = entry.path().is_dir();
@@ -437,7 +451,7 @@ impl UrlCompletionProvider {
                         }
                     }
                 }
-                log::debug!("Directory scan complete: {} total files, {} .meta files skipped, {} filtered out by prefix, {} entries added", 
+                log::debug!("Directory scan complete: {} total files, {} .meta files skipped, {} filtered out by prefix/root filter, {} entries added", 
                            total_files, skipped_meta, filtered_out, entries.len());
             }
             Err(e) => {
@@ -462,17 +476,19 @@ impl UrlCompletionProvider {
 
     /// Create a completion item for a directory entry
     fn create_path_completion_item(&self, entry: DirectoryEntry) -> CompletionItem {
-        let (kind, detail, insert_text) = if entry.is_directory {
+        let (kind, detail, insert_text, sort_text) = if entry.is_directory {
             (
                 CompletionItemKind::FOLDER,
                 "Directory".to_string(),
                 entry.name.clone(), // Don't append '/' - let user type it manually
+                format!("0_{}", entry.name), // Prefix with "0_" to ensure directories sort first
             )
         } else {
             (
                 CompletionItemKind::FILE,
                 "File".to_string(),
                 entry.name.clone(),
+                format!("1_{}", entry.name), // Prefix with "1_" to ensure files sort after directories
             )
         };
 
@@ -482,6 +498,7 @@ impl UrlCompletionProvider {
             detail: Some(detail),
             insert_text: Some(insert_text),
             insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+            sort_text: Some(sort_text),
             ..Default::default()
         }
     }

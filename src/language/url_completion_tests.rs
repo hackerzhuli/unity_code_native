@@ -4,6 +4,7 @@ use std::env;
 use std::fs::{self, File};
 use std::path::Path;
 use tempfile::TempDir;
+use tower_lsp::lsp_types::CompletionItemKind;
 
 /// Helper function to get the project root directory for tests
 /// This looks for the Cargo.toml file to determine the project root
