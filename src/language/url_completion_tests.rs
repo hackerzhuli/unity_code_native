@@ -109,7 +109,7 @@ fn test_complete_assets_directory() {
         ui_item.kind,
         Some(tower_lsp::lsp_types::CompletionItemKind::FOLDER)
     );
-    assert_eq!(ui_item.insert_text, Some("UI/".to_string()));
+    assert_eq!(ui_item.insert_text, Some("UI".to_string())); // No '/' appended - user types it manually
 }
 
 #[test]

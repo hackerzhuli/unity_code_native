@@ -466,7 +466,7 @@ impl UrlCompletionProvider {
             (
                 CompletionItemKind::FOLDER,
                 "Directory".to_string(),
-                format!("{}/", entry.name),
+                entry.name.clone(), // Don't append '/' - let user type it manually
             )
         } else {
             (
