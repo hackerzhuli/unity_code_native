@@ -37,8 +37,6 @@ pub(super) struct CompletionContext<'a> {
 pub(super) enum CompletionType {
     /// Completing property values after ':'
     PropertyValue { property_name: String },
-    /// Completing selectors
-    Selector,
     /// Completing property names
     Property,
     /// Completing pseudo-classes after ':'
@@ -49,8 +47,6 @@ pub(super) enum CompletionType {
     IdSelector,
     /// Completing tag selectors
     TagSelector,
-    /// Completing inside function arguments
-    FunctionArgument,
     /// Completing URL inside url() or resource() function
     UrlFunction {
         /// The partial URL string being typed
@@ -696,7 +692,7 @@ impl UssCompletionProvider {
         position: Position,
     ) -> Option<CompletionContext<'a>> {
         // Check if we're inside an import statement
-        if let Some(import_node) = find_node_of_type_at_position(
+        if let Some(_) = find_node_of_type_at_position(
             tree.root_node(),
             content,
             Position::new(position.line, position.character.saturating_sub(1)),
@@ -709,34 +705,22 @@ impl UssCompletionProvider {
             
             // Check if we're inside a string node (direct import path)
             if current_node.kind() == NODE_STRING_VALUE {
-                let string_content = current_node.utf8_text(content.as_bytes()).unwrap_or("");
-                // Remove quotes from the string
-                let url_string = if string_content.len() >= 2 {
-                    string_content[1..string_content.len()-1].to_string()
-                } else {
-                    string_content.to_string()
-                };
-                
-                // Calculate cursor position within the URL string
-                let string_start = current_node.start_position();
-                let cursor_offset = if position.line as usize == string_start.row {
-                    if position.character as usize > string_start.column + 1 { // +1 for opening quote
-                         position.character as usize - string_start.column - 1
-                     } else {
-                         0
-                     }
-                } else {
-                    0
-                };
-                
-                return Some(CompletionContext {
-                    t: CompletionType::UrlFunction {
-                        url_string,
-                        cursor_position: cursor_offset,
-                    },
-                    current_node: Some(current_node),
-                    position,
-                });
+                // Ensure the string node is a direct child of the import statement
+                if let Some(parent) = current_node.parent() {
+                    if parent.kind() == NODE_IMPORT_STATEMENT {
+                        // Use the safer string extraction method
+                        if let Some((url_string, cursor_offset)) = self.extract_url_string_from_current_node(current_node, content, position) {
+                            return Some(CompletionContext {
+                                t: CompletionType::UrlFunction {
+                                    url_string,
+                                    cursor_position: cursor_offset,
+                                },
+                                current_node: Some(current_node),
+                                position,
+                            });
+                        }
+                    }
+                }
             }
         }
         
