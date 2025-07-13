@@ -103,8 +103,8 @@ impl UssCompletionProvider {
                     self.complete_property_names(context.current_node, content)
                 }
                 CompletionType::PseudoClass => {
-                    log::info!("Pseudo classes completion");
-                    self.complete_pseudo_classes()
+                    println!("Pseudo classes completion");
+                    self.complete_pseudo_classes_with_filter(current_node, content)
                 }
                 CompletionType::ClassSelector => {
                     log::info!("Class selector completion");
@@ -142,6 +142,7 @@ impl UssCompletionProvider {
         content: &str,
         position: Position,
     ) -> CompletionContext<'a> {
+        println!("get_completion_context called with position: {:?}", position);
         // Check if we're in a declaration context (after ':')
         if position.character > 0 {
             // The tree have trouble finding the right node if we're looking at the cursor
@@ -151,14 +152,18 @@ impl UssCompletionProvider {
             // That means we don't have a good way to get auto completion for that case now
             // So in that case we don't provide auto completion at all
             let last_pos = Position::new(position.line, position.character - 1);
+            println!("Looking for node at last_pos: {:?}", last_pos);
 
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
+                println!("Found current_node: kind='{}', text='{}'", current_node.kind(), current_node.utf8_text(content.as_bytes()).unwrap_or("<none>"));
                 // Check for selector completion context first
                 if let Some(selector_context) =
                     self.analyze_selector_context(tree, content, current_node, position)
                 {
+                    println!("Found selector context: {:?}", selector_context.t);
                     return selector_context;
                 }
+                println!("No selector context found");
 
                 // Check if we're inside an import statement
                 if let Some(import_context) =
@@ -476,6 +481,50 @@ impl UssCompletionProvider {
         items
     }
 
+    /// Complete pseudo-classes with partial matching
+    fn complete_pseudo_classes_with_filter(&self, current_node: Node, content: &str) -> Vec<CompletionItem> {
+        let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
+        
+        // If current node is a colon, we want to show all pseudo-classes
+        // If current node is a class_name (partial pseudo-class), filter by that text
+        let partial_text = if current_node.kind() == NODE_COLON {
+            String::new() // Show all pseudo-classes when cursor is right after colon
+        } else if current_node.kind() == NODE_ATTRIBUTE_NAME {
+            // If we're at an attribute_name that's actually a partial pseudo-class, use its text
+            node_text.to_lowercase()
+        } else {
+            node_text.to_lowercase()
+        };
+
+        println!("Pseudo-class completion: current_node kind={}, text='{}', partial_text='{}'", 
+                   current_node.kind(), 
+                   node_text,
+                   partial_text);
+        println!("Available pseudo-classes count: {}", self.definitions.valid_pseudo_classes.len());
+
+        let mut items = Vec::new();
+
+        for pseudo_class in &self.definitions.valid_pseudo_classes {
+            // Remove the leading ':' since it's already typed
+            let label = pseudo_class.strip_prefix(':').unwrap_or(pseudo_class);
+            
+            // Filter based on partial text
+            if partial_text.is_empty() || label.to_lowercase().starts_with(&partial_text) {
+                items.push(CompletionItem {
+                    label: label.to_string(),
+                    kind: Some(CompletionItemKind::KEYWORD),
+                    detail: Some("Pseudo-class".to_string()),
+                    insert_text: Some(label.to_string()),
+                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                    ..Default::default()
+                });
+            }
+        }
+
+        println!("Pseudo-class completion returning {} items", items.len());
+        items
+    }
+
     /// Analyze if we're in a selector completion context
     fn analyze_selector_context<'a>(
         &self,
@@ -529,15 +578,46 @@ impl UssCompletionProvider {
             });
         }
 
-        // Check if current node is a partial tag name (attribute_name in ERROR node)
-        if current_node.kind() == NODE_ATTRIBUTE_NAME
-            && current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)
-        {
-            return Some(CompletionContext {
-                t: CompletionType::TagSelector,
-                current_node: Some(current_node),
-                position,
-            });
+        // Check if current node is attribute_name that might be a partial pseudo-class FIRST
+        // This happens when user types something like ".button:h" - the "h" becomes attribute_name
+        if current_node.kind() == NODE_ATTRIBUTE_NAME {
+            if let Some(parent) = current_node.parent() {
+                if parent.kind() == NODE_ERROR {
+                    // Look for a colon and a selector in the error node's children
+                    let mut has_colon = false;
+                    let mut has_selector = false;
+                    
+                    for i in 0..parent.child_count() {
+                        if let Some(child) = parent.child(i) {
+                            if child.kind() == NODE_COLON {
+                                has_colon = true;
+                            }
+                            if child.kind() == NODE_CLASS_SELECTOR || 
+                               child.kind() == NODE_ID_SELECTOR || 
+                               child.kind() == NODE_TAG_NAME {
+                                has_selector = true;
+                            }
+                        }
+                    }
+                    
+                    // If we have both a colon and a selector, this attribute_name is likely a pseudo-class
+                    if has_colon && has_selector {
+                        println!("Found attribute_name after colon in selector context, treating as pseudo-class");
+                        return Some(CompletionContext {
+                            t: CompletionType::PseudoClass,
+                            current_node: Some(current_node),
+                            position,
+                        });
+                    }
+                    
+                    // Otherwise, it's a partial tag name
+                    return Some(CompletionContext {
+                        t: CompletionType::TagSelector,
+                        current_node: Some(current_node),
+                        position,
+                    });
+                }
+            }
         }
 
         // Check if we're directly on a '.' or '#' token
@@ -555,6 +635,104 @@ impl UssCompletionProvider {
                 current_node: Some(current_node),
                 position,
             });
+        }
+
+        // Check if we're typing a pseudo-class after ':'
+        println!("Checking current_node kind: '{}' vs NODE_COLON: '{}'", current_node.kind(), NODE_COLON);
+        if current_node.kind() == NODE_COLON {
+            println!("Found colon node, checking for pseudo-class context");
+            // Check if this colon is part of a selector (not a property declaration)
+            // We can check if the colon's parent is a pseudo_class_selector or if it's in an ERROR node in selector context
+            if let Some(parent) = current_node.parent() {
+                println!("Colon parent kind: {}", parent.kind());
+                if parent.kind() == NODE_PSEUDO_CLASS_SELECTOR {
+                    println!("Found pseudo-class selector parent");
+                    return Some(CompletionContext {
+                        t: CompletionType::PseudoClass,
+                        current_node: Some(current_node),
+                        position,
+                    });
+                }
+                // If parent is ERROR, check if it contains a class_selector (indicating selector context)
+                if parent.kind() == NODE_ERROR {
+                    println!("Colon parent is ERROR, checking children");
+                    // Look for class_selector, id_selector, or tag_name in the ERROR node
+                    for i in 0..parent.child_count() {
+                        if let Some(child) = parent.child(i) {
+                            println!("ERROR child {}: {}", i, child.kind());
+                            if child.kind() == NODE_CLASS_SELECTOR || 
+                               child.kind() == NODE_ID_SELECTOR || 
+                               child.kind() == NODE_TAG_NAME {
+                                println!("Found selector in ERROR node, returning pseudo-class context");
+                                return Some(CompletionContext {
+                                    t: CompletionType::PseudoClass,
+                                    current_node: Some(current_node),
+                                    position,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check if current node is a pseudo-class name being typed
+        if current_node.kind() == NODE_CLASS_NAME {
+            if let Some(parent) = current_node.parent() {
+                if parent.kind() == NODE_PSEUDO_CLASS_SELECTOR {
+                    return Some(CompletionContext {
+                        t: CompletionType::PseudoClass,
+                        current_node: Some(current_node),
+                        position,
+                    });
+                }
+                // Check if we're in an ERROR node that contains a colon (incomplete pseudo-class)
+                if parent.kind() == NODE_ERROR {
+                    // Look for a colon in the error node's children
+                    for i in 0..parent.child_count() {
+                        if let Some(child) = parent.child(i) {
+                            if child.kind() == NODE_COLON {
+                                return Some(CompletionContext {
+                                    t: CompletionType::PseudoClass,
+                                    current_node: Some(current_node),
+                                    position,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+
+        // Check if we're in an ERROR node that might be an incomplete pseudo-class
+        if current_node.kind() == NODE_ERROR {
+            // Look for a colon in the error node's children
+            let mut has_colon = false;
+            let mut has_selector = false;
+            
+            for i in 0..current_node.child_count() {
+                if let Some(child) = current_node.child(i) {
+                    if child.kind() == NODE_COLON {
+                        has_colon = true;
+                    }
+                    if child.kind() == NODE_CLASS_SELECTOR || 
+                       child.kind() == NODE_ID_SELECTOR || 
+                       child.kind() == NODE_TAG_NAME {
+                        has_selector = true;
+                    }
+                }
+            }
+            
+            // If we have both a colon and a selector, this is likely a pseudo-class context
+            if has_colon && has_selector {
+                return Some(CompletionContext {
+                    t: CompletionType::PseudoClass,
+                    current_node: Some(current_node),
+                    position,
+                });
+            }
         }
 
         None

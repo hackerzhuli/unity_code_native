@@ -36,6 +36,206 @@ fn test_pseudo_class_completion() {
 }
 
 #[test]
+fn test_pseudo_class_completion_after_colon() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: cursor right after colon in selector
+    let content = ".button: ";
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position right after the colon
+    let position = Position {
+        line: 0,
+        character: 8,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should have pseudo-class completions
+    assert!(
+        !completions.is_empty(),
+        "Should have pseudo-class completions after colon"
+    );
+
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(
+        labels.contains(&"hover".to_string()),
+        "Should include 'hover' pseudo-class"
+    );
+    assert!(
+        labels.contains(&"active".to_string()),
+        "Should include 'active' pseudo-class"
+    );
+    assert!(
+        labels.contains(&"focus".to_string()),
+        "Should include 'focus' pseudo-class"
+    );
+}
+
+#[test]
+fn test_pseudo_class_completion_partial_match() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: partial pseudo-class name
+    let content = ".button:h";
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position after 'h'
+    let position = Position {
+        line: 0,
+        character: 9,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should have filtered pseudo-class completions
+    assert!(
+        !completions.is_empty(),
+        "Should have filtered pseudo-class completions"
+    );
+
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(
+        labels.contains(&"hover".to_string()),
+        "Should include 'hover' pseudo-class"
+    );
+    assert!(
+        !labels.contains(&"active".to_string()),
+        "Should not include 'active' pseudo-class"
+    );
+    assert!(
+        !labels.contains(&"focus".to_string()),
+        "Should not include 'focus' pseudo-class"
+    );
+}
+
+#[test]
+fn test_pseudo_class_completion_case_insensitive() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: uppercase partial pseudo-class name
+    let content = ".button:H";
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position after 'H'
+    let position = Position {
+        line: 0,
+        character: 9,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should have case-insensitive filtered completions
+    assert!(
+        !completions.is_empty(),
+        "Should have case-insensitive pseudo-class completions"
+    );
+
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(
+        labels.contains(&"hover".to_string()),
+        "Should include 'hover' pseudo-class (case insensitive)"
+    );
+}
+
+#[test]
+fn test_pseudo_class_completion_multiple_selectors() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: pseudo-class after class selector in complex selector
+    let content = ".button.primary:";
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position right after the colon
+    let position = Position {
+        line: 0,
+        character: 16,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should have pseudo-class completions
+    assert!(
+        !completions.is_empty(),
+        "Should have pseudo-class completions in complex selector"
+    );
+
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(
+        labels.contains(&"hover".to_string()),
+        "Should include 'hover' pseudo-class"
+    );
+}
+
+#[test]
+fn test_no_pseudo_class_completion_in_property_value() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: colon in property declaration should not trigger pseudo-class completion
+    let content = ".button { color: ";
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position right after the colon in property declaration
+    let position = Position {
+        line: 0,
+        character: 16,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should not have pseudo-class completions (should have color value completions instead)
+    let pseudo_class_completions: Vec<_> = completions
+        .iter()
+        .filter(|c| c.kind == Some(CompletionItemKind::KEYWORD) && c.detail == Some("Pseudo-class".to_string()))
+        .collect();
+    
+    assert!(
+        pseudo_class_completions.is_empty(),
+        "Should not provide pseudo-class completions in property value context"
+    );
+}
+
+#[test]
 fn test_property_value_simple_completion_after_colon() {
     let mut parser = UssParser::new().unwrap();
     let provider = UssCompletionProvider::new();
