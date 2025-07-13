@@ -656,7 +656,7 @@ fn test_id_selector_excludes_self() {
 }
 
 #[test]
-fn test_url_completion_with_real_assets() {
+fn test_url_completion() {
     let mut parser = UssParser::new().unwrap();
     let project_root = get_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
@@ -747,7 +747,7 @@ fn test_url_completion_specific_files() {
 }
 
 #[test]
-fn test_import_statement_completion_with_real_assets() {
+fn test_url_completion_in_import_statement() {
     let mut parser = UssParser::new().unwrap();
     let project_root = get_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);

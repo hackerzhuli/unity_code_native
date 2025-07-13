@@ -750,81 +750,102 @@ impl UssCompletionProvider {
         content: &str,
         position: Position,
     ) -> Option<CompletionContext<'a>> {
-        // Walk up the tree to find if we're inside a url() or resource() function
-        let mut node = current_node;
-        loop {
-            // Check if current node is a URL function
-            if node.kind() == "call_expression" {
-                if let Some(function_name_node) = node.child(0) {
-                    let function_name = function_name_node.utf8_text(content.as_bytes()).unwrap_or("");
-                    
-                    if function_name == "url" {
-                        // We're inside a URL function, extract the URL string and cursor position
-                        if let Some((url_string, cursor_pos)) = self.extract_url_string_and_position(node, content, position) {
-                            return Some(CompletionContext {
-                                t: CompletionType::UrlFunction {
-                                    url_string,
-                                    cursor_position: cursor_pos,
-                                },
-                                current_node: Some(current_node),
-                                position,
-                            });
-                        }
-                    }
-                }
-            }
-            
-            // Move to parent node
-            if let Some(parent) = node.parent() {
-                node = parent;
-            } else {
-                break;
-            }
+        // Only offer completions if current node is a string value
+        if current_node.kind() != NODE_STRING_VALUE {
+            return None;
+        }
+        
+        // Validate the hierarchy: string_node -> arguments -> call_expression (url function)
+        if !self.is_string_in_url_function_arguments(current_node, content) {
+            return None;
+        }
+        
+        // Extract URL string and cursor position from the current string node
+        if let Some((url_string, cursor_pos)) = self.extract_url_string_from_current_node(current_node, content, position) {
+            return Some(CompletionContext {
+                t: CompletionType::UrlFunction {
+                    url_string,
+                    cursor_position: cursor_pos,
+                },
+                current_node: Some(current_node),
+                position,
+            });
         }
         
         None
     }
     
-    /// Extract URL string and cursor position within the URL function
-    fn extract_url_string_and_position(
+    /// Extract URL string and cursor position from the current string node
+    fn extract_url_string_from_current_node(
         &self,
-        url_function_node: Node,
+        string_node: Node,
         content: &str,
         position: Position,
     ) -> Option<(String, usize)> {
-        // Find the string argument inside the URL function
-        for child in url_function_node.children(&mut url_function_node.walk()) {
-            if child.kind() == NODE_ARGUMENTS {
-                for arg_child in child.children(&mut child.walk()) {
-                    if arg_child.kind() == NODE_STRING_VALUE {
-                        let string_content = arg_child.utf8_text(content.as_bytes()).unwrap_or("");
-                        // Remove quotes from the string
-                        let url_string = if string_content.len() >= 2 {
-                            string_content[1..string_content.len()-1].to_string()
-                        } else {
-                            string_content.to_string()
-                        };
-                        
-                        // Calculate cursor position within the URL string
-                        let string_start = arg_child.start_position();
-                        
-                        let cursor_offset = if position.line as usize == string_start.row {
-                            if position.character as usize > string_start.column + 1 { // +1 for opening quote
-                                position.character as usize - string_start.column - 1
-                            } else {
-                                0
-                            }
-                        } else {
-                            0
-                        };
-                        
-                        return Some((url_string, cursor_offset));
-                    }
-                }
-            }
-        }
+        let string_content = string_node.utf8_text(content.as_bytes()).unwrap_or("");
         
-        None
+        // Check if string has proper quotes and extract content safely
+        let url_string = if string_content.len() >= 2 {
+            let first_char = string_content.chars().next()?;
+            let last_char = string_content.chars().last()?;
+            
+            // Verify the string starts and ends with matching quotes
+            if (first_char == '"' && last_char == '"') || (first_char == '\'' && last_char == '\'') {
+                let inner_content = &string_content[1..string_content.len()-1];
+                
+                // Don't provide completions if the string contains backslashes (escape sequences)
+                if inner_content.contains('\\') {
+                    return None;
+                }
+                
+                inner_content.to_string()
+            } else {
+                // Malformed string, don't provide completions
+                return None;
+            }
+        } else {
+            // String too short to have quotes, don't provide completions
+            return None;
+        };
+        
+        // Calculate cursor position within the URL string
+        let string_start = string_node.start_position();
+        
+        let cursor_offset = if position.line as usize == string_start.row {
+            if position.character as usize > string_start.column + 1 { // +1 for opening quote
+                position.character as usize - string_start.column - 1
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+        
+        Some((url_string, cursor_offset))
+    }
+    
+    /// Check if the current string node is properly inside URL function arguments
+    /// Validates hierarchy: string_node -> arguments -> call_expression (url function)
+    fn is_string_in_url_function_arguments(&self, string_node: Node, content: &str) -> bool {
+        // Check immediate parent is arguments node
+        let arguments_node = match string_node.parent() {
+            Some(parent) if parent.kind() == NODE_ARGUMENTS => parent,
+            _ => return false,
+        };
+
+        // Check arguments node's parent is call_expression
+        let call_expression_node = match arguments_node.parent() {
+            Some(parent) if parent.kind() == NODE_CALL_EXPRESSION => parent,
+            _ => return false,
+        };
+        
+        // Check if the call_expression is a URL function
+        if let Some(function_name_node) = call_expression_node.child(0) {
+            let function_name = function_name_node.utf8_text(content.as_bytes()).unwrap_or("");
+            function_name == "url"
+        } else {
+            false
+        }
     }
 
     /// Complete URL function arguments
