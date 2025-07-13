@@ -178,7 +178,10 @@ The database supports parsing Unity meta files for:
 A texture is considered to have multiple sprites when:
 - `textureType` is `8` (Sprite 2D and UI)
 - `spriteMode` is `2` (Multiple)
-- `nameFileIdTable` contains sprite mappings
+
+When these conditions are met, the `is_multiple_sprite` field is set to `true`. The `sprites` vector is populated with individual sprite information from the `nameFileIdTable` if any sprites have been created in Unity's Sprite Editor.
+
+**Important**: A texture can have `is_multiple_sprite=true` but contain zero sprites if it has been configured for multiple sprites but hasn't been sliced yet in Unity's Sprite Editor.
 
 ## Error Handling
 
