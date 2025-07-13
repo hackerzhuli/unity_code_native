@@ -1,7 +1,30 @@
 use std::path::Path;
+use std::env;
 use url::Url;
 
 use crate::unity_asset_database::UnityAssetDatabase;
+
+/// Helper function to get the project root directory for tests
+/// This looks for the Cargo.toml file to determine the project root
+fn get_project_root() -> std::path::PathBuf {
+    // Try to get the manifest directory from environment (works during cargo test)
+    if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        return std::path::PathBuf::from(manifest_dir);
+    }
+    
+    // Fallback: start from current directory and walk up to find Cargo.toml
+    let mut current_dir = env::current_dir().expect("Failed to get current directory");
+    loop {
+        if current_dir.join("Cargo.toml").exists() {
+            return current_dir;
+        }
+        if let Some(parent) = current_dir.parent() {
+            current_dir = parent.to_path_buf();
+        } else {
+            panic!("Could not find project root (Cargo.toml not found)");
+        }
+    }
+}
 
 #[test]
 fn test_get_meta_file_path() {
@@ -32,7 +55,8 @@ fn test_url_to_asset_path() {
 
 #[test]
 fn test_texture_with_multiple_sprites() {
-    let db = UnityAssetDatabase::new(Path::new("f:\\projects\\rs\\unity_code_native"));
+    let project_root = get_project_root();
+    let db = UnityAssetDatabase::new(&project_root);
     
     // Test with the example texture that has multiple sprites
     let url = Url::parse("project:/Assets/examples/meta/texture_with_multiple_sprites_example.png").unwrap();
@@ -69,7 +93,8 @@ fn test_texture_with_multiple_sprites() {
 
 #[test]
 fn test_basic_asset_uxml() {
-    let db = UnityAssetDatabase::new(Path::new("f:\\projects\\rs\\unity_code_native"));
+    let project_root = get_project_root();
+    let db = UnityAssetDatabase::new(&project_root);
     
     // Test with the example UXML file
     let url = Url::parse("project:/Assets/examples/meta/uxml_example.uxml").unwrap();
@@ -88,7 +113,8 @@ fn test_basic_asset_uxml() {
 
 #[test]
 fn test_texture_asset_info_for_non_multiple_sprite() {
-    let db = UnityAssetDatabase::new(Path::new("f:\\projects\\rs\\unity_code_native"));
+    let project_root = get_project_root();
+    let db = UnityAssetDatabase::new(&project_root);
     
     // Test with the UXML file using texture asset info method
     let url = Url::parse("project:/Assets/examples/meta/uxml_example.uxml").unwrap();
