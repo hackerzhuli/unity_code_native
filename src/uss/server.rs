@@ -154,91 +154,6 @@ impl UssLanguageServer {
         Some(state.highlighter.generate_tokens(tree, content))
     }
 
-    /// Spawn an asynchronous task to validate asset references
-    fn spawn_asset_validation_task(
-        &self,
-        url_references: Vec<UrlReference>,
-        uri: Url,
-        current_version: DocumentVersion,
-        project_root: PathBuf,
-    ) {
-        let client = self.client.clone();
-        let state = self.state.clone();
-
-        tokio::spawn(async move {
-            let mut asset_diagnostics = Vec::new();
-
-            // Check each URL reference for asset existence
-            for url_ref in url_references {
-                // Handle project:// URLs manually since to_file_path() doesn't work with custom schemes
-                if url_ref.url.scheme() == PROJECT_SCHEME {
-                    if let Some(full_path) = project_url_to_path(&project_root, &url_ref.url) {
-                        // Check if the asset file exists using try_exists for better error handling
-                        match full_path.try_exists() {
-                            Ok(false) => {
-                                asset_diagnostics.push(Diagnostic {
-                                    range: url_ref.range,
-                                    severity: Some(DiagnosticSeverity::WARNING),
-                                    code: Some(NumberOrString::String("asset-not-found".to_string())),
-                                    source: Some("uss".to_string()),
-                                    message: format!("Asset doesn't exist on path: {}", full_path.display()),
-                                    ..Default::default()
-                                });
-                            }
-                            Err(e) => {
-                                // Log the error but don't create a diagnostic for permission/access issues
-                                log::debug!("Cannot check asset existence for {}: {}", full_path.display(), e);
-                            }
-                            Ok(true) => {
-                                // File exists, no diagnostic needed
-                            }
-                        }
-                    }
-                }
-            }
-
-            let mut is_open = false;
-
-            // Only push diagnostics if document version hasn't changed
-            if !asset_diagnostics.is_empty() {
-                let should_publish = {
-                    if let Ok(state) = state.lock() {
-                        if let Some(document) = state.document_manager.get_document(&uri) {
-                            is_open = document.is_open;
-                            let doc_version = document.document_version();
-                            let version_matches = doc_version == current_version;
-
-                            // Check if document version is still the same
-                            version_matches
-                        } else {
-                            log::warn!("Document not found in manager for URI: {}", uri);
-                            false
-                        }
-                    } else {
-                        log::error!("Failed to acquire state lock");
-                        false
-                    }
-                };
-
-                if should_publish {
-                    // Publish the asset diagnostics
-                    let _ = client
-                        .publish_diagnostics(
-                            uri,
-                            asset_diagnostics,
-                            if is_open {
-                                Some(current_version.minor)
-                            } else {
-                                None
-                            },
-                        )
-                        .await;
-                } else {
-                }
-            } else {
-            }
-        });
-    }
 }
 
 #[tower_lsp::async_trait]
@@ -393,91 +308,116 @@ impl LanguageServer for UssLanguageServer {
     ) -> Result<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri;
 
-        let (diagnostics, url_references, current_version, project_root) = if let Ok(state) =
-            self.state.lock()
-        {
-            // Generate diagnostics immediately
-            let (tree_clone, content, doc_version) =
-                if let Some(document) = state.document_manager.get_document(&uri) {
-                    if let Some(tree) = document.tree() {
-                        (
-                            Some(tree.clone()),
-                            document.content().to_string(),
-                            document.document_version(),
-                        )
-                    } else {
-                        (None, String::new(), document.document_version())
-                    }
-                } else {
-                    (
-                        None,
-                        String::new(),
-                        crate::language::document::DocumentVersion { major: 0, minor: 0 },
-                    )
-                };
-
-            if let Some(tree) = tree_clone {
-                // Convert file system URI to project scheme URL for Unity compatibility
-                let project_url = if uri.scheme() == FILE_SCHEME {
-                    // Convert file:// URI to project:// URI
-                    if let Ok(file_path) = uri.to_file_path() {
-                        let project_root = state.unity_manager.project_path();
-                        asset_url::create_project_url_with_normalization(&file_path, &project_root)
-                            .ok()
-                    } else {
-                        None
-                    }
-                } else {
-                    // If it's already a project:// URI or other scheme, use as-is
-                    Some(uri.clone())
-                };
-
-                // Get the variable resolver from the document for enhanced diagnostics
-                let variable_resolver =
+        // Extract necessary data from state and release lock quickly
+        let (mut diagnostics, url_references, current_version, project_root) = {
+            if let Ok(state) = self.state.lock() {
+                // Generate diagnostics immediately
+                let (tree_clone, content, doc_version) =
                     if let Some(document) = state.document_manager.get_document(&uri) {
-                        Some(&document.variable_resolver)
+                        if let Some(tree) = document.tree() {
+                            (
+                                Some(tree.clone()),
+                                document.content().to_string(),
+                                document.document_version(),
+                            )
+                        } else {
+                            (None, String::new(), document.document_version())
+                        }
                     } else {
-                        None
+                        (
+                            None,
+                            String::new(),
+                            crate::language::document::DocumentVersion { major: 0, minor: 0 },
+                        )
                     };
 
-                let (diagnostics, url_references) = state.diagnostics.analyze_with_variables(
-                    &tree,
-                    &content,
-                    project_url.as_ref(),
-                    variable_resolver,
-                );
-                (
-                    diagnostics,
-                    url_references,
-                    doc_version,
-                    state.unity_manager.project_path().clone(),
-                )
+                if let Some(tree) = tree_clone {
+                    // Convert file system URI to project scheme URL for Unity compatibility
+                    let project_url = if uri.scheme() == FILE_SCHEME {
+                        // Convert file:// URI to project:// URI
+                        if let Ok(file_path) = uri.to_file_path() {
+                            let project_root = state.unity_manager.project_path();
+                            asset_url::create_project_url_with_normalization(&file_path, &project_root)
+                                .ok()
+                        } else {
+                            None
+                        }
+                    } else {
+                        // If it's already a project:// URI or other scheme, use as-is
+                        Some(uri.clone())
+                    };
+
+                    // Get the variable resolver from the document for enhanced diagnostics
+                    let variable_resolver =
+                        if let Some(document) = state.document_manager.get_document(&uri) {
+                            Some(&document.variable_resolver)
+                        } else {
+                            None
+                        };
+
+                    let (diagnostics, url_references) = state.diagnostics.analyze_with_variables(
+                        &tree,
+                        &content,
+                        project_url.as_ref(),
+                        variable_resolver,
+                    );
+                    
+                    let project_root = state.unity_manager.project_path().clone();
+                    
+                    (
+                        diagnostics,
+                        url_references,
+                        doc_version,
+                        project_root,
+                    )
+                } else {
+                    (
+                        Vec::new(),
+                        Vec::new(),
+                        doc_version,
+                        state.unity_manager.project_path().clone(),
+                    )
+                }
             } else {
                 (
                     Vec::new(),
                     Vec::new(),
-                    doc_version,
-                    state.unity_manager.project_path().clone(),
+                    crate::language::document::DocumentVersion { major: 0, minor: 0 },
+                    std::path::PathBuf::new(),
                 )
             }
-        } else {
-            (
-                Vec::new(),
-                Vec::new(),
-                crate::language::document::DocumentVersion { major: 0, minor: 0 },
-                std::path::PathBuf::new(),
-            )
-        };
-
-        // Spawn async task for asset checking if there are URL references
-        if !url_references.is_empty() {
-            self.spawn_asset_validation_task(
-                url_references,
-                uri.clone(),
-                current_version,
-                project_root,
-            );
+        }; // Lock is released here
+        
+        // Perform async asset validation outside the lock (inline, no task spawning)
+        for url_ref in &url_references {
+            // Handle project:// URLs manually since to_file_path() doesn't work with custom schemes
+            if url_ref.url.scheme() == PROJECT_SCHEME {
+                if let Some(full_path) = project_url_to_path(&project_root, &url_ref.url) {
+                    // Check if the asset file exists using async try_exists for better error handling
+                    match tokio::fs::try_exists(&full_path).await {
+                        Ok(false) => {
+                            diagnostics.push(Diagnostic {
+                                range: url_ref.range,
+                                severity: Some(DiagnosticSeverity::WARNING),
+                                code: Some(NumberOrString::String("asset-not-found".to_string())),
+                                source: Some("uss".to_string()),
+                                message: format!("Asset doesn't exist on path: {}", full_path.display()),
+                                ..Default::default()
+                            });
+                        }
+                        Err(e) => {
+                            // Log the error but don't create a diagnostic for permission/access issues
+                            log::debug!("Cannot check asset existence for {}: {}", full_path.display(), e);
+                        }
+                        Ok(true) => {
+                            // File exists, no diagnostic needed
+                        }
+                    }
+                }
+            }
         }
+
+        // Asset validation is now performed synchronously above and included in diagnostics
 
         Ok(DocumentDiagnosticReportResult::Report(
             DocumentDiagnosticReport::Full(RelatedFullDocumentDiagnosticReport {
