@@ -1,10 +1,10 @@
 use super::*;
 use crate::test_utils::get_ui_elements_schema_dir;
 use tempfile::TempDir;
-use tokio::fs;
+use std::fs;
 
-#[tokio::test]
-async fn test_real_unity_schema_parsing() {
+#[test]
+fn test_real_unity_schema_parsing() {
     let schema_dir = get_ui_elements_schema_dir();
     
     // Ensure schema directory exists - tests should fail loudly if missing
@@ -13,7 +13,7 @@ async fn test_real_unity_schema_parsing() {
             schema_dir);
     
     let mut manager = UxmlSchemaManager::new(schema_dir);
-    manager.update().await.unwrap();
+    manager.update().unwrap();
     
     // Test that we can find the Image element from Unity's schema
     let image_element = manager.lookup("UnityEngine.UIElements.Image");
@@ -50,8 +50,8 @@ async fn test_real_unity_schema_parsing() {
     println!("Found elements in UnityEngine.UIElements namespace: {}", ui_elements.len());
 }
 
-#[tokio::test]
-async fn test_file_change_detection() {
+#[test]
+fn test_file_change_detection() {
     let temp_dir = TempDir::new().unwrap();
     let dir_path = temp_dir.path().to_path_buf();
     let schema_path = temp_dir.path().join("test.xsd");
@@ -63,15 +63,15 @@ async fn test_file_change_detection() {
   <xs:element name="Element1" type="Type1" />
 </xs:schema>"#;
     
-    fs::write(&schema_path, initial_content).await.unwrap();
+    fs::write(&schema_path, initial_content).unwrap();
     
     let mut manager = UxmlSchemaManager::new(dir_path);
-    manager.update().await.unwrap();
+    manager.update().unwrap();
     
     assert_eq!(manager.get_all_elements().len(), 1);
     
     // Wait a bit to ensure different modification time
-    tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+    std::thread::sleep(std::time::Duration::from_millis(10));
     
     let updated_content = r#"<?xml version="1.0" encoding="utf-8"?>
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" 
@@ -81,15 +81,15 @@ async fn test_file_change_detection() {
   <xs:element name="Element2" type="Type2" />
 </xs:schema>"#;
     
-    fs::write(&schema_path, updated_content).await.unwrap();
-    manager.update().await.unwrap();
+    fs::write(&schema_path, updated_content).unwrap();
+    manager.update().unwrap();
     
     assert_eq!(manager.get_all_elements().len(), 2);
     assert!(manager.lookup("Test.Namespace.Element2").is_some());
 }
 
-#[tokio::test]
-async fn test_namespace_extraction_from_real_files() {
+#[test]
+fn test_namespace_extraction_from_real_files() {
     let schema_dir = get_ui_elements_schema_dir();
     
     // Ensure schema directory exists - tests should fail loudly if missing
@@ -98,7 +98,7 @@ async fn test_namespace_extraction_from_real_files() {
             schema_dir);
     
     let mut manager = UxmlSchemaManager::new(schema_dir);
-    manager.update().await.unwrap();
+    manager.update().unwrap();
     
     // Verify that we're not using filename as namespace
     // All Unity elements should be in "UnityEngine.UIElements" namespace

@@ -84,9 +84,9 @@ impl UssCompletionProvider {
         tree: &Tree,
         content: &str,
         position: Position,
-        _unity_manager: &UnityProjectManager,
-        _source_url: Option<&Url>,
-        _uxml_schema_manager: Option<&UxmlSchemaManager>,
+        unity_manager: &UnityProjectManager,
+        source_url: Option<&Url>,
+        uxml_schema_manager: Option<&UxmlSchemaManager>,
     ) -> Vec<CompletionItem> {
         let context = self.get_completion_context(tree, content, position);
 
@@ -116,14 +116,14 @@ impl UssCompletionProvider {
                 }
                 CompletionType::TagSelector => {
                     log::info!("Tag selector completion");
-                    self.complete_tag_selectors(current_node, content, _uxml_schema_manager)
+                    self.complete_tag_selectors(current_node, content, uxml_schema_manager)
                 }
                 CompletionType::UrlString {
                     url_string,
                     cursor_position,
                 } => {
                     log::info!("URL function completion");
-                    self.complete_url_function(&url_string, cursor_position, _source_url)
+                    self.complete_url_function(&url_string, cursor_position, source_url)
                 }
                 _ => {
                     log::info!("No completion context matched");

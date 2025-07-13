@@ -319,94 +319,58 @@ impl LanguageServer for UssLanguageServer {
             position.character,
             uri
         );
-        
-        // Update UXML schema manager to ensure latest schemas are available for completion
-        // Extract the manager temporarily to avoid holding the lock across await
-        let mut temp_manager = {
-            if let Ok(mut state) = self.state.lock() {
-                Some(std::mem::replace(&mut state.uxml_schema_manager, UxmlSchemaManager::new(std::path::PathBuf::new())))
-            } else {
-                None
-            }
-        }; // Lock is released here
-        
-        if let Some(ref mut manager) = temp_manager {
-            if let Err(e) = manager.update().await {
-                log::warn!("Failed to update UXML schemas for completion: {}", e);
-            }
-            
-            // Put the manager back
-            if let Ok(mut state) = self.state.lock() {
-                state.uxml_schema_manager = temp_manager.unwrap();
-            }
-        }
 
-        // Extract data from state without holding the lock across await points
-        let (document_content, tree_clone, project_root, has_document) = {
-            if let Ok(state) = self.state.lock() {
-                if let Some(document) = state.document_manager.get_document(&uri) {
-                    (
-                        document.content().to_string(),
-                        document.tree().cloned(),
-                        state.unity_manager.project_path().clone(),
-                        true,
-                    )
-                } else {
-                    (String::new(), None, PathBuf::new(), false)
-                }
-            } else {
-                log::error!("Failed to lock state");
-                return Ok(None);
-            }
-        };
-
-        if !has_document {
-            log::warn!("Document not found for URI: {}", uri);
-            return Ok(None);
-        }
-
-        let tree_clone = match tree_clone {
-            Some(tree) => tree,
-            None => {
-                log::warn!("No syntax tree available for URI: {}", uri);
-                return Ok(None);
-            }
-        };
-
-        // Debug: log document content around cursor
-        let lines: Vec<&str> = document_content.lines().collect();
-        if let Some(line) = lines.get(position.line as usize) {
-            log::info!(
-                "Line content: '{}', cursor at char {}",
-                line,
-                position.character
-            );
-        }
-
-        // Convert file system URI to project scheme URL for Unity compatibility
-        let project_url = if uri.scheme() == FILE_SCHEME {
-            if let Ok(file_path) = uri.to_file_path() {
-                asset_url::create_project_url_with_normalization(&file_path, &project_root).ok()
-            } else {
-                None
-            }
-        } else {
-            Some(uri.clone())
-        };
-
-        // Generate completions without holding the lock
+        // Perform all operations within a single lock scope
         let completions = {
-            if let Ok(state) = self.state.lock() {
+            if let Ok(mut state) = self.state.lock() {
+                // Update UXML schema manager
+                if let Err(e) = state.uxml_schema_manager.update() {
+                    log::warn!("Failed to update UXML schemas for completion: {}", e);
+                }
+
+                // Get document and validate
+                let document = match state.document_manager.get_document(&uri) {
+                    Some(doc) => doc,
+                    None => {
+                        log::warn!("Document not found for URI: {}", uri);
+                        return Ok(None);
+                    }
+                };
+
+                let tree = match document.tree() {
+                    Some(tree) => tree,
+                    None => {
+                        log::warn!("No syntax tree available for URI: {}", uri);
+                        return Ok(None);
+                    }
+                };
+
+                let document_content = document.content();
+                let project_root = state.unity_manager.project_path();
+
+                // Convert file system URI to project scheme URL for Unity compatibility
+                let project_url = if uri.scheme() == FILE_SCHEME {
+                    if let Ok(file_path) = uri.to_file_path() {
+                        asset_url::create_project_url_with_normalization(&file_path, project_root).ok()
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(uri.clone())
+                };
+
+                // Generate completions
                 state.completion_provider.complete(
-                    &tree_clone,
-                    &document_content,
+                    tree,
+                    document_content,
                     position,
                     &state.unity_manager,
                     project_url.as_ref(),
                     Some(&state.uxml_schema_manager),
                 )
             } else {
-                Vec::new()
+                log::error!("Failed to lock state");
+                return Ok(None);
             }
         };
 

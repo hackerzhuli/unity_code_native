@@ -5,7 +5,7 @@ use quick_xml::events::Event;
 use quick_xml::Reader;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use tokio::fs as async_fs;
+use std::fs;
 use notify::{Watcher, RecursiveMode, Event as NotifyEvent, EventKind};
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -82,7 +82,7 @@ impl UxmlSchemaManager {
         }
     }
 
-    /// Asynchronously updates the schema data by scanning for file changes
+    /// Updates the schema data by scanning for file changes
     /// 
     /// Only performs directory scanning if changes have been detected by the file watcher.
     /// This optimization avoids expensive file system operations when no changes occurred.
@@ -91,7 +91,7 @@ impl UxmlSchemaManager {
     /// 
     /// * `Ok(())` if the update completed successfully
     /// * `Err(UxmlSchemaError)` if file I/O or XML parsing failed
-    pub async fn update(&mut self) -> Result<(), UxmlSchemaError> {
+    pub fn update(&mut self) -> Result<(), UxmlSchemaError> {
         // Check if any changes have been detected by the file watcher
         if !self.has_changes.load(Ordering::Relaxed) {
             return Ok(()); // No changes detected, skip expensive directory scan
@@ -104,14 +104,15 @@ impl UxmlSchemaManager {
         let mut any_changes = false;
         
         // Read directory entries
-        let mut dir_entries = async_fs::read_dir(&self.schema_directory).await?;
+        let dir_entries = fs::read_dir(&self.schema_directory)?;
         
-        while let Some(entry) = dir_entries.next_entry().await? {
+        for entry in dir_entries {
+            let entry = entry?;
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("xsd") {
                 current_files.insert(path.clone());
                 
-                let metadata = entry.metadata().await?;
+                let metadata = entry.metadata()?;
                 let last_modified = metadata.modified()?;
                 
                 // Check if file needs to be processed
@@ -121,7 +122,7 @@ impl UxmlSchemaManager {
                 };
                 
                 if needs_update {
-                    self.process_schema_file(&path, last_modified).await?;
+                    self.process_schema_file(&path, last_modified)?;
                     any_changes = true;
                 }
             }
@@ -186,8 +187,8 @@ impl UxmlSchemaManager {
             .collect()
     }
 
-    async fn process_schema_file(&mut self, path: &Path, last_modified: SystemTime) -> Result<(), UxmlSchemaError> {
-        let content = async_fs::read_to_string(path).await?;
+    fn process_schema_file(&mut self, path: &Path, last_modified: SystemTime) -> Result<(), UxmlSchemaError> {
+        let content = fs::read_to_string(path)?;
         let (namespace, elements) = self.parse_schema_content(&content)?;
         
         // Update file info cache
@@ -217,7 +218,7 @@ impl UxmlSchemaManager {
                 self.visual_elements.insert(fqn, element_info);
             }
         }
-    }
+    } 
 
     fn setup_watcher(
         schema_directory: &Path,
