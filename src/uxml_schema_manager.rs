@@ -87,10 +87,13 @@ impl UxmlSchemaManager {
     /// Only performs directory scanning if changes have been detected by the file watcher.
     /// This optimization avoids expensive file system operations when no changes occurred.
     /// 
-    /// # Returns
+    /// ## Returns
     /// 
     /// * `Ok(())` if the update completed successfully
     /// * `Err(UxmlSchemaError)` if file I/O or XML parsing failed
+    /// 
+    /// ## Note
+    /// This method can't be async because the struct is stored inside of a mutex. Async operations are not possible. 
     pub fn update(&mut self) -> Result<(), UxmlSchemaError> {
         // Check if any changes have been detected by the file watcher
         if !self.has_changes.load(Ordering::Relaxed) {
