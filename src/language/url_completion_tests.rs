@@ -1,13 +1,7 @@
-
 use crate::language::url_completion::*;
-use crate::unity_asset_database::UnityAssetDatabase;
 use std::env;
 use std::fs::{self, File};
-use std::io::Write;
-use std::path::Path;
 use tempfile::TempDir;
-use tower_lsp::lsp_types::CompletionItemKind;
-use url::Url;
 
 /// Helper function to get the project root directory for tests
 /// This looks for the Cargo.toml file to determine the project root
@@ -211,50 +205,13 @@ fn test_complete_with_filename_prefix() {
 }
 
 #[test]
-fn test_complete_styles_files() {
-    let project_root = get_project_root();
-    let provider = UrlCompletionProvider::new(&project_root);
-
-    let completions = provider.complete_url(
-        "project:/Assets/UI/Styles/",
-        "project:/Assets/UI/Styles/".len(),
-        None,
-    );
-
-    // Should have completions for files in Styles directory
-    // Note: This test depends on the actual files in the project
-    // We're just checking that the completion mechanism works
-    // The actual files may vary
-}
-
-#[test]
-fn test_complete_texture_query_parameters() {
-    let project_root = get_project_root();
-    let provider = UrlCompletionProvider::new(&project_root);
-
-    let completions = provider.complete_url(
-        "project:/Assets/examples/meta/texture_with_multiple_sprites_example.png?",
-        "project:/Assets/examples/meta/texture_with_multiple_sprites_example.png?".len(),
-        None,
-    );
-
-    // Should have query parameter completions for texture assets
-    // The exact completions depend on the asset metadata
-    // We're just verifying the mechanism works
-}
-
-#[test]
 fn test_complete_relative_path_parent_directory() {
     let project_root = get_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     // Test relative path completion using '../' from UI/Styles/ to UI/
     let base_url = url::Url::parse("project:/Assets/UI/Styles/").unwrap();
-    let completions = provider.complete_url(
-        "../",
-        "../".len(),
-        Some(&base_url),
-    );
+    let completions = provider.complete_url("../", "../".len(), Some(&base_url));
 
     // Should have completions for directories in UI
     assert!(
@@ -282,11 +239,7 @@ fn test_complete_relative_path_current_directory() {
 
     // Test relative path completion using './' from UI/ directory
     let base_url = url::Url::parse("project:/Assets/UI/").unwrap();
-    let completions = provider.complete_url(
-        "./",
-        "./".len(),
-        Some(&base_url),
-    );
+    let completions = provider.complete_url("./", "./".len(), Some(&base_url));
 
     // Should have completions for current directory (UI)
     assert!(
@@ -314,11 +267,7 @@ fn test_complete_relative_path_multiple_parent_directories() {
 
     // Test relative path completion using '../../' from UI/Styles/ to Assets/
     let base_url = url::Url::parse("project:/Assets/UI/Styles/").unwrap();
-    let completions = provider.complete_url(
-        "../../",
-        "../../".len(),
-        Some(&base_url),
-    );
+    let completions = provider.complete_url("../../", "../../".len(), Some(&base_url));
 
     // Should have completions for Assets directory
     assert!(
@@ -358,15 +307,11 @@ fn test_complete_relative_path_with_filename_prefix() {
 
     // Test relative path completion with filename prefix from Styles/ to UI/
     let base_url = url::Url::parse("project:/Assets/UI/Styles/").unwrap();
-    let completions = provider.complete_url(
-        "../M",
-        "../M".len(),
-        Some(&base_url),
-    );
+    let completions = provider.complete_url("../M", "../M".len(), Some(&base_url));
 
     // Should find files starting with 'M' in parent directory
     assert!(!completions.is_empty(), "Should find files with prefix 'M'");
-    
+
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     assert!(
         labels.contains(&"MainWindow.uxml".to_string()),
@@ -398,13 +343,9 @@ fn test_complete_relative_path_no_dot_prefix() {
 
     // Test relative path completion without dot prefix from UI/ directory
     let base_url = url::Url::parse("project:/Assets/UI/").unwrap();
-    
+
     // Test completion for files in same directory
-    let completions = provider.complete_url(
-        "v",
-        "v".len(),
-        Some(&base_url),
-    );
+    let completions = provider.complete_url("v", "v".len(), Some(&base_url));
 
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     assert!(
@@ -413,13 +354,12 @@ fn test_complete_relative_path_no_dot_prefix() {
     );
 
     // Test completion for subdirectory
-    let completions = provider.complete_url(
-        "Images/",
-        "Images/".len(),
-        Some(&base_url),
-    );
+    let completions = provider.complete_url("Images/", "Images/".len(), Some(&base_url));
 
-    assert!(!completions.is_empty(), "Should have completions for Images subdirectory");
+    assert!(
+        !completions.is_empty(),
+        "Should have completions for Images subdirectory"
+    );
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
     assert!(
         labels.contains(&"icon.png".to_string()),
@@ -435,41 +375,42 @@ fn test_complete_relative_path_no_dot_prefix() {
 fn test_no_completion_for_exact_matches() {
     let project_root = get_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
-    
+
     // Test completion for exact filename "variables.uss" - should not return itself
-    let completions = provider.complete_url("project:/Assets/UI/Styles/variables.uss", "project:/Assets/UI/Styles/variables.uss".len(), None);
+    let completions = provider.complete_url(
+        "project:/Assets/UI/Styles/variables.uss",
+        "project:/Assets/UI/Styles/variables.uss".len(),
+        None,
+    );
     let exact_match = completions.iter().find(|c| c.label == "variables.uss");
-    assert!(exact_match.is_none(), "Should not return exact match 'variables.uss' in completion");
-    
+    assert!(
+        exact_match.is_none(),
+        "Should not return exact match 'variables.uss' in completion"
+    );
+
     // Test completion for exact directory name "Components" - should not return itself
-    let completions = provider.complete_url("project:/Assets/UI/Components", "project:/Assets/UI/Components".len(), None);
+    let completions = provider.complete_url(
+        "project:/Assets/UI/Components",
+        "project:/Assets/UI/Components".len(),
+        None,
+    );
     let exact_match = completions.iter().find(|c| c.label == "Components");
-    assert!(exact_match.is_none(), "Should not return exact match 'Components' in completion");
-    
+    assert!(
+        exact_match.is_none(),
+        "Should not return exact match 'Components' in completion"
+    );
+
     // Test case-insensitive exact match
-    let completions = provider.complete_url("project:/Assets/UI/Styles/VARIABLES.USS", "project:/Assets/UI/Styles/VARIABLES.USS".len(), None);
-    let exact_match = completions.iter().find(|c| c.label.to_lowercase() == "variables.uss");
-    assert!(exact_match.is_none(), "Should not return case-insensitive exact match");
-}
-
-/// URL completer that uses the real Unity asset database
-struct UrlCompleter {
-    asset_database: crate::unity_asset_database::UnityAssetDatabase,
-}
-
-impl UrlCompleter {
-    fn new(project_root: &Path) -> Self {
-        Self { 
-            asset_database: crate::unity_asset_database::UnityAssetDatabase::new(project_root)
-        }
-    }
-
-    fn complete_url(
-        &self,
-        url_string: &str,
-        base_url: Option<&url::Url>,
-    ) -> Result<Vec<tower_lsp::lsp_types::CompletionItem>, UrlCompletionError> {
-        let provider = UrlCompletionProvider::new(self.asset_database.project_root());
-        Ok(provider.complete_url(url_string, url_string.len(), base_url))
-    }
+    let completions = provider.complete_url(
+        "project:/Assets/UI/Styles/VARIABLES.USS",
+        "project:/Assets/UI/Styles/VARIABLES.USS".len(),
+        None,
+    );
+    let exact_match = completions
+        .iter()
+        .find(|c| c.label.to_lowercase() == "variables.uss");
+    assert!(
+        exact_match.is_none(),
+        "Should not return case-insensitive exact match"
+    );
 }
