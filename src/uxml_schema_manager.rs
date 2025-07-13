@@ -6,6 +6,10 @@ use quick_xml::Reader;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::fs as async_fs;
+use notify::{Watcher, RecursiveMode, Event as NotifyEvent, EventKind};
+use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Errors that can occur during UXML schema processing
 #[derive(Error, Debug)]
@@ -49,6 +53,9 @@ pub struct UxmlSchemaManager {
     schema_directory: PathBuf,
     schema_files: HashMap<PathBuf, SchemaFileInfo>,
     visual_elements: HashMap<String, VisualElementInfo>,
+    _watcher: Option<notify::RecommendedWatcher>,
+    _receiver: Option<mpsc::Receiver<Result<NotifyEvent, notify::Error>>>,
+    has_changes: Arc<AtomicBool>,
 }
 
 impl UxmlSchemaManager {
@@ -58,23 +65,41 @@ impl UxmlSchemaManager {
     /// 
     /// * `schema_directory` - Path to the directory containing Unity UXML schema (.xsd) files
     pub fn new<P: AsRef<Path>>(schema_directory: P) -> Self {
+        let schema_dir = schema_directory.as_ref().to_path_buf();
+        let has_changes = Arc::new(AtomicBool::new(true)); // Start with true to trigger initial scan
+        
+        // Try to set up file watcher
+        let (watcher, receiver) = Self::setup_watcher(&schema_dir, has_changes.clone())
+            .unwrap_or((None, None));
+        
         Self {
-            schema_directory: schema_directory.as_ref().to_path_buf(),
+            schema_directory: schema_dir,
             schema_files: HashMap::new(),
             visual_elements: HashMap::new(),
+            _watcher: watcher,
+            _receiver: receiver,
+            has_changes,
         }
     }
 
     /// Asynchronously updates the schema data by scanning for file changes
     /// 
-    /// Scans the schema directory for .xsd files, processes any new or modified files,
-    /// removes data for deleted files, and rebuilds the element lookup cache if changes occurred.
+    /// Only performs directory scanning if changes have been detected by the file watcher.
+    /// This optimization avoids expensive file system operations when no changes occurred.
     /// 
     /// # Returns
     /// 
     /// * `Ok(())` if the update completed successfully
     /// * `Err(UxmlSchemaError)` if file I/O or XML parsing failed
     pub async fn update(&mut self) -> Result<(), UxmlSchemaError> {
+        // Check if any changes have been detected by the file watcher
+        if !self.has_changes.load(Ordering::Relaxed) {
+            return Ok(()); // No changes detected, skip expensive directory scan
+        }
+        
+        // Reset the change flag
+        self.has_changes.store(false, Ordering::Relaxed);
+        
         let mut current_files = HashSet::new();
         let mut any_changes = false;
         
@@ -192,6 +217,46 @@ impl UxmlSchemaManager {
                 self.visual_elements.insert(fqn, element_info);
             }
         }
+    }
+
+    fn setup_watcher(
+        schema_directory: &Path,
+        has_changes: Arc<AtomicBool>,
+    ) -> Result<(Option<notify::RecommendedWatcher>, Option<mpsc::Receiver<Result<NotifyEvent, notify::Error>>>), notify::Error> {
+        let (tx, rx) = mpsc::channel();
+        let changes_flag = has_changes.clone();
+        
+        let mut watcher = notify::recommended_watcher(move |res: Result<NotifyEvent, notify::Error>| {
+             match &res {
+                 Ok(event) => {
+                     // Check if the event is relevant (file creation, modification, or deletion)
+                     match event.kind {
+                         EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_) => {
+                             // Check if any of the paths have .xsd extension
+                             for path in &event.paths {
+                                 if path.extension().and_then(|s| s.to_str()) == Some("xsd") {
+                                     changes_flag.store(true, Ordering::Relaxed);
+                                     break;
+                                 }
+                             }
+                         }
+                         _ => {}
+                     }
+                 }
+                 Err(_) => {
+                     // On error, assume changes occurred to be safe
+                     changes_flag.store(true, Ordering::Relaxed);
+                 }
+             }
+             
+             // Forward the event to the receiver (though we don't use it currently)
+             let _ = tx.send(res);
+         })?;
+        
+        // Watch the schema directory (non-recursive to match the original behavior)
+        watcher.watch(schema_directory, RecursiveMode::NonRecursive)?;
+        
+        Ok((Some(watcher), Some(rx)))
     }
 
     fn parse_schema_content(&self, content: &str) -> Result<(String, Vec<String>), UxmlSchemaError> {
