@@ -15,11 +15,11 @@ use crate::language::document::DocumentVersion;
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::color_provider::UssColorProvider;
 use crate::uss::completion::UssCompletionProvider;
-use crate::uss::diagnostics::{UssDiagnostics};
+use crate::uss::constants::*;
+use crate::uss::diagnostics::UssDiagnostics;
 use crate::uss::document_manager::UssDocumentManager;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::hover::UssHoverProvider;
-use crate::uss::constants::*;
 use crate::uss::url_function_node::UrlReference;
 use crate::uxml_schema_manager::UxmlSchemaManager;
 
@@ -156,7 +156,6 @@ impl UssLanguageServer {
 
         Some(state.highlighter.generate_tokens(tree, content))
     }
-
 }
 
 #[tower_lsp::async_trait]
@@ -196,7 +195,11 @@ impl LanguageServer for UssLanguageServer {
                 color_provider: Some(ColorProviderCapability::Simple(true)),
                 completion_provider: Some(CompletionOptions {
                     resolve_provider: Some(false),
-                    trigger_characters: Some(vec![":".to_string(), "/".to_string(), "?".to_string()]),
+                    trigger_characters: Some(vec![
+                        ":".to_string(),
+                        "/".to_string(),
+                        "?".to_string(),
+                    ]),
                     all_commit_characters: None,
                     work_done_progress_options: WorkDoneProgressOptions::default(),
                     completion_item: None,
@@ -251,6 +254,47 @@ impl LanguageServer for UssLanguageServer {
             .await;
     }
 
+    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
+        let uri = params.text_document_position_params.text_document.uri;
+        let position = params.text_document_position_params.position;
+
+        let state = self.state.lock().ok();
+        if let Some(state) = state {
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                if let Some(tree) = document.tree() {
+                    // Convert file system URI to project scheme URL for Unity compatibility
+                    let project_url = if uri.scheme() == "file" {
+                        // Convert file:// URI to project:// URI
+                        if let Ok(file_path) = uri.to_file_path() {
+                            let project_root = state.unity_manager.project_path();
+                            crate::language::asset_url::create_project_url_with_normalization(
+                                &file_path,
+                                &project_root,
+                            )
+                            .ok()
+                        } else {
+                            None
+                        }
+                    } else {
+                        // If it's already a project:// URI or other scheme, use as-is
+                        Some(uri.clone())
+                    };
+
+                    let hover = state.hover_provider.hover(
+                        tree,
+                        document.content(),
+                        position,
+                        &state.unity_manager,
+                        project_url.as_ref(),
+                    );
+                    return Ok(hover);
+                }
+            }
+        }
+
+        Ok(None)
+    }
+
     async fn semantic_tokens_full(
         &self,
         params: SemanticTokensParams,
@@ -267,42 +311,97 @@ impl LanguageServer for UssLanguageServer {
         }
     }
 
-    async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {
-        let uri = params.text_document_position_params.text_document.uri;
-        let position = params.text_document_position_params.position;
+    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
 
-        let state = self.state.lock().ok();
-        if let Some(state) = state {
-            if let Some(document) = state.document_manager.get_document(&uri) {
-                if let Some(tree) = document.tree() {
-                    // Convert file system URI to project scheme URL for Unity compatibility
-                    let project_url = if uri.scheme() == "file" {
-                        // Convert file:// URI to project:// URI
-                        if let Ok(file_path) = uri.to_file_path() {
-                            let project_root = state.unity_manager.project_path();
-                            crate::language::asset_url::create_project_url_with_normalization(&file_path, &project_root)
-                                .ok()
-                        } else {
-                            None
-                        }
-                    } else {
-                        // If it's already a project:// URI or other scheme, use as-is
-                        Some(uri.clone())
-                    };
-                    
-                    let hover = state.hover_provider.hover(
-                        tree,
-                        document.content(),
-                        position,
-                        &state.unity_manager,
-                        project_url.as_ref(),
-                    );
-                    return Ok(hover);
+        // Debug logging
+        log::info!(
+            "Completion requested at {}:{} in {}",
+            position.line,
+            position.character,
+            uri
+        );
+
+        // Extract data from state without holding the lock across await points
+        let (document_content, tree_clone, project_root, has_document) = {
+            if let Ok(state) = self.state.lock() {
+                if let Some(document) = state.document_manager.get_document(&uri) {
+                    (
+                        document.content().to_string(),
+                        document.tree().cloned(),
+                        state.unity_manager.project_path().clone(),
+                        true,
+                    )
+                } else {
+                    (String::new(), None, PathBuf::new(), false)
                 }
+            } else {
+                log::error!("Failed to lock state");
+                return Ok(None);
             }
+        };
+
+        if !has_document {
+            log::warn!("Document not found for URI: {}", uri);
+            return Ok(None);
         }
 
-        Ok(None)
+        let tree_clone = match tree_clone {
+            Some(tree) => tree,
+            None => {
+                log::warn!("No syntax tree available for URI: {}", uri);
+                return Ok(None);
+            }
+        };
+
+        // Debug: log document content around cursor
+        let lines: Vec<&str> = document_content.lines().collect();
+        if let Some(line) = lines.get(position.line as usize) {
+            log::info!(
+                "Line content: '{}', cursor at char {}",
+                line,
+                position.character
+            );
+        }
+
+        // Convert file system URI to project scheme URL for Unity compatibility
+        let project_url = if uri.scheme() == FILE_SCHEME {
+            if let Ok(file_path) = uri.to_file_path() {
+                asset_url::create_project_url_with_normalization(&file_path, &project_root).ok()
+            } else {
+                None
+            }
+        } else {
+            Some(uri.clone())
+        };
+
+        // Generate completions without holding the lock
+        let completions = {
+            if let Ok(state) = self.state.lock() {
+                state.completion_provider.complete(
+                    &tree_clone,
+                    &document_content,
+                    position,
+                    &state.unity_manager,
+                    project_url.as_ref(),
+                    Some(&state.uxml_schema_manager),
+                )
+            } else {
+                Vec::new()
+            }
+        };
+
+        // Debug: log completion results
+        log::info!("Generated {} completion items", completions.len());
+
+        if completions.is_empty() {
+            log::info!("Returning no completions");
+            Ok(None)
+        } else {
+            log::info!("Returning {} completions", completions.len());
+            Ok(Some(CompletionResponse::Array(completions)))
+        }
     }
 
     async fn diagnostic(
@@ -340,8 +439,11 @@ impl LanguageServer for UssLanguageServer {
                         // Convert file:// URI to project:// URI
                         if let Ok(file_path) = uri.to_file_path() {
                             let project_root = state.unity_manager.project_path();
-                            asset_url::create_project_url_with_normalization(&file_path, &project_root)
-                                .ok()
+                            asset_url::create_project_url_with_normalization(
+                                &file_path,
+                                &project_root,
+                            )
+                            .ok()
                         } else {
                             None
                         }
@@ -364,15 +466,10 @@ impl LanguageServer for UssLanguageServer {
                         project_url.as_ref(),
                         variable_resolver,
                     );
-                    
+
                     let project_root = state.unity_manager.project_path().clone();
-                    
-                    (
-                        diagnostics,
-                        url_references,
-                        doc_version,
-                        project_root,
-                    )
+
+                    (diagnostics, url_references, doc_version, project_root)
                 } else {
                     (
                         Vec::new(),
@@ -390,7 +487,7 @@ impl LanguageServer for UssLanguageServer {
                 )
             }
         }; // Lock is released here
-        
+
         // Perform async asset validation outside the lock (inline, no task spawning)
         for url_ref in &url_references {
             // Handle project:// URLs manually since to_file_path() doesn't work with custom schemes
@@ -404,13 +501,20 @@ impl LanguageServer for UssLanguageServer {
                                 severity: Some(DiagnosticSeverity::WARNING),
                                 code: Some(NumberOrString::String("asset-not-found".to_string())),
                                 source: Some("uss".to_string()),
-                                message: format!("Asset doesn't exist on path: {}", full_path.display()),
+                                message: format!(
+                                    "Asset doesn't exist on path: {}",
+                                    full_path.display()
+                                ),
                                 ..Default::default()
                             });
                         }
                         Err(e) => {
                             // Log the error but don't create a diagnostic for permission/access issues
-                            log::debug!("Cannot check asset existence for {}: {}", full_path.display(), e);
+                            log::debug!(
+                                "Cannot check asset existence for {}: {}",
+                                full_path.display(),
+                                e
+                            );
                         }
                         Ok(true) => {
                             // File exists, no diagnostic needed
@@ -467,91 +571,6 @@ impl LanguageServer for UssLanguageServer {
             Ok(presentations)
         } else {
             Ok(Vec::new())
-        }
-    }
-
-    async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {
-        let uri = params.text_document_position.text_document.uri;
-        let position = params.text_document_position.position;
-
-        // Debug logging
-        log::info!("Completion requested at {}:{} in {}", position.line, position.character, uri);
-
-        // Extract data from state without holding the lock across await points
-        let (document_content, tree_clone, project_root, has_document) = {
-            if let Ok(state) = self.state.lock() {
-                if let Some(document) = state.document_manager.get_document(&uri) {
-                    (
-                        document.content().to_string(),
-                        document.tree().cloned(),
-                        state.unity_manager.project_path().clone(),
-                        true,
-                    )
-                } else {
-                    (String::new(), None, PathBuf::new(), false)
-                }
-            } else {
-                log::error!("Failed to lock state");
-                return Ok(None);
-            }
-        };
-
-        if !has_document {
-            log::warn!("Document not found for URI: {}", uri);
-            return Ok(None);
-        }
-
-        let tree_clone = match tree_clone {
-            Some(tree) => tree,
-            None => {
-                log::warn!("No syntax tree available for URI: {}", uri);
-                return Ok(None);
-            }
-        };
-
-        // Debug: log document content around cursor
-        let lines: Vec<&str> = document_content.lines().collect();
-        if let Some(line) = lines.get(position.line as usize) {
-            log::info!("Line content: '{}', cursor at char {}", line, position.character);
-        }
-
-        // Convert file system URI to project scheme URL for Unity compatibility
-        let project_url = if uri.scheme() == FILE_SCHEME {
-            if let Ok(file_path) = uri.to_file_path() {
-                asset_url::create_project_url_with_normalization(&file_path, &project_root)
-                    .ok()
-            } else {
-                None
-            }
-        } else {
-            Some(uri.clone())
-        };
-
-        // Generate completions without holding the lock
-        let completions = {
-            if let Ok(state) = self.state.lock() {
-                state.completion_provider.complete(
-                    &tree_clone,
-                    &document_content,
-                    position,
-                    &state.unity_manager,
-                    project_url.as_ref(),
-                    Some(&state.uxml_schema_manager),
-                )
-            } else {
-                Vec::new()
-            }
-        };
-
-        // Debug: log completion results
-        log::info!("Generated {} completion items", completions.len());
-
-        if completions.is_empty() {
-            log::info!("Returning no completions");
-            Ok(None)
-        } else {
-            log::info!("Returning {} completions", completions.len());
-            Ok(Some(CompletionResponse::Array(completions)))
         }
     }
 }
