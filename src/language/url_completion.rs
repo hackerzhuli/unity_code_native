@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use tower_lsp::lsp_types::*;
 use url::Url;
 use log;
+use urlencoding::encode;
 
 use crate::language::asset_url::{validate_url, project_url_to_path};
 use crate::unity_asset_database::{UnityAssetDatabase, AssetDatabaseError};
@@ -242,55 +243,89 @@ impl UrlCompletionProvider {
         &self,
         asset_url: &Url,
     ) -> Result<Vec<CompletionItem>, UrlCompletionError> {
-        // Get texture asset information to check for subassets
+        // First try to get texture asset information to check for subassets
         match self.asset_database.get_texture_asset_info(asset_url) {
             Ok(texture_info) => {
-                let mut items = Vec::new();
-                
-                // Add completion for the main asset
-                let main_asset_item = CompletionItem {
-                    label: format!("fileID={}&guid={}&type=3", 
-                        if texture_info.sprites.is_empty() { "2800000" } else { "21300000" },
-                        texture_info.guid
-                    ),
-                    kind: Some(CompletionItemKind::VALUE),
-                    detail: Some("Main asset".to_string()),
-                    documentation: Some(Documentation::String(
-                        "Complete URL parameters for the main asset".to_string()
-                    )),
-                    insert_text: Some(format!("fileID={}&guid={}&type=3", 
-                        if texture_info.sprites.is_empty() { "2800000" } else { "21300000" },
-                        texture_info.guid
-                    )),
-                    ..Default::default()
-                };
-                items.push(main_asset_item);
-                
-                // Add completion for each sprite subasset
-                for sprite in &texture_info.sprites {
-                    let sprite_item = CompletionItem {
-                        label: format!("fileID={}&guid={}&type=3#{}", 
-                            sprite.file_id, texture_info.guid, sprite.name
-                        ),
+                if !texture_info.is_multiple_sprite {
+                    // Single asset - return one completion item with filename fragment
+                    // Extract filename without extension from the asset URL
+                    let filename_without_ext = asset_url.path()
+                        .split('/')
+                        .last()
+                        .and_then(|filename| filename.split('.').next())
+                        .unwrap_or("asset");
+                    
+                    // URL encode the fragment part
+                    let encoded_fragment = encode(filename_without_ext);
+                    
+                    let asset_item = CompletionItem {
+                        label: format!("guid={}", texture_info.guid),
                         kind: Some(CompletionItemKind::VALUE),
-                        detail: Some(format!("Sprite: {}", sprite.name)),
+                        detail: Some("Asset".to_string()),
                         documentation: Some(Documentation::String(
-                            format!("Complete URL parameters for sprite '{}'", sprite.name)
+                            "Complete URL parameters for the asset".to_string()
                         )),
-                        insert_text: Some(format!("fileID={}&guid={}&type=3#{}", 
-                            sprite.file_id, texture_info.guid, sprite.name
-                        )),
+                        insert_text: Some(format!("fileID=7433441132597879392&guid={}&type=3#{}", texture_info.guid, encoded_fragment)),
                         ..Default::default()
                     };
-                    items.push(sprite_item);
+                    Ok(vec![asset_item])
+                } else {
+                    // Multi-sprite texture - return only sprite completions, no main asset
+                    let mut items = Vec::new();
+                    for sprite in &texture_info.sprites {
+                        // URL encode the sprite name for the fragment
+                        let encoded_sprite_name = encode(&sprite.name);
+                        
+                        let sprite_item = CompletionItem {
+                            label: sprite.name.clone(), // Show sprite name as label
+                            kind: Some(CompletionItemKind::VALUE),
+                            detail: Some(format!("Sprite: {}", sprite.name)),
+                            documentation: Some(Documentation::String(
+                                format!("Complete URL parameters for sprite '{}'", sprite.name)
+                            )),
+                            insert_text: Some(format!("fileID={}&guid={}&type=3#{}", 
+                                sprite.file_id, texture_info.guid, encoded_sprite_name
+                            )),
+                            ..Default::default()
+                        };
+                        items.push(sprite_item);
+                    }
+                    Ok(items)
                 }
-                
-                Ok(items)
             }
-            Err(AssetDatabaseError { message }) => {
-                // Asset doesn't exist or isn't a texture, no query completion
-                log::debug!("No query completion for asset: {}", message);
-                Ok(Vec::new())
+            Err(_) => {
+                // Not a texture or texture parsing failed, try to get basic asset info
+                match self.asset_database.get_asset_info(asset_url) {
+                    Ok(asset_info) => {
+                        // This is a non-texture asset, treat as single asset with filename fragment
+                        // Extract filename without extension from the asset URL
+                        let filename_without_ext = asset_url.path()
+                            .split('/')
+                            .last()
+                            .and_then(|filename| filename.split('.').next())
+                            .unwrap_or("asset");
+                        
+                        // URL encode the fragment part
+                        let encoded_fragment = encode(filename_without_ext);
+                        
+                        let asset_item = CompletionItem {
+                            label: format!("guid={}", asset_info.guid),
+                            kind: Some(CompletionItemKind::VALUE),
+                            detail: Some("Asset".to_string()),
+                            documentation: Some(Documentation::String(
+                                "Complete URL parameters for the asset".to_string()
+                            )),
+                            insert_text: Some(format!("fileID=7433441132597879392&guid={}&type=3#{}", asset_info.guid, encoded_fragment)),
+                            ..Default::default()
+                        };
+                        Ok(vec![asset_item])
+                    }
+                    Err(AssetDatabaseError { message }) => {
+                        // Asset doesn't exist, no query completion
+                        log::debug!("No query completion for asset: {}", message);
+                        Ok(Vec::new())
+                    }
+                }
             }
         }
     }
@@ -476,18 +511,21 @@ impl UrlCompletionProvider {
 
     /// Create a completion item for a directory entry
     fn create_path_completion_item(&self, entry: DirectoryEntry) -> CompletionItem {
+        // URL encode the entry name for proper insertion
+        let encoded_name = encode(&entry.name);
+        
         let (kind, detail, insert_text, sort_text) = if entry.is_directory {
             (
                 CompletionItemKind::FOLDER,
                 "Directory".to_string(),
-                entry.name.clone(), // Don't append '/' - let user type it manually
+                encoded_name.to_string(), // Don't append '/' - let user type it manually
                 format!("0_{}", entry.name), // Prefix with "0_" to ensure directories sort first
             )
         } else {
             (
                 CompletionItemKind::FILE,
                 "File".to_string(),
-                entry.name.clone(),
+                encoded_name.to_string(),
                 format!("1_{}", entry.name), // Prefix with "1_" to ensure files sort after directories
             )
         };

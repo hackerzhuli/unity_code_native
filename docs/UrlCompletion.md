@@ -47,7 +47,7 @@ After user type a `/` (with or without a scheme) in the path part, we start doin
 ## Completion logic for query and fragment part of url
 urls actually allow query that will allow user to specify asset guid and fileId, etc, which will make the url more robust, because even if user moved a file, the guid/fileId will still be valid. So nothing will break.
 
-We only support completion for query part of url, if the url is explicitly `project` scheme (meaning the `project` scheme is present in the source string), and the path is a valid and existing asset(and not a directory) in the project, then we will allow completion for query part of url.
+We only support completion for query part of url, if the url is explicitly `project` scheme (meaning the `project` scheme is present in the source string, this means it can't be a relative path), and the path is a valid and existing asset(and not a directory) in the project, then we will allow completion for query part of url.
 
 we ONLY do auto completion when user just typed `?`(if user keeps typing after that, we don't do auto completion for query), we will give users a list of possible entries, each represents an subasset of the asset the path is point at.
 
