@@ -21,6 +21,7 @@ use crate::uss::highlighting::UssHighlighter;
 use crate::uss::hover::UssHoverProvider;
 use crate::uss::constants::*;
 use crate::uss::url_function_node::UrlReference;
+use crate::uxml_schema_manager::UxmlSchemaManager;
 
 /// USS Language Server
 pub struct UssLanguageServer {
@@ -41,6 +42,7 @@ struct UssServerState {
     color_provider: UssColorProvider,
     completion_provider: UssCompletionProvider,
     unity_manager: UnityProjectManager,
+    uxml_schema_manager: UxmlSchemaManager,
 }
 
 impl UssLanguageServer {
@@ -54,7 +56,8 @@ impl UssLanguageServer {
             hover_provider: UssHoverProvider::new(),
             color_provider: UssColorProvider::new(),
             completion_provider: UssCompletionProvider::new_with_project_root(&project_path),
-            unity_manager: UnityProjectManager::new(project_path),
+            unity_manager: UnityProjectManager::new(project_path.clone()),
+            uxml_schema_manager: UxmlSchemaManager::new(project_path.join("UIElementsSchema")),
         };
 
         Self {
@@ -533,6 +536,7 @@ impl LanguageServer for UssLanguageServer {
                     position,
                     &state.unity_manager,
                     project_url.as_ref(),
+                    Some(&state.uxml_schema_manager),
                 )
             } else {
                 Vec::new()

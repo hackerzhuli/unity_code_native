@@ -57,6 +57,7 @@ fn test_property_value_simple_completion_after_colon() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should have completions for color property
@@ -109,6 +110,7 @@ fn test_property_value_completion_after_typing() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should have completions for color property
@@ -151,6 +153,7 @@ fn test_property_value_completion_after_typing_keyword() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     assert!(
@@ -189,6 +192,7 @@ fn test_property_name_completion() {
         content,
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
+        None,
         None,
     );
 
@@ -241,6 +245,7 @@ fn test_property_name_completion_empty() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should not provide completions when no text has been typed
@@ -271,6 +276,7 @@ fn test_property_name_completion_partial_match() {
         content,
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
+        None,
         None,
     );
 
@@ -318,6 +324,7 @@ fn test_property_name_completion_case_insensitive() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should have completions for properties starting with "col" (case insensitive)
@@ -353,6 +360,7 @@ fn test_class_selector_completion_after_dot() {
         content,
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
+        None,
         None,
     );
 
@@ -407,6 +415,7 @@ fn test_class_selector_partial_completion() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should have completions for classes starting with 'my'
@@ -451,6 +460,7 @@ fn test_id_selector_completion_after_hash() {
         content,
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
+        None,
         None,
     );
 
@@ -503,6 +513,7 @@ fn test_id_selector_partial_completion() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should have completions for IDs starting with 'my'
@@ -547,6 +558,7 @@ fn test_selector_completion_case_insensitive() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should have case-insensitive completions
@@ -583,6 +595,7 @@ fn test_no_selector_completion_in_declaration_block() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should not provide selector completions inside declaration blocks
@@ -618,6 +631,7 @@ fn test_tag_selector_completion() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should have completions for tags starting with 'Bu'
@@ -642,7 +656,7 @@ fn test_tag_selector_completion() {
     assert_eq!(button_completion.kind, Some(CompletionItemKind::CLASS));
     assert_eq!(
         button_completion.detail,
-        Some("Unity UI element".to_string())
+        Some("Unity UI element (fallback)".to_string())
     );
     assert_eq!(button_completion.insert_text, Some("Button".to_string()));
 }
@@ -667,6 +681,7 @@ fn test_tag_selector_completion_partial_match() {
         content,
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
+        None,
         None,
     );
 
@@ -709,6 +724,7 @@ fn test_tag_selector_completion_case_insensitive() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should have case-insensitive completions
@@ -745,12 +761,13 @@ fn test_tag_selector_completion_no_empty_input() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should not have any tag completions for empty input
     let tag_completions: Vec<_> = completions
         .iter()
-        .filter(|c| c.detail == Some("Unity UI element".to_string()))
+        .filter(|c| c.detail == Some("Unity UI element (fallback)".to_string()))
         .collect();
     assert!(
         tag_completions.is_empty(),
@@ -778,6 +795,7 @@ fn test_class_selector_excludes_self() {
         content,
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
+        None,
         None,
     );
 
@@ -814,6 +832,7 @@ fn test_id_selector_excludes_self() {
         position,
         &UnityProjectManager::new(PathBuf::from("test")),
         None,
+        None,
     );
 
     // Should have completions but not include the exact match "my"
@@ -849,6 +868,7 @@ fn test_url_completion() {
         content,
         position,
         &UnityProjectManager::new(project_root.clone()),
+        None,
         None,
     );
 
@@ -891,6 +911,7 @@ fn test_url_completion_resources_directory() {
         position,
         &UnityProjectManager::new(project_root.clone()),
         None,
+        None,
     );
 
     // Should provide completions for subdirectories in Resources
@@ -927,6 +948,7 @@ fn test_url_completion_specific_files() {
         position,
         &UnityProjectManager::new(project_root.clone()),
         None,
+        None,
     );
 
     // Should provide completions for files in Icons directory
@@ -958,6 +980,7 @@ fn test_url_completion_in_import_statement() {
         content,
         position,
         &UnityProjectManager::new(project_root.clone()),
+        None,
         None,
     );
 
@@ -1000,6 +1023,7 @@ fn test_url_completion_in_import_statement_with_url_function() {
         position,
         &UnityProjectManager::new(project_root.clone()),
         None,
+        None,
     );
 
     // Should provide completions for items in UI directory
@@ -1040,6 +1064,7 @@ fn test_url_completion_uss_files() {
         content,
         position,
         &UnityProjectManager::new(project_root.clone()),
+        None,
         None,
     );
 

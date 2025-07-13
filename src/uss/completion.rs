@@ -14,14 +14,16 @@ use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::constants::*;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value_spec::ValueType;
+use crate::uxml_schema_manager::UxmlSchemaManager;
 
 // Import additional constants for selector completion
-use crate::uss::constants::{NODE_CLASS_NAME, NODE_CLASS_SELECTOR, NODE_ID_NAME, NODE_ID_SELECTOR};
+use crate::uss::constants::{NODE_CLASS_NAME, NODE_CLASS_SELECTOR, NODE_ID_NAME, NODE_ID_SELECTOR, NODE_TAG_NAME};
 
 /// USS completion provider
 pub struct UssCompletionProvider {
     pub(crate) definitions: UssDefinitions,
     url_completion_provider: Option<UrlCompletionProvider>,
+    uxml_schema_manager: Option<UxmlSchemaManager>,
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +65,7 @@ impl UssCompletionProvider {
         Self {
             definitions: UssDefinitions::new(),
             url_completion_provider: None,
+            uxml_schema_manager: None,
         }
     }
 
@@ -71,6 +74,7 @@ impl UssCompletionProvider {
         Self {
             definitions: UssDefinitions::new(),
             url_completion_provider: Some(UrlCompletionProvider::new(project_root)),
+            uxml_schema_manager: Some(UxmlSchemaManager::new(project_root.join("UIElementsSchema"))),
         }
     }
 
@@ -82,6 +86,7 @@ impl UssCompletionProvider {
         position: Position,
         _unity_manager: &UnityProjectManager,
         _source_url: Option<&Url>,
+        _uxml_schema_manager: Option<&UxmlSchemaManager>,
     ) -> Vec<CompletionItem> {
         let context = self.get_completion_context(tree, content, position);
 
@@ -111,7 +116,7 @@ impl UssCompletionProvider {
                 }
                 CompletionType::TagSelector => {
                     log::info!("Tag selector completion");
-                    self.complete_tag_selectors(tree, content, current_node)
+                    self.complete_tag_selectors(current_node, content, _uxml_schema_manager)
                 }
                 CompletionType::UrlString {
                     url_string,
@@ -624,39 +629,63 @@ impl UssCompletionProvider {
     }
 
     /// Complete tag selectors
+    /// Complete tag selectors using real UXML schema data
     fn complete_tag_selectors(
         &self,
-        _tree: &Tree,
-        content: &str,
         current_node: Node,
+        content: &str,
+        uxml_schema_manager: Option<&UxmlSchemaManager>,
     ) -> Vec<CompletionItem> {
         let partial_text = current_node
             .utf8_text(content.as_bytes())
             .unwrap_or("")
             .to_lowercase();
 
-        // Only provide completions if user has typed at least one character
-        if partial_text.is_empty() {
-            return Vec::new();
+        let mut items = Vec::new();
+
+        if let Some(manager) = uxml_schema_manager {
+            // Use real schema data from UxmlSchemaManager
+            let all_elements = manager.get_all_elements();
+            
+            for element_info in all_elements {
+                // Use the simple name for completion (without namespace)
+                if element_info.name.to_lowercase().starts_with(&partial_text) {
+                    items.push(CompletionItem {
+                        label: element_info.name.clone(),
+                        kind: Some(CompletionItemKind::CLASS),
+                        detail: Some(format!("UXML Element: {}", element_info.fully_qualified_name)),
+                        insert_text: Some(element_info.name.clone()),
+                        insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                        documentation: Some(Documentation::MarkupContent(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: format!(
+                                "**Namespace:** `{}`\n\n**Fully Qualified Name:** `{}`",
+                                element_info.namespace, element_info.fully_qualified_name
+                            ),
+                        })),
+                        ..Default::default()
+                    });
+                }
+            }
+        } else {
+            // Fallback to hardcoded list if schema manager is not available
+            let unity_tags = vec!["Button", "Label", "Slider", "Dropdown"];
+            
+            for tag_name in unity_tags {
+                if tag_name.to_lowercase().starts_with(&partial_text) {
+                    items.push(CompletionItem {
+                        label: tag_name.to_string(),
+                        kind: Some(CompletionItemKind::CLASS),
+                        detail: Some("Unity UI element (fallback)".to_string()),
+                        insert_text: Some(tag_name.to_string()),
+                        insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                        ..Default::default()
+                    });
+                }
+            }
         }
 
-        // Hardcoded list of Unity UI tags for now
-        let unity_tags = vec!["Button", "Label", "Slider", "Dropdown"];
-
-        unity_tags
-            .into_iter()
-            .filter(|tag_name| tag_name.to_lowercase().starts_with(&partial_text))
-            .map(|tag_name| {
-                CompletionItem {
-                    label: tag_name.to_string(),
-                    kind: Some(CompletionItemKind::CLASS), // Using CLASS kind for UI elements
-                    detail: Some("Unity UI element".to_string()),
-                    insert_text: Some(tag_name.to_string()),
-                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                    ..Default::default()
-                }
-            })
-            .collect()
+        items
     }
 
     /// Extract partial selector text (without the prefix character)
