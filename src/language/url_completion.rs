@@ -86,14 +86,10 @@ impl UrlCompletionProvider {
         cursor_position: usize,
         base_url: Option<&Url>,
     ) -> Vec<CompletionItem> {
-        log::info!("URL completion requested: url='{}', cursor_pos={}, base_url={:?}", 
-                   url_string, cursor_position, base_url);
+
         
         let context = match self.analyze_completion_context(url_string, cursor_position, base_url) {
-            Ok(context) => {
-                log::info!("Completion context analyzed: {:?}", context);
-                context
-            },
+            Ok(context) => context,
             Err(err) => {
                 log::warn!("Failed to analyze completion context: {}", err);
                 return Vec::new();
@@ -102,20 +98,14 @@ impl UrlCompletionProvider {
         
         let result = match context {
             UrlCompletionContext::Path { partial_path, base_url } => {
-                log::info!("Completing path: '{}' with base_url: {:?}", partial_path, base_url);
-                let items = self.complete_path(&partial_path, base_url.as_ref()).unwrap_or_default();
-                log::info!("Path completion returned {} items", items.len());
-                items
+                self.complete_path(&partial_path, base_url.as_ref()).unwrap_or_default()
             }
             UrlCompletionContext::Query { asset_url } => {
-                log::info!("Completing query for asset: {}", asset_url);
-                let items = self.complete_query(&asset_url).unwrap_or_default();
-                log::info!("Query completion returned {} items", items.len());
-                items
+                self.complete_query(&asset_url).unwrap_or_default()
             }
         };
         
-        log::info!("URL completion finished with {} total items", result.len());
+
         result
     }
 
@@ -141,7 +131,7 @@ impl UrlCompletionProvider {
         cursor_position: usize,
         base_url: Option<&Url>,
     ) -> Result<UrlCompletionContext, UrlCompletionError> {
-        log::debug!("Analyzing completion context: url_string='{}', cursor_position={}", url_string, cursor_position);
+
         
         // Ensure cursor position is within bounds
         if cursor_position > url_string.len() {
@@ -151,22 +141,17 @@ impl UrlCompletionProvider {
         }
 
         let url_part = &url_string[..cursor_position];
-        log::debug!("URL part up to cursor: '{}'", url_part);
         
         // Check if we're completing query parameters (user just typed '?')
         if url_part.ends_with('?') {
-            log::debug!("Detected query completion context (ends with '?')");
             let path_part = &url_part[..url_part.len() - 1];
-            log::debug!("Path part for query completion: '{}'", path_part);
             
             // Only provide query completion for explicit project scheme URLs
             // Parse URL without base to check if it has a valid scheme
             if let Ok(parsed_url) = Url::parse(path_part) {
                 if parsed_url.scheme() == "project" {
-                    log::debug!("Detected project scheme URL, attempting validation for query completion");
                     match validate_url(path_part, base_url) {
                         Ok(validation_result) => {
-                            log::info!("Query completion context validated for URL: {}", validation_result.url);
                             return Ok(UrlCompletionContext::Query {
                                 asset_url: validation_result.url,
                             });
@@ -176,18 +161,12 @@ impl UrlCompletionProvider {
                             // Invalid URL, fall through to path completion
                         }
                     }
-                } else {
-                    log::debug!("URL has scheme '{}', not 'project', falling through to path completion", parsed_url.scheme());
                 }
-            } else {
-                log::debug!("Path part is not a valid URL with scheme, falling through to path completion");
             }
-        } else {
-            log::debug!("Not a query completion context (does not end with '?')");
         }
 
         // Default to path completion
-        log::debug!("Defaulting to path completion context");
+
         Ok(UrlCompletionContext::Path {
             partial_path: url_part.to_string(),
             base_url: base_url.cloned(),
@@ -200,20 +179,16 @@ impl UrlCompletionProvider {
         partial_path: &str,
         base_url: Option<&Url>,
     ) -> Result<Vec<CompletionItem>, UrlCompletionError> {
-        log::debug!("Starting path completion for: '{}' with base_url: {:?}", partial_path, base_url);
+
         
         // Only provide completion after a '/' character OR for relative paths with base_url
         if !partial_path.contains('/') && base_url.is_none() {
-            log::debug!("No '/' found in partial path and no base_url, returning empty completion");
             return Ok(Vec::new());
         }
 
         // Find the directory to search in
         let (directory_path, filename_prefix) = match self.extract_directory_and_prefix(partial_path, base_url) {
-            Ok((dir_path, file_prefix)) => {
-                log::debug!("Extracted directory: '{}', prefix: '{}'", dir_path.display(), file_prefix);
-                (dir_path, file_prefix)
-            },
+            Ok((dir_path, file_prefix)) => (dir_path, file_prefix),
             Err(err) => {
                 log::warn!("Failed to extract directory and prefix: {}", err);
                 return Err(err);
@@ -222,10 +197,7 @@ impl UrlCompletionProvider {
         
         // List directory contents
         let entries = match self.list_directory_entries(&directory_path, &filename_prefix) {
-            Ok(entries) => {
-                log::debug!("Found {} directory entries matching prefix '{}'", entries.len(), filename_prefix);
-                entries
-            },
+            Ok(entries) => entries,
             Err(err) => {
                 log::warn!("Failed to list directory entries: {}", err);
                 return Err(err);
@@ -239,7 +211,7 @@ impl UrlCompletionProvider {
             items.push(item);
         }
         
-        log::debug!("Created {} completion items for path completion", items.len());
+
         Ok(items)
     }
 
@@ -327,7 +299,6 @@ impl UrlCompletionProvider {
                     }
                     Err(AssetDatabaseError { message }) => {
                         // Asset doesn't exist, no query completion
-                        log::debug!("No query completion for asset: {}", message);
                         Ok(Vec::new())
                     }
                 }
@@ -341,12 +312,11 @@ impl UrlCompletionProvider {
         partial_path: &str,
         base_url: Option<&Url>,
     ) -> Result<(PathBuf, String), UrlCompletionError> {
-        log::debug!("Extracting directory and prefix from partial_path: '{}'", partial_path);
+
         
         // Special case: if partial_path has no slash and we have a base_url,
         // treat the entire partial_path as a filename prefix in the base_url's directory
         if !partial_path.contains('/') && base_url.is_some() {
-            log::debug!("No slash in partial path, treating as filename prefix in base directory");
             let base = base_url.unwrap();
             let project_root = self.asset_database.project_root();
             
@@ -357,19 +327,14 @@ impl UrlCompletionProvider {
                 } else {
                     base_path.parent().unwrap_or(project_root).to_path_buf()
                 };
-                log::debug!("Using base directory: {}", base_dir.display());
                 return Ok((base_dir, partial_path.to_string()));
             }
         }
         
         // Parse the partial path as a URL to resolve relative paths
         let resolved_url = match validate_url(partial_path, base_url) {
-            Ok(validation_result) => {
-                log::debug!("URL validation successful: {}", validation_result.url);
-                validation_result.url
-            },
+            Ok(validation_result) => validation_result.url,
             Err(validation_error) => {
-                log::debug!("URL validation failed: {}", validation_error);
                 // If validation fails, try fallback for partial paths that might be valid when completed
                 // But reject URLs with backslashes or other clearly invalid characters
                 if validation_error.message.contains("backslash") || 
@@ -382,33 +347,26 @@ impl UrlCompletionProvider {
                     return Err(UrlCompletionError::new("Invalid URL - no completion available"));
                 }
                 // For other validation errors (like incomplete paths), try fallback
-                log::debug!("Attempting fallback path extraction");
                 return self.fallback_path_extraction(partial_path, base_url);
             }
         };
 
         // Convert URL to file system path
         let project_root = self.asset_database.project_root();
-        log::debug!("Project root: {}", project_root.display());
         
-        if let Some(asset_path) = project_url_to_path(project_root, &resolved_url) {
-            log::debug!("Converted URL to asset path: {}", asset_path.display());
+        if let Some(_) = project_url_to_path(project_root, &resolved_url) {
             let path_str = resolved_url.path();
-            log::debug!("URL path string: '{}'", path_str);
             
             // Find the last '/' to separate directory and filename
             if let Some(last_slash) = path_str.rfind('/') {
                 let directory_part = &path_str[..last_slash];
                 let filename_part = &path_str[last_slash + 1..];
-                log::debug!("Split path - directory: '{}', filename: '{}'", directory_part, filename_part);
                 
                 // Convert directory part to file system path
                 let directory_url_str = format!("project:{}", directory_part);
-                log::debug!("Directory URL string: '{}'", directory_url_str);
                 
                 if let Ok(directory_url) = Url::parse(&directory_url_str) {
                     if let Some(directory_path) = project_url_to_path(&project_root, &directory_url) {
-                        log::debug!("Successfully resolved directory path: {}", directory_path.display());
                         return Ok((directory_path, filename_part.to_string()));
                     } else {
                         log::warn!("Failed to convert directory URL to path: {}", directory_url);
