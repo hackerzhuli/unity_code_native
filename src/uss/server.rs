@@ -2,16 +2,14 @@
 //!
 //! Provides Language Server Protocol features for USS files using tower-lsp.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
-use tree_sitter::Tree;
 use url::Url;
 
 use crate::language::asset_url::{self, project_url_to_path};
-use crate::language::document::DocumentVersion;
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::color_provider::UssColorProvider;
 use crate::uss::completion::UssCompletionProvider;
@@ -20,7 +18,6 @@ use crate::uss::diagnostics::UssDiagnostics;
 use crate::uss::document_manager::UssDocumentManager;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::hover::UssHoverProvider;
-use crate::uss::url_function_node::UrlReference;
 use crate::uxml_schema_manager::UxmlSchemaManager;
 
 /// USS Language Server
@@ -47,7 +44,7 @@ struct UssServerState {
 
 impl UssLanguageServer {
     /// Create a new USS language server
-    pub fn new(client: Client, project_path: std::path::PathBuf) -> Self {
+    pub fn new(client: Client, project_path: std::path::PathBuf, uxml_schema_manager: UxmlSchemaManager) -> Self {
         let state = UssServerState {
             document_manager: UssDocumentManager::new()
                 .expect("Failed to create USS document manager"),
@@ -57,7 +54,7 @@ impl UssLanguageServer {
             color_provider: UssColorProvider::new(),
             completion_provider: UssCompletionProvider::new_with_project_root(&project_path),
             unity_manager: UnityProjectManager::new(project_path.clone()),
-            uxml_schema_manager: UxmlSchemaManager::new(project_path.join("UIElementsSchema")),
+            uxml_schema_manager,
         };
 
         Self {
@@ -322,6 +319,27 @@ impl LanguageServer for UssLanguageServer {
             position.character,
             uri
         );
+        
+        // Update UXML schema manager to ensure latest schemas are available for completion
+        // Extract the manager temporarily to avoid holding the lock across await
+        let mut temp_manager = {
+            if let Ok(mut state) = self.state.lock() {
+                Some(std::mem::replace(&mut state.uxml_schema_manager, UxmlSchemaManager::new(std::path::PathBuf::new())))
+            } else {
+                None
+            }
+        }; // Lock is released here
+        
+        if let Some(ref mut manager) = temp_manager {
+            if let Err(e) = manager.update().await {
+                log::warn!("Failed to update UXML schemas for completion: {}", e);
+            }
+            
+            // Put the manager back
+            if let Ok(mut state) = self.state.lock() {
+                state.uxml_schema_manager = temp_manager.unwrap();
+            }
+        }
 
         // Extract data from state without holding the lock across await points
         let (document_content, tree_clone, project_root, has_document) = {
@@ -576,12 +594,12 @@ impl LanguageServer for UssLanguageServer {
 }
 
 /// Create and start the USS language server
-pub async fn start_uss_language_server(project_path: std::path::PathBuf) -> Result<()> {
+pub async fn start_uss_language_server(project_path: std::path::PathBuf, uxml_schema_manager: UxmlSchemaManager) -> Result<()> {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
     let (service, socket) =
-        LspService::new(|client| UssLanguageServer::new(client, project_path.clone()));
+        LspService::new(|client| UssLanguageServer::new(client, project_path.clone(), uxml_schema_manager));
     Server::new(stdin, stdout, socket).serve(service).await;
 
     Ok(())

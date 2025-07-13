@@ -64,8 +64,8 @@ impl UxmlSchemaManager {
     /// # Arguments
     /// 
     /// * `schema_directory` - Path to the directory containing Unity UXML schema (.xsd) files
-    pub fn new<P: AsRef<Path>>(schema_directory: P) -> Self {
-        let schema_dir = schema_directory.as_ref().to_path_buf();
+    pub fn new(schema_directory: PathBuf) -> Self {
+        let schema_dir = schema_directory;
         let has_changes = Arc::new(AtomicBool::new(true)); // Start with true to trigger initial scan
         
         // Try to set up file watcher

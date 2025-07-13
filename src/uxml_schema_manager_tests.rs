@@ -12,7 +12,7 @@ async fn test_real_unity_schema_parsing() {
             "UIElementsSchema directory not found at {:?}. Tests require real Unity schema files to be present.", 
             schema_dir);
     
-    let mut manager = UxmlSchemaManager::new(&schema_dir);
+    let mut manager = UxmlSchemaManager::new(schema_dir);
     manager.update().await.unwrap();
     
     // Test that we can find the Image element from Unity's schema
@@ -53,6 +53,7 @@ async fn test_real_unity_schema_parsing() {
 #[tokio::test]
 async fn test_file_change_detection() {
     let temp_dir = TempDir::new().unwrap();
+    let dir_path = temp_dir.path().to_path_buf();
     let schema_path = temp_dir.path().join("test.xsd");
     
     let initial_content = r#"<?xml version="1.0" encoding="utf-8"?>
@@ -64,7 +65,7 @@ async fn test_file_change_detection() {
     
     fs::write(&schema_path, initial_content).await.unwrap();
     
-    let mut manager = UxmlSchemaManager::new(temp_dir.path());
+    let mut manager = UxmlSchemaManager::new(dir_path);
     manager.update().await.unwrap();
     
     assert_eq!(manager.get_all_elements().len(), 1);
@@ -96,7 +97,7 @@ async fn test_namespace_extraction_from_real_files() {
             "UIElementsSchema directory not found at {:?}. Tests require real Unity schema files to be present.", 
             schema_dir);
     
-    let mut manager = UxmlSchemaManager::new(&schema_dir);
+    let mut manager = UxmlSchemaManager::new(schema_dir);
     manager.update().await.unwrap();
     
     // Verify that we're not using filename as namespace
