@@ -13,11 +13,10 @@ use crate::language::url_completion::UrlCompletionProvider;
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::constants::*;
 use crate::uss::definitions::UssDefinitions;
-use crate::uss::value_spec::{ValueFormat, ValueType};
-use crate::uss::url_function_node::UrlFunctionNode;
+use crate::uss::value_spec::ValueType;
 
 // Import additional constants for selector completion
-use crate::uss::constants::{NODE_CLASS_SELECTOR, NODE_CLASS_NAME, NODE_ID_SELECTOR, NODE_ID_NAME};
+use crate::uss::constants::{NODE_CLASS_NAME, NODE_CLASS_SELECTOR, NODE_ID_NAME, NODE_ID_SELECTOR};
 
 /// USS completion provider
 pub struct UssCompletionProvider {
@@ -47,8 +46,8 @@ pub(super) enum CompletionType {
     IdSelector,
     /// Completing tag selectors
     TagSelector,
-    /// Completing URL inside url() or resource() function
-    UrlFunction {
+    /// Completing URL inside url() function or an import statement without url function
+    UrlString {
         /// The partial URL string being typed
         url_string: String,
         /// The cursor position within the URL string
@@ -114,7 +113,10 @@ impl UssCompletionProvider {
                     log::info!("Tag selector completion");
                     self.complete_tag_selectors(tree, content, current_node)
                 }
-                CompletionType::UrlFunction { url_string, cursor_position } => {
+                CompletionType::UrlString {
+                    url_string,
+                    cursor_position,
+                } => {
                     log::info!("URL function completion");
                     self.complete_url_function(&url_string, cursor_position, _source_url)
                 }
@@ -146,50 +148,51 @@ impl UssCompletionProvider {
             let last_pos = Position::new(position.line, position.character - 1);
 
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
-            // Check for selector completion context first
-            if let Some(selector_context) = self.analyze_selector_context(tree, content, current_node, position) {
-                return selector_context;
-            }
-            
-            // Check if we're inside an import statement
-            if let Some(import_context) = self.analyze_import_context(tree, content, current_node, position) {
-                return import_context;
-            }
-            
-            if let Some(declaration_node) = find_node_of_type_at_position(
-                tree.root_node(),
-                content,
-                last_pos,
-                NODE_DECLARATION,
-            ) {
-                return self.analyze_declaration_context(
-                    declaration_node,
+                // Check for selector completion context first
+                if let Some(selector_context) =
+                    self.analyze_selector_context(tree, content, current_node, position)
+                {
+                    return selector_context;
+                }
+
+                // Check if we're inside an import statement
+                if let Some(import_context) =
+                    self.analyze_import_context(tree, content, current_node, position)
+                {
+                    return import_context;
+                }
+
+                if let Some(declaration_node) = find_node_of_type_at_position(
+                    tree.root_node(),
                     content,
-                    current_node,
-                    position,
-                );
-            }
-            
-            // Check if we're typing a property name within a block
-            if let Some(_block_node) = find_node_of_type_at_position(
-                tree.root_node(),
-                content,
-                last_pos,
-                NODE_BLOCK,
-            ) {
-                // Check if current node is a property name being typed
-                // Note: incomplete property names are parsed as "attribute_name" in ERROR nodes
-                if current_node.kind() == NODE_ATTRIBUTE_NAME &&
-                    current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)
-                    {
-                    return CompletionContext {
-                        t: CompletionType::Property,
-                        current_node: Some(current_node),
+                    last_pos,
+                    NODE_DECLARATION,
+                ) {
+                    return self.analyze_declaration_context(
+                        declaration_node,
+                        content,
+                        current_node,
                         position,
-                    };
+                    );
+                }
+
+                // Check if we're typing a property name within a block
+                if let Some(_block_node) =
+                    find_node_of_type_at_position(tree.root_node(), content, last_pos, NODE_BLOCK)
+                {
+                    // Check if current node is a property name being typed
+                    // Note: incomplete property names are parsed as "attribute_name" in ERROR nodes
+                    if current_node.kind() == NODE_ATTRIBUTE_NAME
+                        && current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)
+                    {
+                        return CompletionContext {
+                            t: CompletionType::Property,
+                            current_node: Some(current_node),
+                            position,
+                        };
+                    }
                 }
             }
-        }
         }
 
         return CompletionContext {
@@ -211,21 +214,24 @@ impl UssCompletionProvider {
             if property_name_node.kind() == NODE_PROPERTY_NAME {
                 // Check if we're still typing the property name
                 // Note: incomplete property names might be parsed as "attribute_name" in ERROR nodes
-                if current_node.kind() == NODE_PROPERTY_NAME ||
-                   (current_node.kind() == "attribute_name" && 
-                    current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)) {
+                if current_node.kind() == NODE_PROPERTY_NAME
+                    || (current_node.kind() == "attribute_name"
+                        && current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR))
+                {
                     return CompletionContext {
                         t: CompletionType::Property,
                         current_node: Some(current_node),
                         position,
                     };
                 }
-                
+
                 // Check if we're inside a URL function
-                if let Some(url_context) = self.analyze_url_function_context(current_node, content, position) {
+                if let Some(url_context) =
+                    self.analyze_url_function_context(current_node, content, position)
+                {
                     return url_context;
                 }
-                
+
                 let property_name = property_name_node
                     .utf8_text(content.as_bytes())
                     .unwrap_or("")
@@ -373,7 +379,10 @@ impl UssCompletionProvider {
             // now all suggetions are keywords so we can get docs from keyword itself
             let mut doc = None;
             if let Some(k) = self.definitions.get_keyword_info(suggestion) {
-                doc = Some(Documentation::MarkupContent(MarkupContent { kind: MarkupKind::Markdown, value: k.doc.to_string() }));
+                doc = Some(Documentation::MarkupContent(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: k.doc.to_string(),
+                }));
             }
             let item = CompletionItem {
                 label: suggestion.to_string(),
@@ -386,7 +395,7 @@ impl UssCompletionProvider {
             };
             items.push(item);
         }
-        
+
         items
     }
 
@@ -397,7 +406,9 @@ impl UssCompletionProvider {
         content: &str,
     ) -> Vec<CompletionItem> {
         let partial_text = if let Some(node) = current_node {
-            node.utf8_text(content.as_bytes()).unwrap_or("").to_lowercase()
+            node.utf8_text(content.as_bytes())
+                .unwrap_or("")
+                .to_lowercase()
         } else {
             String::new()
         };
@@ -410,16 +421,14 @@ impl UssCompletionProvider {
         self.definitions
             .get_all_property_names()
             .iter()
-            .filter(|name| {
-                name.starts_with(&partial_text)
-            })
+            .filter(|name| name.starts_with(&partial_text))
             .map(|name| {
                 let property_info = self.definitions.get_property_info(name);
                 let description = property_info
                     .as_ref()
                     .map(|info| info.description.to_string())
                     .unwrap_or_else(|| format!("USS property: {}", name));
-                
+
                 let documentation_url = property_info
                     .as_ref()
                     .map(|info| info.documentation_url.clone());
@@ -476,14 +485,17 @@ impl UssCompletionProvider {
             content,
             Position::new(position.line, position.character.saturating_sub(1)),
             NODE_BLOCK,
-        ).is_some() {
+        )
+        .is_some()
+        {
             return None; // We're inside a declaration block, not in selector context
         }
 
         // Check if current node is a class selector being typed
-        if current_node.kind() == NODE_CLASS_SELECTOR || 
-           (current_node.kind() == NODE_CLASS_NAME && 
-            current_node.parent().map(|p| p.kind()) == Some(NODE_CLASS_SELECTOR)) {
+        if current_node.kind() == NODE_CLASS_SELECTOR
+            || (current_node.kind() == NODE_CLASS_NAME
+                && current_node.parent().map(|p| p.kind()) == Some(NODE_CLASS_SELECTOR))
+        {
             return Some(CompletionContext {
                 t: CompletionType::ClassSelector,
                 current_node: Some(current_node),
@@ -492,9 +504,10 @@ impl UssCompletionProvider {
         }
 
         // Check if current node is an ID selector being typed
-        if current_node.kind() == NODE_ID_SELECTOR || 
-           (current_node.kind() == NODE_ID_NAME && 
-            current_node.parent().map(|p| p.kind()) == Some(NODE_ID_SELECTOR)) {
+        if current_node.kind() == NODE_ID_SELECTOR
+            || (current_node.kind() == NODE_ID_NAME
+                && current_node.parent().map(|p| p.kind()) == Some(NODE_ID_SELECTOR))
+        {
             return Some(CompletionContext {
                 t: CompletionType::IdSelector,
                 current_node: Some(current_node),
@@ -510,17 +523,18 @@ impl UssCompletionProvider {
                 position,
             });
         }
-        
+
         // Check if current node is a partial tag name (attribute_name in ERROR node)
-        if current_node.kind() == NODE_ATTRIBUTE_NAME && 
-           current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR) {
+        if current_node.kind() == NODE_ATTRIBUTE_NAME
+            && current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)
+        {
             return Some(CompletionContext {
                 t: CompletionType::TagSelector,
                 current_node: Some(current_node),
                 position,
             });
         }
-        
+
         // Check if we're directly on a '.' or '#' token
         if current_node.kind() == "." {
             return Some(CompletionContext {
@@ -529,7 +543,7 @@ impl UssCompletionProvider {
                 position,
             });
         }
-        
+
         if current_node.kind() == "#" {
             return Some(CompletionContext {
                 t: CompletionType::IdSelector,
@@ -549,9 +563,9 @@ impl UssCompletionProvider {
         current_node: Node,
     ) -> Vec<CompletionItem> {
         let partial_text = self.extract_partial_selector_text(current_node, content, '.');
-        
+
         let existing_classes = self.extract_class_selectors_from_document(tree, content);
-        
+
         existing_classes
             .into_iter()
             .filter(|class_name| {
@@ -564,15 +578,13 @@ impl UssCompletionProvider {
                     class_lower.starts_with(&partial_lower) && class_lower != partial_lower
                 }
             })
-            .map(|class_name| {
-                CompletionItem {
-                    label: class_name.clone(),
-                    kind: Some(CompletionItemKind::COLOR),
-                    detail: Some("Class selector".to_string()),
-                    insert_text: Some(class_name),
-                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                    ..Default::default()
-                }
+            .map(|class_name| CompletionItem {
+                label: class_name.clone(),
+                kind: Some(CompletionItemKind::COLOR),
+                detail: Some("Class selector".to_string()),
+                insert_text: Some(class_name),
+                insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                ..Default::default()
             })
             .collect()
     }
@@ -585,9 +597,9 @@ impl UssCompletionProvider {
         current_node: Node,
     ) -> Vec<CompletionItem> {
         let partial_text = self.extract_partial_selector_text(current_node, content, '#');
-        
+
         let existing_ids = self.extract_id_selectors_from_document(tree, content);
-        
+
         existing_ids
             .into_iter()
             .filter(|id_name| {
@@ -600,15 +612,13 @@ impl UssCompletionProvider {
                     id_lower.starts_with(&partial_lower) && id_lower != partial_lower
                 }
             })
-            .map(|id_name| {
-                CompletionItem {
-                    label: id_name.clone(),
-                    kind: Some(CompletionItemKind::CONSTANT),
-                    detail: Some("ID selector".to_string()),
-                    insert_text: Some(id_name),
-                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                    ..Default::default()
-                }
+            .map(|id_name| CompletionItem {
+                label: id_name.clone(),
+                kind: Some(CompletionItemKind::CONSTANT),
+                detail: Some("ID selector".to_string()),
+                insert_text: Some(id_name),
+                insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                ..Default::default()
             })
             .collect()
     }
@@ -620,21 +630,22 @@ impl UssCompletionProvider {
         content: &str,
         current_node: Node,
     ) -> Vec<CompletionItem> {
-        let partial_text = current_node.utf8_text(content.as_bytes()).unwrap_or("").to_lowercase();
-        
+        let partial_text = current_node
+            .utf8_text(content.as_bytes())
+            .unwrap_or("")
+            .to_lowercase();
+
         // Only provide completions if user has typed at least one character
         if partial_text.is_empty() {
             return Vec::new();
         }
-        
+
         // Hardcoded list of Unity UI tags for now
         let unity_tags = vec!["Button", "Label", "Slider", "Dropdown"];
-        
+
         unity_tags
             .into_iter()
-            .filter(|tag_name| {
-                tag_name.to_lowercase().starts_with(&partial_text)
-            })
+            .filter(|tag_name| tag_name.to_lowercase().starts_with(&partial_text))
             .map(|tag_name| {
                 CompletionItem {
                     label: tag_name.to_string(),
@@ -649,25 +660,32 @@ impl UssCompletionProvider {
     }
 
     /// Extract partial selector text (without the prefix character)
-    fn extract_partial_selector_text(&self, current_node: Node, content: &str, prefix: char) -> String {
+    fn extract_partial_selector_text(
+        &self,
+        current_node: Node,
+        content: &str,
+        prefix: char,
+    ) -> String {
         let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
-        
+
         if current_node.kind() == NODE_CLASS_NAME || current_node.kind() == NODE_ID_NAME {
             // We're in the name part of the selector
             return node_text.to_string();
         }
-        
+
         if current_node.kind() == NODE_ERROR && node_text.starts_with(prefix) {
             // We're in an incomplete selector, extract the part after the prefix
             return node_text.chars().skip(1).collect();
         }
-        
+
         // Handle case where we're directly on the prefix token
-        if (current_node.kind() == "." && prefix == '.') || (current_node.kind() == "#" && prefix == '#') {
+        if (current_node.kind() == "." && prefix == '.')
+            || (current_node.kind() == "#" && prefix == '#')
+        {
             // Just typed the prefix, return empty string to show all completions
             return String::new();
         }
-        
+
         String::new()
     }
 
@@ -699,19 +717,23 @@ impl UssCompletionProvider {
             NODE_IMPORT_STATEMENT,
         ) {
             // First check if we're inside a url() function within the import
-            if let Some(url_context) = self.analyze_url_function_context(current_node, content, position) {
+            if let Some(url_context) =
+                self.analyze_url_function_context(current_node, content, position)
+            {
                 return Some(url_context);
             }
-            
+
             // Check if we're inside a string node (direct import path)
             if current_node.kind() == NODE_STRING_VALUE {
                 // Ensure the string node is a direct child of the import statement
                 if let Some(parent) = current_node.parent() {
                     if parent.kind() == NODE_IMPORT_STATEMENT {
                         // Use the safer string extraction method
-                        if let Some((url_string, cursor_offset)) = self.extract_url_string_from_current_node(current_node, content, position) {
+                        if let Some((url_string, cursor_offset)) = self
+                            .extract_url_string_from_current_node(current_node, content, position)
+                        {
                             return Some(CompletionContext {
-                                t: CompletionType::UrlFunction {
+                                t: CompletionType::UrlString {
                                     url_string,
                                     cursor_position: cursor_offset,
                                 },
@@ -723,7 +745,7 @@ impl UssCompletionProvider {
                 }
             }
         }
-        
+
         None
     }
 
@@ -738,16 +760,18 @@ impl UssCompletionProvider {
         if current_node.kind() != NODE_STRING_VALUE {
             return None;
         }
-        
+
         // Validate the hierarchy: string_node -> arguments -> call_expression (url function)
         if !self.is_string_in_url_function_arguments(current_node, content) {
             return None;
         }
-        
+
         // Extract URL string and cursor position from the current string node
-        if let Some((url_string, cursor_pos)) = self.extract_url_string_from_current_node(current_node, content, position) {
+        if let Some((url_string, cursor_pos)) =
+            self.extract_url_string_from_current_node(current_node, content, position)
+        {
             return Some(CompletionContext {
-                t: CompletionType::UrlFunction {
+                t: CompletionType::UrlString {
                     url_string,
                     cursor_position: cursor_pos,
                 },
@@ -755,10 +779,10 @@ impl UssCompletionProvider {
                 position,
             });
         }
-        
+
         None
     }
-    
+
     /// Extract URL string and cursor position from the current string node
     fn extract_url_string_from_current_node(
         &self,
@@ -767,21 +791,22 @@ impl UssCompletionProvider {
         position: Position,
     ) -> Option<(String, usize)> {
         let string_content = string_node.utf8_text(content.as_bytes()).unwrap_or("");
-        
+
         // Check if string has proper quotes and extract content safely
         let url_string = if string_content.len() >= 2 {
             let first_char = string_content.chars().next()?;
             let last_char = string_content.chars().last()?;
-            
+
             // Verify the string starts and ends with matching quotes
-            if (first_char == '"' && last_char == '"') || (first_char == '\'' && last_char == '\'') {
-                let inner_content = &string_content[1..string_content.len()-1];
-                
+            if (first_char == '"' && last_char == '"') || (first_char == '\'' && last_char == '\'')
+            {
+                let inner_content = &string_content[1..string_content.len() - 1];
+
                 // Don't provide completions if the string contains backslashes (escape sequences)
                 if inner_content.contains('\\') {
                     return None;
                 }
-                
+
                 inner_content.to_string()
             } else {
                 // Malformed string, don't provide completions
@@ -791,12 +816,13 @@ impl UssCompletionProvider {
             // String too short to have quotes, don't provide completions
             return None;
         };
-        
+
         // Calculate cursor position within the URL string
         let string_start = string_node.start_position();
-        
+
         let cursor_offset = if position.line as usize == string_start.row {
-            if position.character as usize > string_start.column + 1 { // +1 for opening quote
+            if position.character as usize > string_start.column + 1 {
+                // +1 for opening quote
                 position.character as usize - string_start.column - 1
             } else {
                 0
@@ -804,10 +830,10 @@ impl UssCompletionProvider {
         } else {
             0
         };
-        
+
         Some((url_string, cursor_offset))
     }
-    
+
     /// Check if the current string node is properly inside URL function arguments
     /// Validates hierarchy: string_node -> arguments -> call_expression (url function)
     fn is_string_in_url_function_arguments(&self, string_node: Node, content: &str) -> bool {
@@ -822,10 +848,12 @@ impl UssCompletionProvider {
             Some(parent) if parent.kind() == NODE_CALL_EXPRESSION => parent,
             _ => return false,
         };
-        
+
         // Check if the call_expression is a URL function
         if let Some(function_name_node) = call_expression_node.child(0) {
-            let function_name = function_name_node.utf8_text(content.as_bytes()).unwrap_or("");
+            let function_name = function_name_node
+                .utf8_text(content.as_bytes())
+                .unwrap_or("");
             function_name == "url"
         } else {
             false
@@ -847,10 +875,19 @@ impl UssCompletionProvider {
     }
 
     /// Collect all selectors from the document, separating classes and IDs
-    fn collect_all_selectors_from_document(&self, tree: &Tree, content: &str) -> (HashSet<String>, HashSet<String>) {
+    fn collect_all_selectors_from_document(
+        &self,
+        tree: &Tree,
+        content: &str,
+    ) -> (HashSet<String>, HashSet<String>) {
         let mut class_names = HashSet::new();
         let mut id_names = HashSet::new();
-        self.collect_selectors_recursive(tree.root_node(), content, &mut class_names, &mut id_names);
+        self.collect_selectors_recursive(
+            tree.root_node(),
+            content,
+            &mut class_names,
+            &mut id_names,
+        );
         (class_names, id_names)
     }
 
@@ -874,7 +911,7 @@ impl UssCompletionProvider {
                 }
             }
         }
-        
+
         // Collect ID names that are children of ID selectors
         if node.kind() == NODE_ID_NAME {
             if let Some(parent) = node.parent() {
