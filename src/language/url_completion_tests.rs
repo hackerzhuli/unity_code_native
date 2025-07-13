@@ -1,10 +1,13 @@
 
 use crate::language::url_completion::*;
+use crate::unity_asset_database::UnityAssetDatabase;
 use std::env;
 use std::fs::{self, File};
+use std::io::Write;
 use std::path::Path;
 use tempfile::TempDir;
 use tower_lsp::lsp_types::CompletionItemKind;
+use url::Url;
 
 /// Helper function to get the project root directory for tests
 /// This looks for the Cargo.toml file to determine the project root
@@ -388,6 +391,27 @@ fn test_complete_relative_path_no_dot_prefix() {
         labels.contains(&"background.jpg".to_string()),
         "Should include background.jpg from Images subdirectory"
     );
+}
+
+#[test]
+fn test_no_completion_for_exact_matches() {
+    let project_root = get_project_root();
+    let provider = UrlCompletionProvider::new(&project_root);
+    
+    // Test completion for exact filename "variables.uss" - should not return itself
+    let completions = provider.complete_url("project:/Assets/UI/Styles/variables.uss", "project:/Assets/UI/Styles/variables.uss".len(), None);
+    let exact_match = completions.iter().find(|c| c.label == "variables.uss");
+    assert!(exact_match.is_none(), "Should not return exact match 'variables.uss' in completion");
+    
+    // Test completion for exact directory name "Components" - should not return itself
+    let completions = provider.complete_url("project:/Assets/UI/Components", "project:/Assets/UI/Components".len(), None);
+    let exact_match = completions.iter().find(|c| c.label == "Components");
+    assert!(exact_match.is_none(), "Should not return exact match 'Components' in completion");
+    
+    // Test case-insensitive exact match
+    let completions = provider.complete_url("project:/Assets/UI/Styles/VARIABLES.USS", "project:/Assets/UI/Styles/VARIABLES.USS".len(), None);
+    let exact_match = completions.iter().find(|c| c.label.to_lowercase() == "variables.uss");
+    assert!(exact_match.is_none(), "Should not return case-insensitive exact match");
 }
 
 /// URL completer that uses the real Unity asset database

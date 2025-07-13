@@ -492,8 +492,12 @@ impl UrlCompletionProvider {
                             }
                         }
                         
-                        // Filter by prefix (case-insensitive)
-                        if filename_prefix.is_empty() || file_name_str.to_lowercase().starts_with(&filename_prefix.to_lowercase()) {
+                        // Filter by prefix (case-insensitive) but exclude exact matches
+                        let filename_lower = file_name_str.to_lowercase();
+                        let prefix_lower = filename_prefix.to_lowercase();
+                        
+                        if (filename_prefix.is_empty() || filename_lower.starts_with(&prefix_lower)) && 
+                           filename_lower != prefix_lower {
                             let is_directory = entry.path().is_dir();
                             log::debug!("Adding entry: '{}' ({})", file_name_str, if is_directory { "directory" } else { "file" });
                             entries.push(DirectoryEntry {
