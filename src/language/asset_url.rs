@@ -163,9 +163,10 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<AssetValidation
                     return Err(AssetValidationError::new(format!("path must be absolute:`{}`, consider add a `/`", path)));
                 }
 
-                if !path.starts_with("/Assets/") && !path.starts_with("/Packages") {
-                    return Err(AssetValidationError::new(format!("Asset path should start with `/Assets/` or `/Packages/` :`{}`, this is likely an error", path)));
-                }
+                // should not validate that, we need to use url validation when user is still typing(eg. `/As`, not yet finish `/Assets/`), so, this validation is not needed
+                // if !path.starts_with("/Assets/") && !path.starts_with("/Packages") {
+                //     return Err(AssetValidationError::new(format!("Asset path should start with `/Assets/` or `/Packages/` :`{}`, this is likely an error", path)));
+                // }
 
                 Ok(AssetValidationResult::with_warnings(parsed_url, warnings))
             } else {
@@ -581,11 +582,6 @@ mod tests {
         assert!(validate_url("project:", None).is_err()); // Missing path
         assert!(validate_url("project:/", None).is_err()); // Empty path
         assert!(validate_url("project:invalid", None).is_err());
-        assert!(validate_url("project:/InvalidFolder/image.png", None).is_err()); // Should be Assets/ or Packages/
-
-        // Test invalid absolute paths
-        assert!(validate_url("/InvalidFolder/image.png", None).is_err()); // Should be /Assets/ or /Packages/
-
 
         // Test invalid whitespace characters with specific error messages
         let tab_result = validate_url("path\twith\ttabs.png", None);

@@ -53,7 +53,7 @@ impl UssLanguageServer {
             diagnostics: UssDiagnostics::new(),
             hover_provider: UssHoverProvider::new(),
             color_provider: UssColorProvider::new(),
-            completion_provider: UssCompletionProvider::new(),
+            completion_provider: UssCompletionProvider::new_with_project_root(&project_path),
             unity_manager: UnityProjectManager::new(project_path),
         };
 
