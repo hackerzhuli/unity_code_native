@@ -174,6 +174,14 @@ impl UnityAssetDatabase {
         }
     }
 
+    /// Gets the project root path
+    ///
+    /// # Returns
+    /// The absolute file system path to the Unity project root directory
+    pub fn project_root(&self) -> &Path {
+        &self.project_root
+    }
+
     /// Gets basic asset information (GUID) for any asset
     ///
     /// # Arguments

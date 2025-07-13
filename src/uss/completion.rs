@@ -9,10 +9,12 @@ use tree_sitter::{Node, Tree};
 use url::Url;
 
 use crate::language::tree_utils::{find_node_at_position, find_node_of_type_at_position};
+use crate::language::url_completion::UrlCompletionProvider;
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::constants::*;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value_spec::{ValueFormat, ValueType};
+use crate::uss::url_function_node::UrlFunctionNode;
 
 // Import additional constants for selector completion
 use crate::uss::constants::{NODE_CLASS_SELECTOR, NODE_CLASS_NAME, NODE_ID_SELECTOR, NODE_ID_NAME};
@@ -20,6 +22,7 @@ use crate::uss::constants::{NODE_CLASS_SELECTOR, NODE_CLASS_NAME, NODE_ID_SELECT
 /// USS completion provider
 pub struct UssCompletionProvider {
     pub(crate) definitions: UssDefinitions,
+    url_completion_provider: Option<UrlCompletionProvider>,
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +51,13 @@ pub(super) enum CompletionType {
     TagSelector,
     /// Completing inside function arguments
     FunctionArgument,
+    /// Completing URL inside url() or resource() function
+    UrlFunction {
+        /// The partial URL string being typed
+        url_string: String,
+        /// The cursor position within the URL string
+        cursor_position: usize,
+    },
     /// Unknown context
     Unknown,
 }
@@ -57,6 +67,15 @@ impl UssCompletionProvider {
     pub fn new() -> Self {
         Self {
             definitions: UssDefinitions::new(),
+            url_completion_provider: None,
+        }
+    }
+
+    /// Create a new USS completion provider with URL completion support
+    pub fn new_with_project_root(project_root: &std::path::Path) -> Self {
+        Self {
+            definitions: UssDefinitions::new(),
+            url_completion_provider: Some(UrlCompletionProvider::new(project_root)),
         }
     }
 
@@ -98,6 +117,10 @@ impl UssCompletionProvider {
                 CompletionType::TagSelector => {
                     log::info!("Tag selector completion");
                     self.complete_tag_selectors(tree, content, current_node)
+                }
+                CompletionType::UrlFunction { url_string, cursor_position } => {
+                    log::info!("URL function completion");
+                    self.complete_url_function(&url_string, cursor_position, _source_url)
                 }
                 _ => {
                     log::info!("No completion context matched");
@@ -196,6 +219,11 @@ impl UssCompletionProvider {
                         current_node: Some(current_node),
                         position,
                     };
+                }
+                
+                // Check if we're inside a URL function
+                if let Some(url_context) = self.analyze_url_function_context(current_node, content, position) {
+                    return url_context;
                 }
                 
                 let property_name = property_name_node
@@ -653,6 +681,102 @@ impl UssCompletionProvider {
     fn extract_id_selectors_from_document(&self, tree: &Tree, content: &str) -> Vec<String> {
         let (_, id_names) = self.collect_all_selectors_from_document(tree, content);
         id_names.into_iter().collect()
+    }
+
+    /// Analyze if we're inside a URL function and return appropriate context
+    fn analyze_url_function_context<'a>(
+        &self,
+        current_node: Node<'a>,
+        content: &str,
+        position: Position,
+    ) -> Option<CompletionContext<'a>> {
+        // Walk up the tree to find if we're inside a url() or resource() function
+        let mut node = current_node;
+        loop {
+            // Check if current node is a URL function
+            if node.kind() == "call_expression" {
+                if let Some(function_name_node) = node.child(0) {
+                    let function_name = function_name_node.utf8_text(content.as_bytes()).unwrap_or("");
+                    if function_name == "url" || function_name == "resource" {
+                        // We're inside a URL function, extract the URL string and cursor position
+                        if let Some((url_string, cursor_pos)) = self.extract_url_string_and_position(node, content, position) {
+                            return Some(CompletionContext {
+                                t: CompletionType::UrlFunction {
+                                    url_string,
+                                    cursor_position: cursor_pos,
+                                },
+                                current_node: Some(current_node),
+                                position,
+                            });
+                        }
+                    }
+                }
+            }
+            
+            // Move to parent node
+            if let Some(parent) = node.parent() {
+                node = parent;
+            } else {
+                break;
+            }
+        }
+        
+        None
+    }
+    
+    /// Extract URL string and cursor position within the URL function
+    fn extract_url_string_and_position(
+        &self,
+        url_function_node: Node,
+        content: &str,
+        position: Position,
+    ) -> Option<(String, usize)> {
+        // Find the string argument inside the URL function
+        for child in url_function_node.children(&mut url_function_node.walk()) {
+            if child.kind() == "arguments" {
+                for arg_child in child.children(&mut child.walk()) {
+                    if arg_child.kind() == "string_value" {
+                        let string_content = arg_child.utf8_text(content.as_bytes()).unwrap_or("");
+                        // Remove quotes from the string
+                        let url_string = if string_content.len() >= 2 {
+                            string_content[1..string_content.len()-1].to_string()
+                        } else {
+                            string_content.to_string()
+                        };
+                        
+                        // Calculate cursor position within the URL string
+                        let string_start = arg_child.start_position();
+                        let cursor_offset = if position.line as usize == string_start.row {
+                            if position.character as usize > string_start.column + 1 { // +1 for opening quote
+                                (position.character as usize - string_start.column - 1)
+                            } else {
+                                0
+                            }
+                        } else {
+                            0
+                        };
+                        
+                        return Some((url_string, cursor_offset));
+                    }
+                }
+            }
+        }
+        
+        None
+    }
+
+    /// Complete URL function arguments
+    fn complete_url_function(
+        &self,
+        url_string: &str,
+        cursor_position: usize,
+        source_url: Option<&url::Url>,
+    ) -> Vec<CompletionItem> {
+        if let Some(provider) = &self.url_completion_provider {
+            provider.complete_url(url_string, cursor_position, source_url)
+        } else {
+            Vec::new()
+        }
     }
 
     /// Collect all selectors from the document, separating classes and IDs

@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements">
+    <Style src="project:/Assets/UI/Styles/main.uss" />
+    <ui:VisualElement class="container">
+        <ui:Button text="Click Me" class="primary-button" />
+        <ui:Label text="Hello World" class="label" />
+    </ui:VisualElement>
+</ui:UXML>

@@ -2,6 +2,7 @@ mod logging;
 mod monitor;
 mod server;
 mod unity_project_manager;
+mod unity_asset_database;
 mod uss;
 mod language;
 

@@ -1,0 +1,9 @@
+.button {
+    background-color: blue;
+    color: white;
+}
+
+.label {
+    font-size: 14px;
+    color: black;
+}
