@@ -7,10 +7,10 @@ TODO list:
 - [ ] Let our uss file and tss file use the same icon as css file in vs code
 - [ ] Format document and format selection(both uss and tss), try to figure out a way to use exising css format ability in VS Code or what ever that can avoid to do it ourselves, because format is the same for uss as css
 - [ ] Basic refactor feature to rename id selectors and class selector in a uss file
-- [ ] Add auto completion to actual VisualElement types
+- [x] Add auto completion to actual VisualElement types
 - [x] Add url argument auto completion(in which case we should detect what is actually on the filesytem to help user type faster, also we should add query string to includ guid file id and such to make the url complete)(for query parameters, we may not be able to do it perfectly because in the case of sprites, we may not be able to show user the sprites inside of the file)
 - [ ] Add auto completion for @import when user just typed an @ , we assume they typing an import statement, and give user a basic structure complete with quotes and semicolon. Give completion items to show a relative path or a absolute path or with project scheme.   If possible put cursor before closing quote so user can keep typing the path.
-- [ ] Add Auto completion for pseudo classes
+- [x] Add Auto completion for pseudo classes
 - [ ] Make sure our hover will cover everything that needs some docs, including pseudo classes!
 - [ ] Add a warning for duplicate property in same block, that is probably a mistake
 
