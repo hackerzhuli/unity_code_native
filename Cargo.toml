@@ -3,6 +3,10 @@ name = "unity_code_native"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "unity_code_native"
+path = "src/lib.rs"
+
 [[bin]]
 name = "unity_code_native"
 path = "src/main.rs"
@@ -23,6 +27,7 @@ dirs = "5.0"
 thiserror = "1.0"
 url = "2.5"
 urlencoding = "2.1.3"
+quick-xml = "0.31"
 
 [dev-dependencies]
 tempfile = "3.0"

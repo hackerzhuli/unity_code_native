@@ -24,3 +24,8 @@ pub fn get_project_root() -> PathBuf {
         }
     }
 }
+
+/// Helper function to get the UIElementsSchema directory path
+pub fn get_ui_elements_schema_dir() -> PathBuf {
+    get_project_root().join("UIElementsSchema")
+}

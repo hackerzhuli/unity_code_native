@@ -3,6 +3,7 @@ mod monitor;
 mod server;
 mod unity_project_manager;
 mod unity_asset_database;
+pub mod uxml_schema_manager;
 mod uss;
 mod language;
 mod test_utils;
