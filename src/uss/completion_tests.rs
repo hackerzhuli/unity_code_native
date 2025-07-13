@@ -226,9 +226,12 @@ fn test_no_pseudo_class_completion_in_property_value() {
     // Should not have pseudo-class completions (should have color value completions instead)
     let pseudo_class_completions: Vec<_> = completions
         .iter()
-        .filter(|c| c.kind == Some(CompletionItemKind::KEYWORD) && c.detail == Some("Pseudo-class".to_string()))
+        .filter(|c| {
+            c.kind == Some(CompletionItemKind::KEYWORD)
+                && c.detail == Some("Pseudo-class".to_string())
+        })
         .collect();
-    
+
     assert!(
         pseudo_class_completions.is_empty(),
         "Should not provide pseudo-class completions in property value context"
@@ -1200,7 +1203,6 @@ fn test_url_completion_in_import_statement() {
     );
 }
 
-
 #[test]
 fn test_url_completion_in_import_statement_with_url_function() {
     let mut parser = UssParser::new().unwrap();
@@ -1241,7 +1243,6 @@ fn test_url_completion_in_import_statement_with_url_function() {
         "Should include MainWindow.uxml file"
     );
 }
-
 
 #[test]
 fn test_url_completion_uss_files() {

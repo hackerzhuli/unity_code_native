@@ -17,7 +17,9 @@ use crate::uss::value_spec::ValueType;
 use crate::uxml_schema_manager::UxmlSchemaManager;
 
 // Import additional constants for selector completion
-use crate::uss::constants::{NODE_CLASS_NAME, NODE_CLASS_SELECTOR, NODE_ID_NAME, NODE_ID_SELECTOR, NODE_TAG_NAME};
+use crate::uss::constants::{
+    NODE_CLASS_NAME, NODE_CLASS_SELECTOR, NODE_ID_NAME, NODE_ID_SELECTOR, NODE_TAG_NAME,
+};
 
 /// USS completion provider
 pub struct UssCompletionProvider {
@@ -74,7 +76,9 @@ impl UssCompletionProvider {
         Self {
             definitions: UssDefinitions::new(),
             url_completion_provider: Some(UrlCompletionProvider::new(project_root)),
-            uxml_schema_manager: Some(UxmlSchemaManager::new(project_root.join("UIElementsSchema"))),
+            uxml_schema_manager: Some(UxmlSchemaManager::new(
+                project_root.join("UIElementsSchema"),
+            )),
         }
     }
 
@@ -90,45 +94,31 @@ impl UssCompletionProvider {
     ) -> Vec<CompletionItem> {
         let context = self.get_completion_context(tree, content, position);
 
-        // Debug logging
-        log::info!("Completion context: {:?}", context);
-
         if let Some(current_node) = context.current_node {
             match context.t {
                 CompletionType::PropertyValue { property_name } => {
                     self.complete_property_value(&property_name, current_node, content)
                 }
                 CompletionType::Property => {
-                    log::info!("Property name completion");
                     self.complete_property_names(context.current_node, content)
                 }
                 CompletionType::PseudoClass => {
-                    println!("Pseudo classes completion");
                     self.complete_pseudo_classes_with_filter(current_node, content)
                 }
                 CompletionType::ClassSelector => {
-                    log::info!("Class selector completion");
                     self.complete_class_selectors(tree, content, current_node)
                 }
                 CompletionType::IdSelector => {
-                    log::info!("ID selector completion");
                     self.complete_id_selectors(tree, content, current_node)
                 }
                 CompletionType::TagSelector => {
-                    log::info!("Tag selector completion");
                     self.complete_tag_selectors(current_node, content, uxml_schema_manager)
                 }
                 CompletionType::UrlString {
                     url_string,
                     cursor_position,
-                } => {
-                    log::info!("URL function completion");
-                    self.complete_url_function(&url_string, cursor_position, source_url)
-                }
-                _ => {
-                    log::info!("No completion context matched");
-                    Vec::new()
-                }
+                } => self.complete_url_function(&url_string, cursor_position, source_url),
+                _ => Vec::new(),
             }
         } else {
             Vec::new()
@@ -271,13 +261,6 @@ impl UssCompletionProvider {
         // 1. If current node is colon, show all common values
         // 2. If current node is the first value node after property and the property is keyword-only or is color, we try to show a list of keywords that still matches what is already in the node
 
-        log::info!(
-            "Current node is of type {} with content {} and parent is of type {}",
-            current_node.kind(),
-            current_node.utf8_text(content.as_bytes()).unwrap_or(""),
-            current_node.parent().unwrap().kind()
-        );
-
         if current_node.kind() == NODE_COLON {
             // Right after colon - show all common values
             return self.get_all_common_values_for_property(property_name);
@@ -294,12 +277,6 @@ impl UssCompletionProvider {
                 }
             }
         }
-
-        log::info!(
-            "Are we at first node after colon for property {} ? {}",
-            property_name,
-            is_first_value_node
-        );
 
         if !is_first_value_node {
             return Vec::new();
@@ -477,9 +454,13 @@ impl UssCompletionProvider {
     }
 
     /// Complete pseudo-classes with partial matching
-    fn complete_pseudo_classes_with_filter(&self, current_node: Node, content: &str) -> Vec<CompletionItem> {
+    fn complete_pseudo_classes_with_filter(
+        &self,
+        current_node: Node,
+        content: &str,
+    ) -> Vec<CompletionItem> {
         let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
-        
+
         // If current node is a colon, we want to show all pseudo-classes
         // If current node is a class_name (partial pseudo-class), filter by that text
         let partial_text = if current_node.kind() == NODE_COLON {
@@ -496,7 +477,7 @@ impl UssCompletionProvider {
         for pseudo_class in &self.definitions.valid_pseudo_classes {
             // Remove the leading ':' since it's already typed
             let label = pseudo_class.strip_prefix(':').unwrap_or(pseudo_class);
-            
+
             // Filter based on partial text
             if partial_text.is_empty() || label.to_lowercase().starts_with(&partial_text) {
                 items.push(CompletionItem {
@@ -571,25 +552,26 @@ impl UssCompletionProvider {
         if current_node.kind() == NODE_ATTRIBUTE_NAME {
             if let Some(parent) = current_node.parent() {
                 if parent.kind() == NODE_ERROR {
-                     // Check if there's a colon and selector before this attribute_name
-                     // For pseudo-class, we expect: selector -> colon -> attribute_name
-                     if let Some(prev_sibling) = current_node.prev_sibling() {
-                         if prev_sibling.kind() == NODE_COLON {
-                             // Found colon, now check if there's a selector before the colon
-                             if let Some(prev_prev_sibling) = prev_sibling.prev_sibling() {
-                                 if prev_prev_sibling.kind() == NODE_CLASS_SELECTOR || 
-                                    prev_prev_sibling.kind() == NODE_ID_SELECTOR || 
-                                    prev_prev_sibling.kind() == NODE_TAG_NAME {
-                                     return Some(CompletionContext {
-                                         t: CompletionType::PseudoClass,
-                                         current_node: Some(current_node),
-                                         position,
-                                     });
-                                 }
-                             }
-                         }
-                     }
-                    
+                    // Check if there's a colon and selector before this attribute_name
+                    // For pseudo-class, we expect: selector -> colon -> attribute_name
+                    if let Some(prev_sibling) = current_node.prev_sibling() {
+                        if prev_sibling.kind() == NODE_COLON {
+                            // Found colon, now check if there's a selector before the colon
+                            if let Some(prev_prev_sibling) = prev_sibling.prev_sibling() {
+                                if prev_prev_sibling.kind() == NODE_CLASS_SELECTOR
+                                    || prev_prev_sibling.kind() == NODE_ID_SELECTOR
+                                    || prev_prev_sibling.kind() == NODE_TAG_NAME
+                                {
+                                    return Some(CompletionContext {
+                                        t: CompletionType::PseudoClass,
+                                        current_node: Some(current_node),
+                                        position,
+                                    });
+                                }
+                            }
+                        }
+                    }
+
                     // Otherwise, it's a partial tag name
                     return Some(CompletionContext {
                         t: CompletionType::TagSelector,
@@ -626,9 +608,10 @@ impl UssCompletionProvider {
                 if parent.kind() == NODE_ERROR {
                     // Check previous sibling - pseudo-class must come after a selector
                     if let Some(prev_sibling) = current_node.prev_sibling() {
-                        if prev_sibling.kind() == NODE_CLASS_SELECTOR || 
-                           prev_sibling.kind() == NODE_ID_SELECTOR || 
-                           prev_sibling.kind() == NODE_TAG_NAME {
+                        if prev_sibling.kind() == NODE_CLASS_SELECTOR
+                            || prev_sibling.kind() == NODE_ID_SELECTOR
+                            || prev_sibling.kind() == NODE_TAG_NAME
+                        {
                             return Some(CompletionContext {
                                 t: CompletionType::PseudoClass,
                                 current_node: Some(current_node),
@@ -729,14 +712,17 @@ impl UssCompletionProvider {
         if let Some(manager) = uxml_schema_manager {
             // Use real schema data from UxmlSchemaManager
             let all_elements = manager.get_all_elements();
-            
+
             for element_info in all_elements {
                 // Use the simple name for completion (without namespace)
                 if element_info.name.to_lowercase().starts_with(&partial_text) {
                     items.push(CompletionItem {
                         label: element_info.name.clone(),
                         kind: Some(CompletionItemKind::CLASS),
-                        detail: Some(format!("UXML Element: {}", element_info.fully_qualified_name)),
+                        detail: Some(format!(
+                            "UXML Element: {}",
+                            element_info.fully_qualified_name
+                        )),
                         insert_text: Some(element_info.name.clone()),
                         insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
                         documentation: Some(Documentation::MarkupContent(MarkupContent {
@@ -753,7 +739,7 @@ impl UssCompletionProvider {
         } else {
             // Fallback to hardcoded list if schema manager is not available
             let unity_tags = vec!["Button", "Label", "Slider", "Dropdown"];
-            
+
             for tag_name in unity_tags {
                 if tag_name.to_lowercase().starts_with(&partial_text) {
                     items.push(CompletionItem {
