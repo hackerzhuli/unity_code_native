@@ -173,16 +173,25 @@ impl UssLanguageServer {
                 // Handle project:// URLs manually since to_file_path() doesn't work with custom schemes
                 if url_ref.url.scheme() == PROJECT_SCHEME {
                     if let Some(full_path) = project_url_to_path(&project_root, &url_ref.url) {
-                        // Check if the asset file exists
-                        if !full_path.exists() {
-                            asset_diagnostics.push(Diagnostic {
-                                range: url_ref.range,
-                                severity: Some(DiagnosticSeverity::WARNING),
-                                code: Some(NumberOrString::String("asset-not-found".to_string())),
-                                source: Some("uss".to_string()),
-                                message: format!("Asset doesn't exist on path: {}", full_path.display()),
-                                ..Default::default()
-                            });
+                        // Check if the asset file exists using try_exists for better error handling
+                        match full_path.try_exists() {
+                            Ok(false) => {
+                                asset_diagnostics.push(Diagnostic {
+                                    range: url_ref.range,
+                                    severity: Some(DiagnosticSeverity::WARNING),
+                                    code: Some(NumberOrString::String("asset-not-found".to_string())),
+                                    source: Some("uss".to_string()),
+                                    message: format!("Asset doesn't exist on path: {}", full_path.display()),
+                                    ..Default::default()
+                                });
+                            }
+                            Err(e) => {
+                                // Log the error but don't create a diagnostic for permission/access issues
+                                log::debug!("Cannot check asset existence for {}: {}", full_path.display(), e);
+                            }
+                            Ok(true) => {
+                                // File exists, no diagnostic needed
+                            }
                         }
                     }
                 }
