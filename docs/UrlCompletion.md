@@ -25,7 +25,27 @@ for uxml url is for importing stylesheets, example:
 ## Some basic rules
 Urls can be written as an absolute path, either full with `project` scheme or start with `/` that is absolute path.
 
-Otherwise it is an relative path, relative to the source file this url is from.
+Otherwise it is a relative path, relative to the source file this url is from. Relative paths are fully supported and can use standard relative path notation:
+- `../` to navigate to parent directory
+- `./` to reference current directory
+- Multiple `../` can be chained (e.g., `../../`) to navigate multiple levels up
+- Direct filename or directory name (e.g., `components.uss`, `subfolder/file.png`) - relative to current directory
+
+### Relative Path Examples
+```uss
+/* From Assets/UI/Styles/main.uss, reference a file in Assets/UI/ */
+@import "../components.uss";
+
+/* From Assets/UI/Styles/main.uss, reference a file in Assets/Resources/ */
+background-image: url("../../Resources/background.png");
+
+/* From Assets/UI/main.uss, reference a file in the same directory */
+@import "./variables.uss";
+@import "variables.uss"; /* Same as above - no dot prefix needed */
+
+/* From Assets/UI/main.uss, reference a file in a subdirectory */
+background-image: url("Images/icon.png");
+```
 
 ## Limitation
 Our auto completion feature should support both languages, uss and uxml as their url syntax is the same.
@@ -40,9 +60,11 @@ Also, the string must be quoted, otherwise we don't support autocompletion. eg. 
 ## Completion Logic for path part of url
 Once we only deal with pure url that is quoted, without escape sequences(backslash based), we can write a general url completion that works for both languages.
 
-The specific completion logic is, when user is typing scheme or aurthority, we don't do auto completion, our main focus is the path portion of the url.
+The specific completion logic is, when user is typing scheme or authority, we don't do auto completion, our main focus is the path portion of the url.
 
-After user type a `/` (with or without a scheme) in the path part, we start doing auto completion. we will look at what is inside of the directory and give user a list of all of the items, including directories and files(but ignore `.meta` files). as user type more characters that is not `/`, we narrow down the list to what matches.
+After user type a `/` (with or without a scheme) in the path part, we start doing auto completion. For relative paths, completion also works after typing `../` or `./`. We will look at what is inside of the target directory and give user a list of all of the items, including directories and files(but ignore `.meta` files). As user type more characters that is not `/`, we narrow down the list to what matches.
+
+Relative path completion resolves the target directory based on the current file's location and the relative path components, then provides completions for that resolved directory.
 
 ## Completion logic for query and fragment part of url
 urls actually allow query that will allow user to specify asset guid and fileId, etc, which will make the url more robust, because even if user moved a file, the guid/fileId will still be valid. So nothing will break.

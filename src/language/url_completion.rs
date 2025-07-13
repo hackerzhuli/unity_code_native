@@ -197,9 +197,9 @@ impl UrlCompletionProvider {
     ) -> Result<Vec<CompletionItem>, UrlCompletionError> {
         log::debug!("Starting path completion for: '{}' with base_url: {:?}", partial_path, base_url);
         
-        // Only provide completion after a '/' character
-        if !partial_path.contains('/') {
-            log::debug!("No '/' found in partial path, returning empty completion");
+        // Only provide completion after a '/' character OR for relative paths with base_url
+        if !partial_path.contains('/') && base_url.is_none() {
+            log::debug!("No '/' found in partial path and no base_url, returning empty completion");
             return Ok(Vec::new());
         }
 
@@ -337,6 +337,25 @@ impl UrlCompletionProvider {
         base_url: Option<&Url>,
     ) -> Result<(PathBuf, String), UrlCompletionError> {
         log::debug!("Extracting directory and prefix from partial_path: '{}'", partial_path);
+        
+        // Special case: if partial_path has no slash and we have a base_url,
+        // treat the entire partial_path as a filename prefix in the base_url's directory
+        if !partial_path.contains('/') && base_url.is_some() {
+            log::debug!("No slash in partial path, treating as filename prefix in base directory");
+            let base = base_url.unwrap();
+            let project_root = self.asset_database.project_root();
+            
+            // Get the directory from the base URL
+            if let Some(base_path) = project_url_to_path(project_root, base) {
+                let base_dir = if base_path.is_dir() {
+                    base_path
+                } else {
+                    base_path.parent().unwrap_or(project_root).to_path_buf()
+                };
+                log::debug!("Using base directory: {}", base_dir.display());
+                return Ok((base_dir, partial_path.to_string()));
+            }
+        }
         
         // Parse the partial path as a URL to resolve relative paths
         let resolved_url = match validate_url(partial_path, base_url) {
