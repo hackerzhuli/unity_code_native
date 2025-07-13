@@ -51,7 +51,7 @@ pub const NODE_ARGUMENTS: &str = "arguments";
 // Selector types
 /// USS class selector (e.g., `.my-class`)
 pub const NODE_CLASS_SELECTOR: &str = "class_selector";
-/// Name part of a class selector (e.g., `my-class` in `.my-class`)
+/// Name part of a class selector or a pseudo class selector (e.g., `my-class` in `.my-class` or `hover` in `.my-class:hover`)
 pub const NODE_CLASS_NAME: &str = "class_name";
 /// USS ID selector (e.g., `#my-id`)
 pub const NODE_ID_SELECTOR: &str = "id_selector";
@@ -59,7 +59,7 @@ pub const NODE_ID_SELECTOR: &str = "id_selector";
 pub const NODE_ID_NAME: &str = "id_name";
 /// HTML/Unity UI element tag name (e.g., `Button`, `Label`)
 pub const NODE_TAG_NAME: &str = "tag_name";
-/// USS pseudo-class selector (e.g., `:hover`, `:active`)
+/// USS pseudo-class selector (e.g., `.my-class:hover`, `.my-class:active`), note this is the full selector including everything and the pseudo class part as the last child
 pub const NODE_PSEUDO_CLASS_SELECTOR: &str = "pseudo_class_selector";
 
 // At-rules

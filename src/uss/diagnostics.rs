@@ -5,8 +5,8 @@
 
 use crate::language::asset_url::validate_url;
 use crate::language::tree_utils::{byte_to_position, node_to_range};
-use crate::uss::definitions::UssDefinitions;
 use crate::uss::constants::*;
+use crate::uss::definitions::UssDefinitions;
 use crate::uss::import_node::ImportNode;
 use crate::uss::tree_printer;
 use crate::uss::url_function_node::{UrlFunctionNode, UrlReference};
@@ -633,8 +633,13 @@ impl UssDiagnostics {
         url_references: &mut Vec<UrlReference>,
     ) {
         // Try to parse as UrlFunctionNode - this handles function name checking and argument extraction
-        if let Some(url_function_node) = UrlFunctionNode::from_node(node, content, Some(diagnostics), source_url, Some(url_references)) {
-
+        if let Some(url_function_node) = UrlFunctionNode::from_node(
+            node,
+            content,
+            Some(diagnostics),
+            source_url,
+            Some(url_references),
+        ) {
             // Validate the URL and add to references
             match validate_url(url_function_node.url(), source_url) {
                 Ok(validation_result) => {
@@ -661,13 +666,13 @@ impl UssDiagnostics {
 
     /// Validate pseudo-class selector
     fn validate_pseudo_class(&self, node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
-        let pseudo_class = node.utf8_text(content.as_bytes()).unwrap_or("");
+        let node_text = node.utf8_text(content.as_bytes()).unwrap_or("");
 
         // Check if this "pseudo-class" is actually a missing semicolon case
         // Pattern: property-name:value (e.g., "border-radius:10px")
-        if let Some(colon_pos) = pseudo_class.find(':') {
-            let property_part = &pseudo_class[..colon_pos];
-            let value_part = &pseudo_class[colon_pos + 1..];
+        if let Some(colon_pos) = node_text.find(':') {
+            let property_part = &node_text[..colon_pos];
+            let value_part = &node_text[colon_pos + 1..];
 
             // Check if the part before colon looks like a CSS property name
             if self.is_likely_css_property(property_part) && !value_part.is_empty() {
@@ -685,16 +690,23 @@ impl UssDiagnostics {
             }
         }
 
-        if !self.definitions.is_valid_pseudo_class(pseudo_class) {
-            let range = node_to_range(node, content);
-            diagnostics.push(Diagnostic {
-                range,
-                severity: Some(DiagnosticSeverity::ERROR),
-                code: Some(NumberOrString::String("unknown-pseudo-class".to_string())),
-                source: Some("uss".to_string()),
-                message: format!("Unknown pseudo-class: {}", pseudo_class),
-                ..Default::default()
-            });
+        // the last child is the class name node
+        if let Some(class_name_node) = node.child(node.child_count() - 1) {
+            if class_name_node.kind() == NODE_CLASS_NAME {
+                let pseudo_class = class_name_node.utf8_text(content.as_bytes()).unwrap_or("");
+
+                if !self.definitions.is_valid_pseudo_class(pseudo_class) {
+                    let range = node_to_range(class_name_node, content);
+                    diagnostics.push(Diagnostic {
+                        range,
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        code: Some(NumberOrString::String("unknown-pseudo-class".to_string())),
+                        source: Some("uss".to_string()),
+                        message: format!("Unknown pseudo-class: {}", pseudo_class),
+                        ..Default::default()
+                    });
+                }
+            }
         }
     }
 
@@ -842,9 +854,7 @@ impl UssDiagnostics {
                             }
                         }
                     }
-                    UssValue::Url(url) => {
-                        
-                    }
+                    UssValue::Url(url) => {}
                     _ => {
                         // Import value is neither a string nor a url function
                         let range = node_to_range(value_node, content);

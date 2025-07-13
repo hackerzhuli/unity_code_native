@@ -19,14 +19,14 @@ impl UssHighlighter {
         Self {
             legend: SemanticTokensLegend {
                 token_types: vec![
-                    SemanticTokenType::CLASS,        // 0 - .class-selector
+                    SemanticTokenType::NAMESPACE,    // 0 - .class-selector
                     SemanticTokenType::VARIABLE,     // 1 - #id-selector, CSS variables
-                    SemanticTokenType::TYPE,         // 2 - tag_name (Button, Label)
+                    SemanticTokenType::CLASS,        // 2 - tag_name (Button, Label)
                     SemanticTokenType::PROPERTY,     // 3 - property_name
                     SemanticTokenType::NUMBER,       // 4 - numeric values, colors
                     SemanticTokenType::STRING,       // 5 - string_value
                     SemanticTokenType::COMMENT,      // 6 - comments
-                    SemanticTokenType::MODIFIER,     // 7 - pseudo-class selectors
+                    SemanticTokenType::PARAMETER,    // 7 - pseudo-class selectors
                     SemanticTokenType::KEYWORD,      // 8 - at-rules (@import, @media)
                     SemanticTokenType::FUNCTION,     // 9 - function_name
                 ],
@@ -129,7 +129,7 @@ impl UssHighlighter {
             NODE_STRING_VALUE => (5, 0),   // STRING
             NODE_COLOR_VALUE => (4, 0),    // NUMBER (colors)
             NODE_COMMENT => (6, 0),        // COMMENT
-            NODE_PSEUDO_CLASS_SELECTOR => (7, 0), // MODIFIER
+            //NODE_PSEUDO_CLASS_SELECTOR => (7, 0), // MODIFIER
             NODE_AT_RULE => (8, 0),        // KEYWORD
             NODE_IMPORT_STATEMENT => {
                 // Process children for import statements to highlight parts separately
@@ -160,7 +160,19 @@ impl UssHighlighter {
                 return;
             },
             NODE_FUNCTION_NAME => (9, 0),  // FUNCTION
-            NODE_CLASS_NAME => (0, 0),     // CLASS (for .class-name)
+            NODE_CLASS_NAME =>
+            {
+                if let Some(parent) = node.parent() {
+                    if parent.kind() == NODE_PSEUDO_CLASS_SELECTOR {
+                        // This is a pseudo-class
+                        (7, 0)
+                    }else{
+                        (0, 0)
+                    }
+                }else{
+                    (0, 0)
+                }               
+            }
             NODE_ID_NAME => (1, 0),        // VARIABLE (for #id-name)
             _ => {
                 // Process children for unhandled nodes

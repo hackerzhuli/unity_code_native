@@ -65,11 +65,10 @@ impl UssDefinitions {
             properties.insert(name, prop_info);
         }
 
-        
         let mut valid_pseudo_classes = HashSet::new();
         let pseudo_classes = [
-            ":hover", ":active", ":inactive", ":focus", ":disabled", 
-            ":enabled", ":checked", ":root"
+            "hover", "active", "inactive", "focus", "disabled", 
+            "enabled", "checked", "root"
         ];
         for pseudo in pseudo_classes {
             valid_pseudo_classes.insert(pseudo);

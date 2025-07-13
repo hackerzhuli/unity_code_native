@@ -17,9 +17,7 @@ use crate::uss::value_spec::ValueType;
 use crate::uxml_schema_manager::UxmlSchemaManager;
 
 // Import additional constants for selector completion
-use crate::uss::constants::{
-    NODE_CLASS_NAME, NODE_CLASS_SELECTOR, NODE_ID_NAME, NODE_ID_SELECTOR, NODE_TAG_NAME,
-};
+use crate::uss::constants::*;
 
 /// USS completion provider
 pub struct UssCompletionProvider {
@@ -475,8 +473,7 @@ impl UssCompletionProvider {
         let mut items = Vec::new();
 
         for pseudo_class in &self.definitions.valid_pseudo_classes {
-            // Remove the leading ':' since it's already typed
-            let label = pseudo_class.strip_prefix(':').unwrap_or(pseudo_class);
+            let label = pseudo_class;
             let label_lower = label.to_lowercase();
 
             // Filter based on partial text
