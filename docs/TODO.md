@@ -13,6 +13,7 @@ TODO list:
 - [x] Add Auto completion for pseudo classes
 - [ ] Make sure our hover will cover everything that needs some docs, including pseudo classes!
 - [ ] Add a warning for duplicate property in same block, that is probably a mistake
+- [ ] Add docs when auto completing pseudo classes
 
 TODO for consideration:
 - [ ] (We should do this later, it is complex because it involves Unity Editor) Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy
