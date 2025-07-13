@@ -477,9 +477,21 @@ impl UssCompletionProvider {
         for pseudo_class in &self.definitions.valid_pseudo_classes {
             // Remove the leading ':' since it's already typed
             let label = pseudo_class.strip_prefix(':').unwrap_or(pseudo_class);
+            let label_lower = label.to_lowercase();
 
             // Filter based on partial text
-            if partial_text.is_empty() || label.to_lowercase().starts_with(&partial_text) {
+            if partial_text.is_empty() {
+                // Show all pseudo-classes when just typed ':'
+                items.push(CompletionItem {
+                    label: label.to_string(),
+                    kind: Some(CompletionItemKind::KEYWORD),
+                    detail: Some("Pseudo-class".to_string()),
+                    insert_text: Some(label.to_string()),
+                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                    ..Default::default()
+                });
+            } else if label_lower.starts_with(&partial_text) && label_lower != partial_text {
+                // Only show pseudo-classes that start with partial_text but are not exact matches
                 items.push(CompletionItem {
                     label: label.to_string(),
                     kind: Some(CompletionItemKind::KEYWORD),

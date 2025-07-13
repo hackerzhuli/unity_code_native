@@ -239,6 +239,76 @@ fn test_no_pseudo_class_completion_in_property_value() {
 }
 
 #[test]
+fn test_no_completion_after_complete_pseudo_class() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: cursor after a complete pseudo-class should not show completions
+    let content = ".button:hover";
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position right after "hover"
+    let position = Position {
+        line: 0,
+        character: 13,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should not have any completions since the pseudo-class is already complete
+    assert!(
+        completions.is_empty(),
+        "Should not provide completions after a complete pseudo-class"
+    );
+}
+
+#[test]
+fn test_no_completion_after_complete_pseudo_class_with_space() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: cursor after a complete pseudo-class followed by space
+    let content = ".button:hover ";
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position right after the space
+    let position = Position {
+        line: 0,
+        character: 14,
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should not have pseudo-class completions since the pseudo-class is complete
+    let pseudo_class_completions: Vec<_> = completions
+        .iter()
+        .filter(|c| {
+            c.kind == Some(CompletionItemKind::KEYWORD)
+                && c.detail == Some("Pseudo-class".to_string())
+        })
+        .collect();
+
+    assert!(
+        pseudo_class_completions.is_empty(),
+        "Should not provide pseudo-class completions after complete pseudo-class with space"
+    );
+}
+
+#[test]
 fn test_property_value_simple_completion_after_colon() {
     let mut parser = UssParser::new().unwrap();
     let provider = UssCompletionProvider::new();
