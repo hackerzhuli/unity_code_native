@@ -70,6 +70,44 @@ fn test_analyze_completion_context_query() {
 }
 
 #[test]
+fn test_analyze_completion_context_query_uppercase_scheme() {
+    let project_root = get_project_root();
+    let provider = UrlCompletionProvider::new(&project_root);
+
+    // Test with uppercase PROJECT: scheme
+    let context = provider
+        .analyze_completion_context(
+            "PROJECT:/Assets/examples/meta/texture_with_multiple_sprites_example.png?",
+            "PROJECT:/Assets/examples/meta/texture_with_multiple_sprites_example.png?".len(),
+            None,
+        )
+        .unwrap();
+
+    match context {
+        UrlCompletionContext::Query { .. } => {
+            // Expected - should work with uppercase scheme
+        }
+        _ => panic!("Expected query completion context for uppercase PROJECT: scheme"),
+    }
+
+    // Test with mixed case Project: scheme
+    let context = provider
+        .analyze_completion_context(
+            "Project:/Assets/examples/meta/texture_with_multiple_sprites_example.png?",
+            "Project:/Assets/examples/meta/texture_with_multiple_sprites_example.png?".len(),
+            None,
+        )
+        .unwrap();
+
+    match context {
+        UrlCompletionContext::Query { .. } => {
+            // Expected - should work with mixed case scheme
+        }
+        _ => panic!("Expected query completion context for mixed case Project: scheme"),
+    }
+}
+
+#[test]
 fn test_no_completion_without_slash() {
     let project_root = get_project_root();
     let provider = UrlCompletionProvider::new(&project_root);

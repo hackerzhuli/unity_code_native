@@ -160,22 +160,27 @@ impl UrlCompletionProvider {
             log::debug!("Path part for query completion: '{}'", path_part);
             
             // Only provide query completion for explicit project scheme URLs
-            if path_part.starts_with("project:") {
-                log::debug!("Path part starts with 'project:', attempting URL validation");
-                match validate_url(path_part, base_url) {
-                    Ok(validation_result) => {
-                        log::info!("Query completion context validated for URL: {}", validation_result.url);
-                        return Ok(UrlCompletionContext::Query {
-                            asset_url: validation_result.url,
-                        });
+            // Parse URL without base to check if it has a valid scheme
+            if let Ok(parsed_url) = Url::parse(path_part) {
+                if parsed_url.scheme() == "project" {
+                    log::debug!("Detected project scheme URL, attempting validation for query completion");
+                    match validate_url(path_part, base_url) {
+                        Ok(validation_result) => {
+                            log::info!("Query completion context validated for URL: {}", validation_result.url);
+                            return Ok(UrlCompletionContext::Query {
+                                asset_url: validation_result.url,
+                            });
+                        }
+                        Err(err) => {
+                            log::warn!("URL validation failed for query completion: {}", err);
+                            // Invalid URL, fall through to path completion
+                        }
                     }
-                    Err(err) => {
-                        log::warn!("URL validation failed for query completion: {}", err);
-                        // Invalid URL, fall through to path completion
-                    }
+                } else {
+                    log::debug!("URL has scheme '{}', not 'project', falling through to path completion", parsed_url.scheme());
                 }
             } else {
-                log::debug!("Path part does not start with 'project:', falling through to path completion");
+                log::debug!("Path part is not a valid URL with scheme, falling through to path completion");
             }
         } else {
             log::debug!("Not a query completion context (does not end with '?')");
