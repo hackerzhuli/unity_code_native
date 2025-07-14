@@ -8,7 +8,7 @@ use crate::language::tree_utils::{byte_to_position, node_to_range};
 use crate::uss::constants::*;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::import_node::ImportNode;
-use crate::uss::tree_printer;
+use crate::language::tree_printer;
 use crate::uss::url_function_node::{UrlFunctionNode, UrlReference};
 use crate::uss::value::UssValue;
 use crate::uss::variable_resolver::{VariableResolver, VariableStatus};

@@ -15,7 +15,6 @@ pub mod hover;
 pub mod property_data;
 pub mod keyword_data;
 pub mod color;
-pub mod tree_printer;
 pub mod value_spec;
 pub mod color_provider;
 pub mod completion;

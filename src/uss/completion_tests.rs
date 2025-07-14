@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 use tower_lsp::lsp_types::{CompletionItemKind, Position};
 use tree_sitter::Node;
-use tree_printer::print_tree;
+use crate::language::tree_printer::print_tree;
 use crate::test_utils::get_project_root;
 use crate::unity_project_manager::UnityProjectManager;
-use crate::uss::{completion::UssCompletionProvider, parser::UssParser, tree_printer};
+use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
 
 // Helper function to print tree structure for debugging
 fn print_tree_recursive(node: Node, content: &str, depth: usize) {

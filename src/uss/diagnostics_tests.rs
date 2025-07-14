@@ -1,6 +1,6 @@
 //! Tests for USS diagnostics functionality
 
-use crate::uss::tree_printer::print_tree_to_stdout;
+use crate::language::tree_printer::print_tree_to_stdout;
 
 use super::diagnostics::*;
 use super::parser::UssParser;

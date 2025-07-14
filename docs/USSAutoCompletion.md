@@ -17,16 +17,18 @@ After user type `:`, we need to display a list of pseudo classes that is valid f
 Elements are defined in xsd files and we should read these and get all element names, and as user type an element selector (eg. `Button`) we should narrow down the list. I will not detail where the xsd files are and how to manage them here.
 
 ## url
-when user is typing inside of a url function, we need to provide auto complete feature as they type.
+See the [dedicated doc](./UrlCompletion.md)
 
-we need to look at the path and check the file system and predict what user is trying to type according to real files and folders that exists.
 
-Eg.
+## At rule or import statement
+Since USS only have one at rule that is import, we should provide auto completion right when user typed `@`, and after that if user input still matches `@import`, after cursor leave `@import`, eg, user typed a space after that, no auto completion is provided.
 
-if user type `project:///Assets/F` then we look at all files and folder inside of `Assets` folder in project and see what starts with `F`(case sensitive) and if we find anything,  we should show them in auto complete.(Note `.meta` files should be ignored).
+We should give user a basic structure of import statement, here are the items we provide, each in one line(complete with semicolon, always have url function with quotes):
 
-Also note that we should start showing a list of possible items starting with each `/` at the path, example, if user typed `project:///Assets/Folder/`, then we need to look at what is inside of `Assets/Folder` in the project and list all of them.
+```css
+@import url("project:///Assets"); /*the recommended way, use project scheme*/
+@import url(""); /*empty so user an type anything, especially relative paths*/
+@import url("/Assets"); /* absolute path, shorter but less used */
+```
 
-If the url function's syntax tree structure is invalid (eg. have an open `"` but forgot about a closing `"` or have 2 arguments), then we don't need to provide autocompletion for paths.
-
-Also, I should add that if url argument is not quoted(ie. a plain node in syntax tree), we should also not provide auto completion even though this can be valid. (Because it can be error prone for us to get right and user should always quote the string anyway).
+Note, if user picked an completion item, try to move the cursor to right before the closing quote, so that user can keep typing the path, if possible.
