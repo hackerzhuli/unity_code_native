@@ -23,6 +23,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "align-content",
             description: "Alignment of the whole area of children on the cross axis if they span over multiple lines in this container.",
+            format: Some("flex-start | flex-end | center | stretch"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -31,6 +32,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "align-items",
             description: "Alignment of children on the cross axis of this container.",
+            format: Some("auto | flex-start | flex-end | center | stretch"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -39,6 +41,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "align-self",
             description: "Similar to align-items, but only for this specific element.",
+            format: Some("auto | flex-start | flex-end | center | stretch"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -47,6 +50,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "all",
             description: "Allows resetting all properties with the initial keyword. Does not apply to custom USS properties.",
+            format: Some("initial"),
             documentation_url: format!("{supported_properties_url}#all"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -55,6 +59,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-color",
             description: "Background color to paint in the element's box.",
+            format: Some("<color>"),
             documentation_url: format!("{supported_properties_url}#unity-background"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -63,6 +68,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-image",
             description: "Background image to paint in the element's box.",
+            format: Some("<resource> | <url> | none"),
             documentation_url: format!("{supported_properties_url}#unity-background"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -71,6 +77,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position",
             description: "Background image position value.",
+            format: None,
             documentation_url: format!("{css_url}/background-position"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -79,6 +86,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position-x",
             description: "Background image x position value.",
+            format: None,
             documentation_url: format!("{css_url}/background-position-x"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -87,6 +95,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position-y",
             description: "Background image y position value.",
+            format: None,
             documentation_url: format!("{css_url}/background-position-y"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -95,6 +104,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-repeat",
             description: "Background image repeat value.",
+            format: None,
             documentation_url: format!("{css_url}/background-repeat"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -103,6 +113,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-size",
             description: "Background image size value. Transitions are fully supported only when using size in pixels or percentages, such as pixel-to-pixel or percentage-to-percentage transitions.",
+            format: None,
             documentation_url: format!("{css_url}/background-size"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -118,6 +129,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-bottom-color",
             description: "Color of the element's bottom border.",
+            format: Some("<color>"),
             documentation_url: format!("{supported_properties_url}#border-color"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -126,6 +138,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-bottom-left-radius",
             description: "The radius of the bottom-left corner when a rounded rectangle is drawn in the element's box.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -134,6 +147,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-bottom-right-radius",
             description: "The radius of the bottom-right corner when a rounded rectangle is drawn in the element's box.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -142,6 +156,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-bottom-width",
             description: "Space reserved for the bottom edge of the border during the layout phase.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -150,6 +165,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-color",
             description: "Shorthand for border-top-color, border-right-color, border-bottom-color, border-left-color",
+            format: Some("<color>{1,4}"),
             documentation_url: format!("{supported_properties_url}#border-color"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -158,6 +174,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-left-color",
             description: "Color of the element's left border.",
+            format: Some("<color>"),
             documentation_url: format!("{supported_properties_url}#border-color"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -166,6 +183,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-left-width",
             description: "Space reserved for the left edge of the border during the layout phase.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -174,6 +192,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-radius",
             description: "Shorthand for border-top-left-radius, border-top-right-radius, border-bottom-right-radius, border-bottom-left-radius",
+            format: Some("<length>{1,4}"),
             documentation_url: format!("{supported_properties_url}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -182,6 +201,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-right-color",
             description: "Color of the element's right border.",
+            format: Some("<color>"),
             documentation_url: format!("{supported_properties_url}#border-color"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -190,6 +210,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-top-left-radius",
             description: "The radius of the top-left corner when a rounded rectangle is drawn in the element's box.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -198,6 +219,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-top-color",
             description: "Color of the element's top border.",
+            format: Some("<color>"),
             documentation_url: format!("{supported_properties_url}#border-color"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -206,6 +228,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-right-width",
             description: "Space reserved for the right edge of the border during the layout phase.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -214,6 +237,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-top-right-radius",
             description: "The radius of the top-right corner when a rounded rectangle is drawn in the element's box.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -222,6 +246,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-top-width",
             description: "Space reserved for the top edge of the border during the layout phase.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -230,6 +255,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-width",
             description: "Shorthand for border-top-width, border-right-width, border-bottom-width, border-left-width",
+            format: Some("<length>{1,4}"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -238,6 +264,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "bottom",
             description: "Bottom distance from the element's box during layout.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#positioning"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -246,6 +273,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "color",
             description: "Color to use when drawing the text of an element.",
+            format: Some("<color>"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
@@ -254,6 +282,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "cursor",
             description: "Mouse cursor to display when the mouse pointer is over an element.",
+            format: Some("[ [ <resource> | <url> ] [ <integer> <integer>]? , ] [ arrow | text | resize-vertical | resize-horizontal | link | slide-arrow | resize-up-right | resize-up-left | move-arrow | rotate-arrow | scale-arrow | arrow-plus | arrow-minus | pan | orbit | zoom | fps | split-resize-up-down | split-resize-left-right ]"),
             documentation_url: format!("{supported_properties_url}#cursor"),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -275,6 +304,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "display",
             description: "Defines how an element is displayed in the layout.",
+            format: Some("flex | none"),
             documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -283,6 +313,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex",
             description: "Shorthand for flex-grow, flex-shrink, flex-basis.",
+            format: Some("none | [ <'flex-grow'> <'flex-shrink'>? || <'flex-basis'> ]"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -300,6 +331,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-basis",
             description: "Initial main size of a flex item, on the main flex axis. The final layout might be smaller or larger, according to the flex shrinking and growing determined by the other flex properties.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -308,6 +340,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-direction",
             description: "Direction of the main axis to layout children in a container.",
+            format: Some("row | row-reverse | column | column-reverse"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -316,6 +349,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-grow",
             description: "Specifies how the item will grow relative to the rest of the flexible items inside the same container.",
+            format: Some("<number>"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -324,6 +358,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-shrink",
             description: "Specifies how the item will shrink relative to the rest of the flexible items inside the same container.",
+            format: Some("<number>"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -332,6 +367,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-wrap",
             description: "Placement of children over multiple lines if not enough space is available in this container.",
+            format: Some("nowrap | wrap | wrap-reverse"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -340,6 +376,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "font-size",
             description: "Font size to draw the element's text, specified in point size.",
+            format: Some("<number>"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
@@ -348,6 +385,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "height",
             description: "Fixed height of an element for the layout.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -356,6 +394,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "justify-content",
             description: "Justification of children on the main axis of this container.",
+            format: Some("flex-start | flex-end | center | space-between | space-around"),
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -364,6 +403,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "left",
             description: "Left distance from the element's box during layout.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#positioning"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -372,6 +412,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "letter-spacing",
             description: "Increases or decreases the space between characters.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
@@ -380,6 +421,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin",
             description: "Shorthand for margin-top, margin-right, margin-bottom, margin-left",
+            format: Some("[<length> | auto]{1,4}"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -388,6 +430,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin-bottom",
             description: "Space reserved for the bottom edge of the margin during the layout phase.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -396,6 +439,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin-left",
             description: "Space reserved for the left edge of the margin during the layout phase.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -404,6 +448,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin-right",
             description: "Space reserved for the right edge of the margin during the layout phase.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -412,6 +457,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin-top",
             description: "Space reserved for the top edge of the margin during the layout phase.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -420,6 +466,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "max-height",
             description: "Maximum height for an element, when it is flexible or measures its own size.",
+            format: Some("<length> | none"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -428,6 +475,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "max-width",
             description: "Maximum width for an element, when it is flexible or measures its own size.",
+            format: Some("<length> | none"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -436,6 +484,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "min-height",
             description: "Minimum height for an element, when it is flexible or measures its own size.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -444,6 +493,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "min-width",
             description: "Minimum width for an element, when it is flexible or measures its own size.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -452,6 +502,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "opacity",
             description: "Specifies the transparency of an element and of its children.",
+            format: Some("<number>"),
             documentation_url: format!("{supported_properties_url}#opacity"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -460,6 +511,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "overflow",
             description: "How a container behaves if its content overflows its own box.",
+            format: Some("hidden | visible"),
             documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -468,6 +520,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding",
             description: "Shorthand for padding-top, padding-right, padding-bottom, padding-left",
+            format: Some("<length>{1,4}"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -476,6 +529,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding-bottom",
             description: "Space reserved for the bottom edge of the padding during the layout phase.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -484,6 +538,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding-left",
             description: "Space reserved for the left edge of the padding during the layout phase.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -492,6 +547,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding-right",
             description: "Space reserved for the right edge of the padding during the layout phase.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -500,6 +556,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding-top",
             description: "Space reserved for the top edge of the padding during the layout phase.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -508,6 +565,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "position",
             description: "Element's positioning in its parent container.",
+            format: Some("absolute | relative"),
             documentation_url: format!("{supported_properties_url}#positioning"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -516,6 +574,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "right",
             description: "Right distance from the element's box during layout.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#positioning"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -524,6 +583,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "rotate",
             description: "A rotation transformation.",
+            format: None,
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -532,6 +592,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "scale",
             description: "A scaling transformation.",
+            format: None,
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -540,6 +601,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "text-overflow",
             description: "The element's text overflow mode.",
+            format: Some("clip | ellipsis"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -548,6 +610,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "text-shadow",
             description: "Drop shadow of the text.",
+            format: Some("<x-offset> <y-offset> <blur-radius> <color>"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
@@ -556,6 +619,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "top",
             description: "Top distance from the element's box during layout.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#positioning"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -564,6 +628,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transform-origin",
             description: "The transformation origin is the point around which a transformation is applied.",
+            format: None,
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -572,6 +637,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition",
             description: "Shorthand for transition-delay, transition-duration, transition-property, transition-timing-function",
+            format: None,
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -597,6 +663,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-delay",
             description: "Duration to wait before starting a property's transition effect when its value changes.",
+            format: None,
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -605,6 +672,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-duration",
             description: "Time a transition animation should take to complete.",
+            format: None,
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -613,6 +681,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-property",
             description: "Properties to which a transition effect should be applied.",
+            format: None,
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -621,6 +690,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-timing-function",
             description: "Determines how intermediate values are calculated for properties modified by a transition effect.",
+            format: None,
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -629,6 +699,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "translate",
             description: "A translate transformation.",
+            format: None,
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -637,6 +708,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-background-image-tint-color",
             description: "Tinting color for the element's backgroundImage.",
+            format: Some("<color>"),
             documentation_url: format!("{supported_properties_url}#unity-background"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -645,6 +717,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-background-scale-mode",
             description: "Background image scaling in the element's box.",
+            format: Some("stretch-to-fill | scale-and-crop | scale-to-fit"),
             documentation_url: format!("{supported_properties_url}#unity-background"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -653,6 +726,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-editor-text-rendering-mode",
             description: "TextElement editor rendering mode.",
+            format: None,
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::None,
@@ -661,6 +735,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-font",
             description: "Font to draw the element's text, defined as a Font object.",
+            format: Some("<resource> | <url>"),
             documentation_url: format!("{supported_properties_url}#unity-font"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,
@@ -669,6 +744,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-font-definition",
             description: "Font to draw the element's text, defined as a FontDefinition structure. It takes precedence over -unity-font.",
+            format: Some("<resource> | <url>"),
             documentation_url: format!("{supported_properties_url}#unity-font"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,
@@ -677,6 +753,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-font-style",
             description: "Font style and weight (normal, bold, italic) to draw the element's text.",
+            format: Some("normal | italic | bold | bold-and-italic"),
             documentation_url: format!("{supported_properties_url}#unity-font"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,
@@ -685,6 +762,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-overflow-clip-box",
             description: "Specifies which box the element content is clipped against.",
+            format: Some("padding-box | content-box"),
             documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -693,6 +771,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-paragraph-spacing",
             description: "Increases or decreases the space between paragraphs.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
@@ -701,6 +780,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-bottom",
             description: "Size of the 9-slice's bottom edge when painting an element's background image.",
+            format: Some("<integer>"),
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -709,6 +789,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-left",
             description: "Size of the 9-slice's left edge when painting an element's background image.",
+            format: Some("<integer>"),
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -717,6 +798,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-right",
             description: "Size of the 9-slice's right edge when painting an element's background image.",
+            format: Some("<integer>"),
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -725,6 +807,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-scale",
             description: "Scale applied to an element's slices.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -733,6 +816,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-top",
             description: "Size of the 9-slice's top edge when painting an element's background image.",
+            format: Some("<integer>"),
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -741,6 +825,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-type",
             description: "Specifies the type of sclicing.",
+            format: Some("sliced | tiled"),
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -749,6 +834,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-align",
             description: "Horizontal and vertical text alignment in the element's box.",
+            format: Some("upper-left | middle-left | lower-left | upper-center | middle-center | lower-center | upper-right | middle-right | lower-right"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,
@@ -757,6 +843,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-generator",
             description: "Switches between Unity's standard and advanced text generator",
+            format: Some("standard | advanced"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::None,
@@ -765,6 +852,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-outline",
             description: "Outline width and color of the text.",
+            format: Some("<length> | <color>"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -773,6 +861,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-outline-color",
             description: "Outline color of the text.",
+            format: Some("<color>"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
@@ -781,6 +870,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-outline-width",
             description: "Outline width of the text.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
@@ -789,6 +879,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-overflow-position",
             description: "The element's text overflow position.",
+            format: Some("start | middle | end"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -797,6 +888,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "visibility",
             description: "Specifies whether or not an element is visible.",
+            format: Some("visible | hidden"),
             documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,
@@ -805,6 +897,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "white-space",
             description: "Word wrap over multiple lines if not enough space is available to draw the text of an element.",
+            format: Some("normal | nowrap"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,
@@ -813,6 +906,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "width",
             description: "Fixed width of an element for the layout.",
+            format: Some("<length> | auto"),
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -821,6 +915,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "word-spacing",
             description: "Increases or decreases the space between words.",
+            format: Some("<length>"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,

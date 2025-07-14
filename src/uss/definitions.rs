@@ -26,6 +26,8 @@ pub struct PropertyInfo {
     pub name: &'static str,
     /// Property description, as a markdown string
     pub description: &'static str,
+    /// Official format specification from Unity documentation
+    pub format: Option<&'static str>,
     /// Documentation URL (may contain {version} placeholder for Unity docs)
     pub documentation_url: String,
     /// Whether this property is inherited

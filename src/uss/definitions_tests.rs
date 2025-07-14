@@ -386,7 +386,12 @@ fn test_properties_against_markdown_format() {
             // Look for property definitions (property: format)
             if let Some(colon_pos) = code_line.find(':') {
                 let property_name = code_line[..colon_pos].trim();
-                let format_spec = code_line[colon_pos + 1..].trim();
+                let mut format_spec = code_line[colon_pos + 1..].trim();
+                
+                // Remove trailing semicolon from format specification
+                if format_spec.ends_with(';') {
+                    format_spec = &format_spec[..format_spec.len() - 1].trim();
+                }
                 
                 // Skip empty property names or format specs
                 if property_name.is_empty() || format_spec.is_empty() {
@@ -399,11 +404,9 @@ fn test_properties_against_markdown_format() {
                     continue;
                 }
                 
-                // Skip lines that look like CSS values (end with semicolon and contain specific values)
+                // Skip lines that look like CSS values (end with semicolon but don't contain format characters)
                 if format_spec.ends_with(';') && 
-                   (format_spec.contains("px") || format_spec.contains("red") || 
-                    format_spec.contains("blue") || format_spec.contains("0.5") ||
-                    format_spec == "initial;" || format_spec.len() < 20) {
+                   !format_spec.contains('<') && !format_spec.contains('[') && !format_spec.contains('>') {
                     continue;
                 }
                 
@@ -417,13 +420,25 @@ fn test_properties_against_markdown_format() {
                 if let Some(property_info) = definitions.get_property_info(property_name) {
                     tested_properties += 1;
                     
-                    // For now, just log that we found the property and its format
-                    // In the future, we could validate that our value_spec matches the format
-                    println!("Found property '{}' with format: '{}'", property_name, format_spec);
-                    
-                    // Note: We don't expect our property descriptions to contain the exact format strings
-                    // since they are descriptive text, not format specifications.
-                    // This test mainly serves to document what formats are available in the markdown.
+                    // Check if the format field matches the expected format
+                    match &property_info.format {
+                        Some(existing_format) => {
+                            if *existing_format != format_spec {
+                                not_found_properties.push(format!(
+                                    "Property '{}': expected format '{}', but found '{}'",
+                                    property_name, format_spec, existing_format
+                                ));
+                            } else {
+                                println!("✓ Property '{}' format matches: {}", property_name, format_spec);
+                            }
+                        }
+                        None => {
+                            not_found_properties.push(format!(
+                                "Property '{}': expected format '{}', but format field is None",
+                                property_name, format_spec
+                            ));
+                        }
+                    }
                 } else {
                     // Property not found in our definitions - log as info
                     not_found_properties.push(format!(
@@ -435,16 +450,22 @@ fn test_properties_against_markdown_format() {
         }
     }
     
-    // Print info about properties not found in our definitions
+    // Print info about properties not found in our definitions or format mismatches
     if !not_found_properties.is_empty() {
-        println!("\nInfo: Properties from markdown not found in our definitions ({} total):", not_found_properties.len());
+        println!("\nFormat mismatches and missing properties ({} total):", not_found_properties.len());
         for not_found in &not_found_properties {
             println!("  - {}", not_found);
         }
+        
+        // Count actual format mismatches vs missing properties
+        let format_mismatches: Vec<_> = not_found_properties.iter()
+            .filter(|msg| msg.contains("expected format"))
+            .collect();
+        
+        if !format_mismatches.is_empty() {
+            panic!("Found {} format mismatches. Please update the format field in property_data.rs", format_mismatches.len());
+        }
     }
-    
-    // Note: We removed mismatch reporting since we're not doing exact format validation
-    // The test now serves to document available formats and ensure we can parse them
     
     // Ensure we tested a reasonable number of properties
     assert!(tested_properties > 10, "Expected to test more than 10 properties, but only tested {}", tested_properties);
