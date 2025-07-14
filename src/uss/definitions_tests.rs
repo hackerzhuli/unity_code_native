@@ -1,4 +1,7 @@
 use crate::uss::{constants::*, definitions::{PropertyAnimation, UssDefinitions}};
+use crate::test_utils::get_project_root;
+use std::fs;
+use std::path::Path;
 
 
 #[test]
@@ -128,4 +131,108 @@ fn test_color_only(){
 
     let bg_color = definitions.get_property_info("background-color").unwrap();
     assert!(bg_color.value_spec.is_color_only());
+}
+
+#[test]
+fn test_properties_against_source_data() {
+    let definitions = UssDefinitions::new();
+    
+    // Read the official properties source data
+    let project_root = get_project_root();
+    let properties_file_path = project_root.join("Assets").join("data").join("properties.txt");
+    
+    let content = fs::read_to_string(&properties_file_path)
+        .expect("Failed to read properties.txt file");
+    
+    let mut tested_properties = 0;
+     let mut mismatches = Vec::new();
+     
+     for line in content.lines() {
+         if line.trim().is_empty() {
+             continue;
+         }
+         
+         // Parse the tab-separated values
+         let parts: Vec<&str> = line.split('\t').collect();
+         if parts.len() != 4 {
+             continue; // Skip malformed lines
+         }
+         
+         let property_name = parts[0];
+         let inherited_str = parts[1];
+         let animatable_str = parts[2];
+         let description = parts[3];
+         
+         // Check if we have this property in our definitions
+         if let Some(property_info) = definitions.get_property_info(property_name) {
+             tested_properties += 1;
+             let mut property_mismatches = Vec::new();
+             
+             // Test inherited field
+             let expected_inherited = inherited_str == "Yes";
+             if property_info.inherited != expected_inherited {
+                 property_mismatches.push(format!(
+                     "  - inherited: expected {}, got {}",
+                     expected_inherited, property_info.inherited
+                 ));
+             }
+             
+             // Test animatable field
+             let expected_animatable = match animatable_str {
+                 "Fully animatable" => PropertyAnimation::Animatable,
+                 "Discrete" => PropertyAnimation::Discrete,
+                 "Non-animatable" => PropertyAnimation::None,
+                 _ => {
+                     property_mismatches.push(format!(
+                         "  - unknown animatable value: '{}'",
+                         animatable_str
+                     ));
+                     continue;
+                 }
+             };
+             
+             if property_info.animatable != expected_animatable {
+                 property_mismatches.push(format!(
+                     "  - animatable: expected {:?}, got {:?}",
+                     expected_animatable, property_info.animatable
+                 ));
+             }
+             
+             // Test description field (should contain the official description verbatim)
+             // Normalize quote characters for comparison (official docs use non-standard quotes)
+             let normalized_expected = description.replace("’", "'");
+             let normalized_actual = property_info.description.replace("’", "'");
+             
+             if !normalized_actual.contains(&normalized_expected) {
+                 property_mismatches.push(format!(
+                     "  - [{}] description does not contain official text\n    Expected: '{}'\n    Actual: '{}'",
+                     property_name, description, property_info.description
+                 ));
+             }
+             
+             // Print differences for this property if any
+             if !property_mismatches.is_empty() {
+                 println!("\nProperty '{}' differences:", property_name);
+                 for mismatch in &property_mismatches {
+                     println!("{}", mismatch);
+                 }
+                 mismatches.extend(property_mismatches);
+             }
+         }
+     }
+    
+    // Report results
+    if !mismatches.is_empty() {
+        panic!(
+            "Found {} mismatches in {} tested properties:\n{}",
+            mismatches.len(),
+            tested_properties,
+            mismatches.join("\n")
+        );
+    }
+    
+    // Ensure we tested a reasonable number of properties
+    assert!(tested_properties > 50, "Expected to test more than 50 properties, but only tested {}", tested_properties);
+    
+    println!("Successfully validated {} properties against source data", tested_properties);
 }
