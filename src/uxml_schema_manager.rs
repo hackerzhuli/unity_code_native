@@ -1,15 +1,15 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio::time::sleep;
 use std::fs;
-use notify::{Watcher, RecursiveMode, Event as NotifyEvent, EventKind};
-use std::sync::mpsc;
+use std::sync::Mutex;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use crate::dir_changed::DirChanged;
 
 /// Errors that can occur during UXML schema processing
 #[derive(Error, Debug)]
@@ -53,9 +53,8 @@ pub struct UxmlSchemaManager {
     schema_directory: PathBuf,
     schema_files: HashMap<PathBuf, SchemaFileInfo>,
     visual_elements: HashMap<String, VisualElementInfo>,
-    _watcher: Option<notify::RecommendedWatcher>,
-    _receiver: Option<mpsc::Receiver<Result<NotifyEvent, notify::Error>>>,
-    has_changes: Arc<AtomicBool>,
+    dir_changed: Arc<Mutex<DirChanged>>,
+    last_scan_timestamp: u64,
 }
 
 impl UxmlSchemaManager {
@@ -65,21 +64,28 @@ impl UxmlSchemaManager {
     /// 
     /// * `schema_directory` - Path to the directory containing Unity UXML schema (.xsd) files
     pub fn new(schema_directory: PathBuf) -> Self {
-        let schema_dir = schema_directory;
-        let has_changes = Arc::new(AtomicBool::new(true)); // Start with true to trigger initial scan
+        let schema_dir = schema_directory.clone();
         
-        // Try to set up file watcher
-        let (watcher, receiver) = Self::setup_watcher(&schema_dir, has_changes.clone())
-            .unwrap_or((None, None));
+        // Set up directory change monitoring for .xsd files
+        let dir_changed = match DirChanged::new(&schema_dir, Some("xsd")) {
+            Ok(watcher) => Arc::new(Mutex::new(watcher)),
+            Err(_) => {
+                // Fallback to no-watcher mode if setup fails
+                Arc::new(Mutex::new(DirChanged::new_without_watcher()))
+            }
+        };
         
         Self {
             schema_directory: schema_dir,
             schema_files: HashMap::new(),
             visual_elements: HashMap::new(),
-            _watcher: watcher,
-            _receiver: receiver,
-            has_changes,
+            dir_changed,
+            last_scan_timestamp: 0,
         }
+    }
+
+    pub async fn some(&mut self) -> (){
+        sleep(Duration::from_millis(1000)).await;
     }
 
     /// Updates the schema data by scanning for file changes
@@ -95,13 +101,18 @@ impl UxmlSchemaManager {
     /// ## Note
     /// This method can't be async because the struct is stored inside of a mutex. Async operations are not possible. 
     pub fn update(&mut self) -> Result<(), UxmlSchemaError> {
-        // Check if any changes have been detected by the file watcher
-        if !self.has_changes.load(Ordering::Relaxed) {
-            return Ok(()); // No changes detected, skip expensive directory scan
-        }
+        // Check if directory has changed since last scan
+        let current_timestamp = if let Ok(dir_changed) = self.dir_changed.lock() {
+            dir_changed.last_change_timestamp()
+        } else {
+            // If we can't lock, assume changes occurred to be safe
+            u64::MAX
+        };
         
-        // Reset the change flag
-        self.has_changes.store(false, Ordering::Relaxed);
+        // Skip scan if no changes detected since last scan
+        if current_timestamp <= self.last_scan_timestamp {
+            return Ok(());
+        }
         
         let mut current_files = HashSet::new();
         let mut any_changes = false;
@@ -148,6 +159,9 @@ impl UxmlSchemaManager {
         if any_changes {
             self.rebuild_visual_elements();
         }
+        
+        // Update last scan timestamp
+        self.last_scan_timestamp = current_timestamp;
         
         Ok(())
     }
@@ -223,45 +237,7 @@ impl UxmlSchemaManager {
         }
     } 
 
-    fn setup_watcher(
-        schema_directory: &Path,
-        has_changes: Arc<AtomicBool>,
-    ) -> Result<(Option<notify::RecommendedWatcher>, Option<mpsc::Receiver<Result<NotifyEvent, notify::Error>>>), notify::Error> {
-        let (tx, rx) = mpsc::channel();
-        let changes_flag = has_changes.clone();
-        
-        let mut watcher = notify::recommended_watcher(move |res: Result<NotifyEvent, notify::Error>| {
-             match &res {
-                 Ok(event) => {
-                     // Check if the event is relevant (file creation, modification, or deletion)
-                     match event.kind {
-                         EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_) => {
-                             // Check if any of the paths have .xsd extension
-                             for path in &event.paths {
-                                 if path.extension().and_then(|s| s.to_str()) == Some("xsd") {
-                                     changes_flag.store(true, Ordering::Relaxed);
-                                     break;
-                                 }
-                             }
-                         }
-                         _ => {}
-                     }
-                 }
-                 Err(_) => {
-                     // On error, assume changes occurred to be safe
-                     changes_flag.store(true, Ordering::Relaxed);
-                 }
-             }
-             
-             // Forward the event to the receiver (though we don't use it currently)
-             let _ = tx.send(res);
-         })?;
-        
-        // Watch the schema directory (non-recursive to match the original behavior)
-        watcher.watch(schema_directory, RecursiveMode::NonRecursive)?;
-        
-        Ok((Some(watcher), Some(rx)))
-    }
+
 
     fn parse_schema_content(&self, content: &str) -> Result<(String, Vec<String>), UxmlSchemaError> {
         let mut reader = Reader::from_str(content);

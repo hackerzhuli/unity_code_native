@@ -4,6 +4,7 @@ mod server;
 mod unity_project_manager;
 mod unity_asset_database;
 pub mod uxml_schema_manager;
+mod dir_changed;
 mod uss;
 mod language;
 mod test_utils;

@@ -28,6 +28,7 @@ pub struct UssLanguageServer {
     /// 2. Interior mutability is needed to modify state from &self methods
     /// 3. Async method boundaries require thread-safe primitives even in single-threaded context
     state: Arc<Mutex<UssServerState>>,
+    uxml_schema_manager: Arc<tokio::sync::Mutex<UxmlSchemaManager>>,
 }
 
 /// Internal state for the USS language server
@@ -39,7 +40,6 @@ struct UssServerState {
     color_provider: UssColorProvider,
     completion_provider: UssCompletionProvider,
     unity_manager: UnityProjectManager,
-    uxml_schema_manager: UxmlSchemaManager,
 }
 
 impl UssLanguageServer {
@@ -54,10 +54,10 @@ impl UssLanguageServer {
             color_provider: UssColorProvider::new(),
             completion_provider: UssCompletionProvider::new_with_project_root(&project_path),
             unity_manager: UnityProjectManager::new(project_path.clone()),
-            uxml_schema_manager,
         };
 
         Self {
+            uxml_schema_manager: Arc::new(tokio::sync::Mutex::new(uxml_schema_manager)),
             client,
             state: Arc::new(Mutex::new(state)),
         }
@@ -322,12 +322,13 @@ impl LanguageServer for UssLanguageServer {
 
         // Perform all operations within a single lock scope
         let completions = {
-            if let Ok(mut state) = self.state.lock() {
-                // Update UXML schema manager
-                if let Err(e) = state.uxml_schema_manager.update() {
-                    log::warn!("Failed to update UXML schemas for completion: {}", e);
-                }
+            self.uxml_schema_manager.lock().await.some().await;
+            // Update UXML schema manager
+            // if let Err(e) = self.uxml_schema_manager.lock().await.some().await {
+            //     log::warn!("Failed to update UXML schemas for completion: {}", e);
+            // }
 
+            if let Ok(mut state) = self.state.lock() {
                 // Get document and validate
                 let document = match state.document_manager.get_document(&uri) {
                     Some(doc) => doc,
@@ -366,7 +367,7 @@ impl LanguageServer for UssLanguageServer {
                     position,
                     &state.unity_manager,
                     project_url.as_ref(),
-                    Some(&state.uxml_schema_manager),
+                    Some(&self.uxml_schema_manager),
                 )
             } else {
                 log::error!("Failed to lock state");
