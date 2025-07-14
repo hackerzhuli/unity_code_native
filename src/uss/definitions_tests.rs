@@ -146,6 +146,7 @@ fn test_properties_against_source_data() {
     
     let mut tested_properties = 0;
      let mut mismatches = Vec::new();
+     let mut missing_properties = Vec::new();
      
      for line in content.lines() {
          if line.trim().is_empty() {
@@ -218,17 +219,38 @@ fn test_properties_against_source_data() {
                  }
                  mismatches.extend(property_mismatches);
              }
+         } else {
+             // Property is missing from our definitions
+             missing_properties.push(property_name.to_string());
          }
      }
     
+    // Report missing properties
+    if !missing_properties.is_empty() {
+        println!("\nMissing properties from our definitions ({} total):", missing_properties.len());
+        for missing_prop in &missing_properties {
+            println!("  - {}", missing_prop);
+        }
+    }
+    
     // Report results
-    if !mismatches.is_empty() {
-        panic!(
-            "Found {} mismatches in {} tested properties:\n{}",
-            mismatches.len(),
-            tested_properties,
-            mismatches.join("\n")
-        );
+    if !mismatches.is_empty() || !missing_properties.is_empty() {
+        let mut error_msg = String::new();
+        
+        if !mismatches.is_empty() {
+            error_msg.push_str(&format!("Found {} mismatches in {} tested properties:\n{}", 
+                mismatches.len(), tested_properties, mismatches.join("\n")));
+        }
+        
+        if !missing_properties.is_empty() {
+            if !error_msg.is_empty() {
+                error_msg.push_str("\n\n");
+            }
+            error_msg.push_str(&format!("Missing {} properties from our definitions:\n{}", 
+                missing_properties.len(), missing_properties.join(", ")));
+        }
+        
+        panic!("{}", error_msg);
     }
     
     // Ensure we tested a reasonable number of properties
