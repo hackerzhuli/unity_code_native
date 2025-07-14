@@ -15,11 +15,11 @@ pub enum DirChangedError {
 
 /// Tracks directory changes using file system events and timestamps
 /// 
-/// This struct provides a thread-safe way to monitor directory changes
+/// This struct provides a way to monitor directory changes
 /// using a file watcher and maintains a timestamp of the last change.
 /// It's designed to be used with Mutex for concurrent access.
 pub struct DirChanged {
-    /// Timestamp of the last detected change (nanoseconds since UNIX epoch)
+    /// Timestamp of the last detected change (milliseconds since UNIX epoch)
     last_change_timestamp: Arc<AtomicU64>,
     /// File watcher instance (kept alive to continue monitoring)
     _watcher: Option<notify::RecommendedWatcher>,
@@ -43,7 +43,7 @@ impl DirChanged {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
-            .as_nanos() as u64;
+            .as_millis() as u64;
         
         let last_change_timestamp = Arc::new(AtomicU64::new(now));
         
@@ -65,7 +65,7 @@ impl DirChanged {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
-            .as_nanos() as u64;
+            .as_millis() as u64;
         
         Self {
             last_change_timestamp: Arc::new(AtomicU64::new(now)),
@@ -78,7 +78,7 @@ impl DirChanged {
     /// 
     /// # Returns
     /// 
-    /// Timestamp as nanoseconds since UNIX epoch
+    /// Timestamp as milliseconds since UNIX epoch
     pub fn last_change_timestamp(&self) -> u64 {
         self.last_change_timestamp.load(Ordering::Relaxed)
     }
@@ -111,7 +111,7 @@ impl DirChanged {
                                 let now = SystemTime::now()
                                     .duration_since(UNIX_EPOCH)
                                     .unwrap_or_default()
-                                    .as_nanos() as u64;
+                                    .as_millis() as u64;
                                 
                                 timestamp.store(now, Ordering::Relaxed);
                             }
@@ -124,7 +124,7 @@ impl DirChanged {
                     let now = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .unwrap_or_default()
-                        .as_nanos() as u64;
+                        .as_millis() as u64;
                     
                     timestamp.store(now, Ordering::Relaxed);
                 }
