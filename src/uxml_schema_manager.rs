@@ -96,6 +96,8 @@ impl UxmlSchemaManager {
     /// * `Ok(())` if the update completed successfully
     /// * `Err(UxmlSchemaError)` if file I/O or XML parsing failed
     pub async fn update(&mut self) -> Result<(), UxmlSchemaError> {
+        let start_time = std::time::Instant::now();
+        
         // Check if directory has changed since last scan
         let current_timestamp = self.dir_changed.last_change_timestamp();
         
@@ -104,7 +106,8 @@ impl UxmlSchemaManager {
             return Ok(());
         }
 
-        log::info!("dir changed, we need to scan schema files");
+        log::info!("Schema directory changed (timestamp: {}), scanning for .xsd files in: {}", 
+                   current_timestamp, self.schema_directory.display());
         
         let mut current_files = HashSet::new();
         let mut any_changes = false;
@@ -153,6 +156,10 @@ impl UxmlSchemaManager {
         
         // Update last scan timestamp
         self.last_scan_timestamp = current_timestamp;
+        
+        let duration = start_time.elapsed();
+        log::info!("Schema update completed in {:.2}ms (processed {} files, changes detected: {})", 
+                   duration.as_secs_f64() * 1000.0, current_files.len(), any_changes);
         
         Ok(())
     }
