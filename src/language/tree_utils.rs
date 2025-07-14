@@ -85,6 +85,18 @@ pub fn find_node_at_position<'a>(
     node.descendant_for_point_range(point, point)
 }
 
+/// Returns the depth of a node in the tree
+/// The root node has depth 0, its children have depth 1, etc.
+pub fn get_node_depth<'a>(node: Node<'a>) -> usize {
+    let mut depth = 0;
+    let mut current = node;
+    while let Some(parent) = current.parent() {
+        depth += 1;
+        current = parent;
+    }
+    depth
+}
+
 /// Finds a child node of a specific type at the given position
 /// This is a general function that can find any node type at a position
 /// by walking up the tree from the deepest node at that position

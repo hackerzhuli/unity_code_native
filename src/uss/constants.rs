@@ -65,8 +65,8 @@ pub const NODE_PSEUDO_CLASS_SELECTOR: &str = "pseudo_class_selector";
 // At-rules
 /// Generic CSS at-rule (e.g., `@import`, `@media`)
 pub const NODE_AT_RULE: &str = "at_rule";
-/// The literal `@import` keyword
-pub const KEYWORD_AT_IMPORT: &str = "@import";
+/// The literal `@import` keyword node, note this is not the import statement just the keyword part
+pub const NODE_IMPORT: &str = "@import";
 /// USS import statement for external stylesheets
 pub const NODE_IMPORT_STATEMENT: &str = "import_statement";
 /// CSS charset declaration statement (not supported in USS)

@@ -1490,3 +1490,55 @@ fn test_import_statement_completion_at_import_with_space() {
     // Should NOT provide import statement completions after space (per documentation)
     assert!(completions3.is_empty(), "Should NOT provide completions after @import with space");
 }
+
+#[test]
+fn test_import_statement_completion_inside_ruleset() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test completion after typing "@" inside a ruleset block
+    let content = ".a {\n color:red; \n@ \n}";
+    let tree = parser.parse(content, None).unwrap();
+    let position = Position {
+        line: 2,
+        character: 1, // Inside the ruleset, after @
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should NOT provide import statement completions inside a ruleset block
+    assert!(completions.is_empty(), "Should NOT provide completions inside a ruleset block");
+}
+
+#[test]
+fn test_import_statement_completion_inside_ruleset_2() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test completion after typing "@" inside a ruleset block
+    let content = ".a {\n color:red; \n@i \n}";
+    let tree = parser.parse(content, None).unwrap();
+    let position = Position {
+        line: 2,
+        character: 2, // Inside the ruleset, after @
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should NOT provide import statement completions inside a ruleset block
+    assert!(completions.is_empty(), "Should NOT provide completions inside a ruleset block");
+}

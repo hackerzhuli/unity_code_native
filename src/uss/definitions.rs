@@ -236,7 +236,7 @@ impl UssDefinitions {
         }
         
         let mut valid_at_rules = HashSet::new();
-        let at_rules = [KEYWORD_AT_IMPORT];
+        let at_rules = [NODE_IMPORT];
         for rule in at_rules {
             valid_at_rules.insert(rule);
         }

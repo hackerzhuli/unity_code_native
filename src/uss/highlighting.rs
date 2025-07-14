@@ -137,7 +137,7 @@ impl UssHighlighter {
                     if let Some(child) = node.child(i) {
                         // Check if this child is the @import keyword
                         if let Ok(text) = child.utf8_text(content.as_bytes()) {
-                            if text == KEYWORD_AT_IMPORT {
+                            if text == NODE_IMPORT {
                                 // Highlight @import as KEYWORD
                                 let start = child.start_position();
                                 let end = child.end_position();

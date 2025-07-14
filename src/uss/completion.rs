@@ -8,7 +8,9 @@ use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use url::Url;
 
-use crate::language::tree_utils::{find_node_at_position, find_node_of_type_at_position};
+use crate::language::tree_utils::{
+    find_node_at_position, find_node_of_type_at_position, get_node_depth,
+};
 use crate::language::url_completion::UrlCompletionProvider;
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::constants::*;
@@ -145,7 +147,9 @@ impl UssCompletionProvider {
 
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
                 // Check for incomplete @import statements first
-                if let Some(import_context) = self.analyze_incomplete_import_context(current_node, content, position) {
+                if let Some(import_context) =
+                    self.analyze_incomplete_import_context(current_node, content, position)
+                {
                     return import_context;
                 }
 
@@ -545,9 +549,9 @@ impl UssCompletionProvider {
 
         // partial pseudo class being typed after a selector
         if current_node.kind() == NODE_CLASS_NAME {
-            if let Some(parent) = current_node.parent(){
+            if let Some(parent) = current_node.parent() {
                 if parent.kind() == NODE_PSEUDO_CLASS_SELECTOR {
-                    if let Some(prev) = current_node.prev_sibling(){
+                    if let Some(prev) = current_node.prev_sibling() {
                         if prev.kind() == NODE_COLON {
                             return Some(CompletionContext {
                                 t: CompletionType::PseudoClass,
@@ -659,8 +663,7 @@ impl UssCompletionProvider {
                     // parent is also just colon, then check parent's prev sibling
                     if parent_text == ":" {
                         if let Some(parent_prev_sibling) = parent.prev_sibling() {
-                            if parent_prev_sibling.kind() == NODE_SELECTORS
-                            {
+                            if parent_prev_sibling.kind() == NODE_SELECTORS {
                                 return Some(CompletionContext {
                                     t: CompletionType::PseudoClass,
                                     current_node: Some(current_node),
@@ -896,29 +899,17 @@ impl UssCompletionProvider {
         position: Position,
     ) -> Option<CompletionContext<'a>> {
         // Check if we're in an ERROR node that might contain an incomplete @import
-        if current_node.kind() == NODE_ERROR || current_node.kind() == "@import" {
-            // Get the text content of the current line up to the cursor position
-            let line_start = position.line as usize;
-            let lines: Vec<&str> = content.lines().collect();
-            
-            if line_start < lines.len() {
-                let line_content = lines[line_start];
-                let cursor_char = position.character as usize;
-                let text_before_cursor = if cursor_char <= line_content.len() {
-                    &line_content[..cursor_char]
-                } else {
-                    line_content
-                };
-                
-                // Check if the text before cursor contains @import or just @
-                let trimmed = text_before_cursor.trim();
-                
-                // Don't provide completions if cursor is after a space following @import
-                if text_before_cursor.ends_with("@import ") {
+        if current_node.kind() == NODE_ERROR || current_node.kind() == NODE_IMPORT {
+            // first check if we are at the top level, eg, not inside of any blocks
+            if get_node_depth(current_node) == 2 {
+                // this node should be inside of an error node(because we haven't finished the keyword or it's arguments yet)
+                let parent = current_node.parent();
+                if parent.is_none() || parent.unwrap().kind() != NODE_ERROR {
                     return None;
                 }
                 
-                if trimmed == "@" || trimmed == "@import" || (trimmed.starts_with("@import") && trimmed.len() <= 7) {
+                let text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
+                if "@import".starts_with(text) {
                     return Some(CompletionContext {
                         t: CompletionType::ImportStatement,
                         current_node: Some(current_node),
@@ -927,16 +918,7 @@ impl UssCompletionProvider {
                 }
             }
         }
-        
-        // Also check if current node is @import token
-        if current_node.kind() == "@import" {
-            return Some(CompletionContext {
-                t: CompletionType::ImportStatement,
-                current_node: Some(current_node),
-                position,
-            });
-        }
-        
+
         None
     }
 
@@ -1078,7 +1060,7 @@ impl UssCompletionProvider {
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             documentation: Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: "Import USS file using project scheme. This is the recommended way to reference assets.".to_string(),
+                value: "Import file using project scheme. This is the recommended way to reference assets.".to_string(),
             })),
             ..Default::default()
         });
@@ -1087,26 +1069,28 @@ impl UssCompletionProvider {
         items.push(CompletionItem {
             label: "@import url(\"\");".to_string(),
             kind: Some(CompletionItemKind::SNIPPET),
-            detail: Some("Import statement with empty URL for custom paths".to_string()),
+            detail: Some("Import statement with empty URL".to_string()),
             insert_text: Some("@import url(\"$1\");$0".to_string()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             documentation: Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: "Import USS file with custom URL. You can use relative paths or other schemes.".to_string(),
+                value:
+                    "Import file with any URL."
+                        .to_string(),
             })),
             ..Default::default()
         });
 
-        // Provide @import completion with string literal (alternative syntax)
+        // Provide @import completion with absolute path
         items.push(CompletionItem {
-            label: "@import \"\";".to_string(),
+            label: "@import url(\"/Assets\");".to_string(),
             kind: Some(CompletionItemKind::SNIPPET),
-            detail: Some("Import statement with string literal".to_string()),
-            insert_text: Some("@import \"$1\";$0".to_string()),
+            detail: Some("Import statement with absolute path".to_string()),
+            insert_text: Some("@import url(\"/Assets$1\");$0".to_string()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             documentation: Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: "Import USS file using string literal syntax.".to_string(),
+                value: "Import file using absolute path.".to_string(),
             })),
             ..Default::default()
         });
