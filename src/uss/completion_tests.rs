@@ -54,7 +54,6 @@ fn test_pseudo_class_completion_after_colon() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -99,7 +98,6 @@ fn test_pseudo_class_completion_partial_match() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -144,7 +142,6 @@ fn test_pseudo_class_completion_case_insensitive() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -181,7 +178,6 @@ fn test_pseudo_class_completion_multiple_selectors() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -220,7 +216,6 @@ fn test_pseudo_class_completion_with_block_after() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -253,7 +248,6 @@ fn test_pseudo_class_completion_partial_with_block_after() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -284,7 +278,6 @@ fn test_no_pseudo_class_completion_in_property_value() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -323,7 +316,6 @@ fn test_no_completion_after_complete_pseudo_class() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -354,7 +346,6 @@ fn test_no_completion_after_complete_pseudo_class_with_space() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -394,7 +385,6 @@ fn test_property_value_simple_completion_after_colon() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -447,7 +437,6 @@ fn test_property_value_completion_after_typing() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -490,7 +479,6 @@ fn test_property_value_completion_after_typing_keyword() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -530,7 +518,6 @@ fn test_property_name_completion() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -582,7 +569,6 @@ fn test_property_name_completion_empty() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -614,7 +600,6 @@ fn test_property_name_completion_partial_match() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -661,7 +646,6 @@ fn test_property_name_completion_case_insensitive() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -698,7 +682,6 @@ fn test_class_selector_completion_after_dot() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -752,7 +735,6 @@ fn test_class_selector_partial_completion() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -798,7 +780,6 @@ fn test_id_selector_completion_after_hash() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -850,7 +831,6 @@ fn test_id_selector_partial_completion() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -895,7 +875,6 @@ fn test_selector_completion_case_insensitive() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -932,7 +911,6 @@ fn test_no_selector_completion_in_declaration_block() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -968,7 +946,6 @@ fn test_tag_selector_completion() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1019,7 +996,6 @@ fn test_tag_selector_completion_partial_match() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1061,7 +1037,6 @@ fn test_tag_selector_completion_case_insensitive() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1098,7 +1073,6 @@ fn test_tag_selector_completion_no_empty_input() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1133,7 +1107,6 @@ fn test_class_selector_excludes_self() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1169,7 +1142,6 @@ fn test_id_selector_excludes_self() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1206,7 +1178,6 @@ fn test_url_completion() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(project_root.clone()),
         None,
         None,
     );
@@ -1248,7 +1219,6 @@ fn test_url_completion_resources_directory() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(project_root.clone()),
         None,
         None,
     );
@@ -1285,7 +1255,6 @@ fn test_url_completion_specific_files() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(project_root.clone()),
         None,
         None,
     );
@@ -1318,7 +1287,6 @@ fn test_url_completion_in_import_statement() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(project_root.clone()),
         None,
         None,
     );
@@ -1359,7 +1327,6 @@ fn test_url_completion_in_import_statement_with_url_function() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(project_root.clone()),
         None,
         None,
     );
@@ -1400,7 +1367,6 @@ fn test_url_completion_uss_files() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(project_root.clone()),
         None,
         None,
     );
@@ -1430,7 +1396,6 @@ fn test_import_statement_completion_at_symbol() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1456,7 +1421,6 @@ fn test_import_statement_completion_imcomplete_import_keyword() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1482,7 +1446,6 @@ fn test_import_statement_completion_at_import_keyword() {
         &tree2,
         content2,
         position2,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1508,7 +1471,6 @@ fn test_import_statement_completion_at_import_with_space() {
         &tree3,
         content3,
         position3,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1534,7 +1496,6 @@ fn test_import_statement_completion_inside_ruleset() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );
@@ -1560,7 +1521,6 @@ fn test_import_statement_completion_inside_ruleset_2() {
         &tree,
         content,
         position,
-        &UnityProjectManager::new(PathBuf::from("test")),
         None,
         None,
     );

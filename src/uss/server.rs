@@ -310,7 +310,6 @@ impl LanguageServer for UssLanguageServer {
                     tree,
                     document_content,
                     position,
-                    &state.unity_manager,
                     project_url.as_ref(),
                     Some(&uxml_class_names),
                 )

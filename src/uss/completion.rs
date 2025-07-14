@@ -80,7 +80,6 @@ impl UssCompletionProvider {
         tree: &Tree,
         content: &str,
         position: Position,
-        unity_manager: &UnityProjectManager,
         source_url: Option<&Url>,
         uxml_element_names: Option<&std::collections::HashSet<String>>,
     ) -> Vec<CompletionItem> {
