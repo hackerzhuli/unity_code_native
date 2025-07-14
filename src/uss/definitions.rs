@@ -29,6 +29,82 @@ pub struct PropertyInfo {
     pub value_spec: ValueSpec,
 }
 
+/// Pseudo-class documentation information
+#[derive(Debug, Clone)]
+pub struct PseudoClassInfo {
+    /// Pseudo-class name (without the colon prefix)
+    pub name: &'static str,
+    /// Description of when this pseudo-class matches
+    pub description: &'static str,
+    /// Documentation URL (may contain {version} placeholder for Unity docs)
+    pub documentation_url: String,
+    /// Whether this pseudo-class can be chained with others
+    pub chainable: bool,
+}
+
+/// Create pseudo-class information with documentation
+fn create_pseudo_class_info() -> HashMap<&'static str, PseudoClassInfo> {
+    let mut pseudo_classes = HashMap::new();
+    
+    pseudo_classes.insert("hover", PseudoClassInfo {
+        name: "hover",
+        description: "The cursor is positioned over the element.",
+        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
+        chainable: true,
+    });
+    
+    pseudo_classes.insert("active", PseudoClassInfo {
+        name: "active",
+        description: "A user interacts with the element.",
+        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
+        chainable: true,
+    });
+    
+    pseudo_classes.insert("inactive", PseudoClassInfo {
+        name: "inactive",
+        description: "A user stops to interact with the element.",
+        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
+        chainable: true,
+    });
+    
+    pseudo_classes.insert("focus", PseudoClassInfo {
+        name: "focus",
+        description: "The element has focus.",
+        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
+        chainable: true,
+    });
+    
+    pseudo_classes.insert("disabled", PseudoClassInfo {
+        name: "disabled",
+        description: "The element is in a disabled state.",
+        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
+        chainable: true,
+    });
+    
+    pseudo_classes.insert("enabled", PseudoClassInfo {
+        name: "enabled",
+        description: "The element is in an enabled state.",
+        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
+        chainable: true,
+    });
+    
+    pseudo_classes.insert("checked", PseudoClassInfo {
+        name: "checked",
+        description: "The element is a Toggle or RadioButton element and it's selected.",
+        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
+        chainable: true,
+    });
+    
+    pseudo_classes.insert("root", PseudoClassInfo {
+        name: "root",
+        description: "The element is the highest-level element in the visual tree that has the stylesheet applied.",
+        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
+        chainable: false,
+    });
+    
+    pseudo_classes
+}
+
 /// USS language definitions and validation data
 #[derive(Clone)]
 pub struct UssDefinitions {
@@ -36,14 +112,12 @@ pub struct UssDefinitions {
     pub properties: HashMap<&'static str, PropertyInfo>,
     /// USS keywords with their documentation
     pub keywords: HashMap<&'static str, KeywordInfo>,
-    /// Valid pseudo-classes
+    /// USS pseudo-classes with their documentation
+    pub pseudo_classes: HashMap<&'static str, PseudoClassInfo>,
+    /// Valid pseudo-classes (for backward compatibility)
     pub valid_pseudo_classes: HashSet<&'static str>,
     /// Valid CSS color keywords with their hex values
     pub valid_color_keywords: HashMap<&'static str, &'static str>,
-    /// Valid USS functions
-    pub valid_functions: HashSet<&'static str>,
-    /// Valid at-rules
-    pub valid_at_rules: HashSet<&'static str>,
     /// Valid USS units
     pub valid_units: HashSet<&'static str>,
 }
@@ -65,13 +139,14 @@ impl UssDefinitions {
             properties.insert(name, prop_info);
         }
 
+        // Load pseudo-class information
+        let mut pseudo_classes = HashMap::new();
         let mut valid_pseudo_classes = HashSet::new();
-        let pseudo_classes = [
-            "hover", "active", "inactive", "focus", "disabled", 
-            "enabled", "checked", "root"
-        ];
-        for pseudo in pseudo_classes {
-            valid_pseudo_classes.insert(pseudo);
+        
+        let pseudo_class_data = create_pseudo_class_info();
+        for (name, pseudo_info) in pseudo_class_data {
+            pseudo_classes.insert(name, pseudo_info);
+            valid_pseudo_classes.insert(name);
         }
         
         let mut valid_color_keywords = HashMap::new();
@@ -260,10 +335,9 @@ impl UssDefinitions {
         Self {
             properties,
             keywords,
+            pseudo_classes,
             valid_pseudo_classes,
             valid_color_keywords,
-            valid_functions,
-            valid_at_rules,
             valid_units,
         }
     }
@@ -301,18 +375,6 @@ impl UssDefinitions {
         Color::from_hex(hex_value).map(|color| color.rgb())
     }
 
-
-    
-    /// Check if a function is valid
-    pub fn is_valid_function(&self, function_name: &str) -> bool {
-        self.valid_functions.contains(function_name)
-    }
-    
-    /// Check if an at-rule is valid
-    pub fn is_valid_at_rule(&self, at_rule: &str) -> bool {
-        self.valid_at_rules.contains(at_rule)
-    }
-    
     /// Check if a unit is valid
     pub fn is_valid_unit(&self, unit: &str) -> bool {
         self.valid_units.contains(unit)
@@ -417,6 +479,41 @@ impl UssDefinitions {
     /// Get all keywords with their information
     pub fn get_all_keywords(&self) -> &HashMap<&'static str, KeywordInfo> {
         &self.keywords
+    }
+    
+    /// Get pseudo-class information by name
+    pub fn get_pseudo_class_info(&self, pseudo_class_name: &str) -> Option<&PseudoClassInfo> {
+        self.pseudo_classes.get(pseudo_class_name)
+    }
+    
+    /// Get documentation URL for a pseudo-class with version formatting
+    pub fn get_pseudo_class_documentation_url(&self, pseudo_class_name: &str, unity_version: &str) -> Option<String> {
+        self.pseudo_classes.get(pseudo_class_name).map(|info| {
+            info.documentation_url.replace("{version}", unity_version)
+        })
+    }
+    
+    /// Check if a pseudo-class is chainable with others
+    pub fn is_pseudo_class_chainable(&self, pseudo_class_name: &str) -> bool {
+        self.pseudo_classes.get(pseudo_class_name)
+            .map(|info| info.chainable)
+            .unwrap_or(false)
+    }
+    
+    /// Get pseudo-class description
+    pub fn get_pseudo_class_description(&self, pseudo_class_name: &str) -> Option<&str> {
+        self.pseudo_classes.get(pseudo_class_name)
+            .map(|info| info.description)
+    }
+    
+    /// Get all pseudo-class names
+    pub fn get_all_pseudo_class_names(&self) -> Vec<&str> {
+        self.pseudo_classes.keys().copied().collect()
+    }
+    
+    /// Get all pseudo-classes with their information
+    pub fn get_all_pseudo_classes(&self) -> &HashMap<&'static str, PseudoClassInfo> {
+        &self.pseudo_classes
     }
 }
 
