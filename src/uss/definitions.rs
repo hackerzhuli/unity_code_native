@@ -12,7 +12,7 @@ use crate::uss::color::Color;
 use crate::uss::constants::*;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PropertyAnimation {
     None,
     Animatable,
@@ -50,8 +50,14 @@ impl PropertyInfo {
         if self.inherited {
             characteristics.push("Inherited");
         }
-        if self.animatable {
-            characteristics.push("Animatable");
+        match self.animatable {
+            PropertyAnimation::None => {}
+            PropertyAnimation::Animatable => {
+                characteristics.push("Animatable");
+            }
+            PropertyAnimation::Discrete => {
+                characteristics.push("Discrete animatable");
+            }
         }
         
         if !characteristics.is_empty() {

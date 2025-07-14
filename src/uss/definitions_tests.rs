@@ -1,4 +1,4 @@
-use crate::uss::{constants::*, definitions::UssDefinitions};
+use crate::uss::{constants::*, definitions::{PropertyAnimation, UssDefinitions}};
 
 
 #[test]
@@ -13,7 +13,7 @@ fn test_property_info_functionality() {
     assert_eq!(info.name, "border-radius");
     assert!(info.description.contains("radius"));
     assert!(!info.inherited);
-    assert!(info.animatable);
+    assert_eq!(info.animatable, PropertyAnimation::Animatable);
     
     // Test documentation URL formatting with specific URLs
     let border_radius_info = definitions.get_property_info("border-radius").unwrap();
@@ -35,9 +35,9 @@ fn test_property_info_functionality() {
     
     // Test animation check
     let opacity_info = definitions.get_property_info("opacity").unwrap();
-    assert!(opacity_info.animatable); // opacity is animatable
+    assert_eq!(opacity_info.animatable, PropertyAnimation::Animatable); // opacity is animatable
     let display_info = definitions.get_property_info("display").unwrap();
-    assert!(!display_info.animatable); // display is not animatable
+    assert_eq!(display_info.animatable, PropertyAnimation::Discrete); // display is not animatable
     
     // Test description
     let color_info = definitions.get_property_info("color").unwrap();
