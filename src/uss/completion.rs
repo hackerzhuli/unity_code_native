@@ -120,7 +120,7 @@ impl UssCompletionProvider {
                     url_string,
                     cursor_position,
                 } => self.complete_url_function(&url_string, cursor_position, source_url),
-                CompletionType::ImportStatement => self.complete_import_statement(),
+                CompletionType::ImportStatement => self.complete_import_statement_with_context(current_node, content),
                 _ => Vec::new(),
             }
         } else {
@@ -1049,53 +1049,118 @@ impl UssCompletionProvider {
         }
     }
 
+    /// Complete import statement structure with context
+    fn complete_import_statement_with_context(&self, current_node: Node, content: &str) -> Vec<CompletionItem> {
+        // Get the current partial text that the user has typed
+        let partial_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
+        
+        // Calculate the range to replace
+        let start_pos = current_node.start_position();
+        let end_pos = current_node.end_position();
+        
+        let text_edit_range = Range {
+            start: Position {
+                line: start_pos.row as u32,
+                character: start_pos.column as u32,
+            },
+            end: Position {
+                line: end_pos.row as u32,
+                character: end_pos.column as u32,
+            },
+        };
+        
+        self.complete_import_statement_with_range(text_edit_range)
+    }
+    
     /// Complete import statement structure
     fn complete_import_statement(&self) -> Vec<CompletionItem> {
+        // For backward compatibility, use empty range
+        let empty_range = Range {
+            start: Position { line: 0, character: 0 },
+            end: Position { line: 0, character: 0 },
+        };
+        self.complete_import_statement_with_range(empty_range)
+    }
+    
+    /// Complete import statement structure with specific range
+    fn complete_import_statement_with_range(&self, text_edit_range: Range) -> Vec<CompletionItem> {
         let mut items = Vec::new();
 
+        // Determine if we should use text_edit (when we have a valid range) or insert_text
+        let use_text_edit = text_edit_range.start.line != 0 || text_edit_range.start.character != 0 || 
+                           text_edit_range.end.line != 0 || text_edit_range.end.character != 0;
+
         // Provide @import completion with project scheme (recommended)
-        items.push(CompletionItem {
+        let mut item1 = CompletionItem {
             label: "@import url(\"project:///Assets\");".to_string(),
             kind: Some(CompletionItemKind::SNIPPET),
             detail: Some("Import statement with project scheme (recommended)".to_string()),
-            insert_text: Some("@import url(\"project:///Assets$1\");$0".to_string()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
+            filter_text: Some("@import".to_string()),
             documentation: Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
                 value: "Import file using project scheme. This is the recommended way to reference assets.".to_string(),
             })),
             ..Default::default()
-        });
+        };
+        
+        if use_text_edit {
+            item1.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                range: text_edit_range,
+                new_text: "@import url(\"project:///Assets$1\");$0".to_string(),
+            }));
+        } else {
+            item1.insert_text = Some("@import url(\"project:///Assets$1\");$0".to_string());
+        }
+        items.push(item1);
 
         // Provide @import completion with empty URL for relative paths
-        items.push(CompletionItem {
+        let mut item2 = CompletionItem {
             label: "@import url(\"\");".to_string(),
             kind: Some(CompletionItemKind::SNIPPET),
             detail: Some("Import statement with empty URL".to_string()),
-            insert_text: Some("@import url(\"$1\");$0".to_string()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
+            filter_text: Some("@import".to_string()),
             documentation: Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value:
-                    "Import file with any URL."
-                        .to_string(),
+                value: "Import file with any URL.".to_string(),
             })),
             ..Default::default()
-        });
+        };
+        
+        if use_text_edit {
+            item2.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                range: text_edit_range,
+                new_text: "@import url(\"$1\");$0".to_string(),
+            }));
+        } else {
+            item2.insert_text = Some("@import url(\"$1\");$0".to_string());
+        }
+        items.push(item2);
 
         // Provide @import completion with absolute path
-        items.push(CompletionItem {
+        let mut item3 = CompletionItem {
             label: "@import url(\"/Assets\");".to_string(),
             kind: Some(CompletionItemKind::SNIPPET),
             detail: Some("Import statement with absolute path".to_string()),
-            insert_text: Some("@import url(\"/Assets$1\");$0".to_string()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
+            filter_text: Some("@import".to_string()),
             documentation: Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
                 value: "Import file using absolute path.".to_string(),
             })),
             ..Default::default()
-        });
+        };
+        
+        if use_text_edit {
+            item3.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                range: text_edit_range,
+                new_text: "@import url(\"/Assets$1\");$0".to_string(),
+            }));
+        } else {
+            item3.insert_text = Some("@import url(\"/Assets$1\");$0".to_string());
+        }
+        items.push(item3);
 
         items
     }
