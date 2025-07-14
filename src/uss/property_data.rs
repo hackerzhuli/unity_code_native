@@ -15,7 +15,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
 
     let css_url = "https://developer.mozilla.org/en-US/docs/Web/CSS";
 
-    let transform_url = "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Transform.html";
+    let transform_url = "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transform.html";
 
     let transitions_url = "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html";
 
@@ -275,7 +275,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "display",
             description: "Defines how an element is displayed in the layout.",
-            documentation_url: format!("{supported_properties_url}#display"),
+            documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: false,
             animatable: PropertyAnimation::None,
             value_spec: ValueSpec::keywords(&["flex", "none"]),
