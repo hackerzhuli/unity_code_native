@@ -478,19 +478,12 @@ impl UssCompletionProvider {
                         .and_then(|manager| manager.get_unity_version_for_docs())
                         .unwrap_or_else(|| "6000.0".to_string());
                     
-                    let doc_url = info.documentation_url.replace("{version}", &unity_version);
-                    
                     // Create documentation with description and link
-                    let documentation_value = format!(
-                        "{}\n\n[Documentation]({})",
-                        info.description,
-                        doc_url
-                    );
+                    let documentation_value = info.create_documentation(&unity_version);
                     
                     items.push(CompletionItem {
                         label: pseudo_class.to_string(),
                         kind: Some(CompletionItemKind::KEYWORD),
-                        detail: Some(info.description.to_string()),
                         documentation: Some(Documentation::MarkupContent(MarkupContent {
                             kind: MarkupKind::Markdown,
                             value: documentation_value,
