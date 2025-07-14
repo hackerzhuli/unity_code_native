@@ -3,14 +3,13 @@
 //! Provides Language Server Protocol features for USS files using tower-lsp.
 
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer, LspService, Server};
 use url::Url;
 
-use crate::language::asset_url::{self, project_url_to_path};
+use crate::language::asset_url::project_url_to_path;
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::color_provider::UssColorProvider;
 use crate::uss::completion::UssCompletionProvider;
@@ -70,27 +69,10 @@ impl UssLanguageServer {
             state
                 .document_manager
                 .open_document(uri.clone(), content.to_string(), version);
-            // Extract variables with proper source URL for relative URL resolution
-            let project_url = if uri.scheme() == FILE_SCHEME {
-                if let Ok(file_path) = uri.to_file_path() {
-                    let project_root = state.unity_manager.project_path();
-                    match asset_url::create_project_url_with_normalization(
-                        &file_path,
-                        &project_root,
-                    ) {
-                        Ok(url) => Some(url),
-                        Err(e) => {
-                            log::warn!("[open_document] Failed to create project URL: {}", e);
-                            None
-                        }
-                    }
-                } else {
-                    log::warn!("[open_document] Failed to convert URI to file path");
-                    None
-                }
-            } else {
-                Some(uri.clone())
-            };
+            let project_url = state.unity_manager.convert_to_project_url(&uri);
+            if project_url.is_none() {
+                log::warn!("[open_document] Failed to convert URI to project URL");
+            }
 
             if let Some(document) = state.document_manager.get_document_mut(uri) {
                 document.extract_variables_with_source_url(project_url.as_ref());
@@ -113,27 +95,10 @@ impl UssLanguageServer {
             state
                 .document_manager
                 .update_document(uri, changes, version);
-            // Re-extract variables with proper source URL after changes
-            let project_url = if uri.scheme() == FILE_SCHEME {
-                if let Ok(file_path) = uri.to_file_path() {
-                    let project_root = state.unity_manager.project_path();
-                    match asset_url::create_project_url_with_normalization(
-                        &file_path,
-                        &project_root,
-                    ) {
-                        Ok(url) => Some(url),
-                        Err(e) => {
-                            log::warn!("[update_document] Failed to create project URL: {}", e);
-                            None
-                        }
-                    }
-                } else {
-                    log::warn!("[update_document] Failed to convert URI to file path");
-                    None
-                }
-            } else {
-                Some(uri.clone())
-            };
+            let project_url = state.unity_manager.convert_to_project_url(&uri);
+            if project_url.is_none() {
+                log::warn!("[update_document] Failed to convert URI to project URL");
+            }
 
             if let Some(document) = state.document_manager.get_document_mut(uri) {
                 document.extract_variables_with_source_url(project_url.as_ref());
@@ -269,23 +234,7 @@ impl LanguageServer for UssLanguageServer {
         if let Some(state) = state {
             if let Some(document) = state.document_manager.get_document(&uri) {
                 if let Some(tree) = document.tree() {
-                    // Convert file system URI to project scheme URL for Unity compatibility
-                    let project_url = if uri.scheme() == "file" {
-                        // Convert file:// URI to project:// URI
-                        if let Ok(file_path) = uri.to_file_path() {
-                            let project_root = state.unity_manager.project_path();
-                            crate::language::asset_url::create_project_url_with_normalization(
-                                &file_path,
-                                &project_root,
-                            )
-                            .ok()
-                        } else {
-                            None
-                        }
-                    } else {
-                        // If it's already a project:// URI or other scheme, use as-is
-                        Some(uri.clone())
-                    };
+                    let project_url = state.unity_manager.convert_to_project_url(&uri);
 
                     let hover = state.hover_provider.hover(
                         tree,
@@ -353,18 +302,7 @@ impl LanguageServer for UssLanguageServer {
                 };
 
                 let document_content = document.content();
-                let project_root = state.unity_manager.project_path();
-
-                // Convert file system URI to project scheme URL for Unity compatibility
-                let project_url = if uri.scheme() == FILE_SCHEME {
-                    if let Ok(file_path) = uri.to_file_path() {
-                        asset_url::create_project_url_with_normalization(&file_path, project_root).ok()
-                    } else {
-                        None
-                    }
-                } else {
-                    Some(uri.clone())
-                };
+                let project_url = state.unity_manager.convert_to_project_url(&uri);
 
                 // Generate completions
                 state.completion_provider.complete(
@@ -425,23 +363,7 @@ impl LanguageServer for UssLanguageServer {
                     };
 
                 if let Some(tree) = tree_clone {
-                    // Convert file system URI to project scheme URL for Unity compatibility
-                    let project_url = if uri.scheme() == FILE_SCHEME {
-                        // Convert file:// URI to project:// URI
-                        if let Ok(file_path) = uri.to_file_path() {
-                            let project_root = state.unity_manager.project_path();
-                            asset_url::create_project_url_with_normalization(
-                                &file_path,
-                                &project_root,
-                            )
-                            .ok()
-                        } else {
-                            None
-                        }
-                    } else {
-                        // If it's already a project:// URI or other scheme, use as-is
-                        Some(uri.clone())
-                    };
+                    let project_url = state.unity_manager.convert_to_project_url(&uri);
 
                     // Get the variable resolver from the document for enhanced diagnostics
                     let variable_resolver =

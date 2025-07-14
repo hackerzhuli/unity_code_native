@@ -6,7 +6,10 @@
 use std::path::PathBuf;
 use std::fs;
 use serde::Deserialize;
+use url::Url;
 use std::io;
+
+use crate::language::asset_url::create_project_url_with_normalization;
 
 /// Represents the structure of Unity's ProjectVersion.txt file
 #[derive(Debug, Deserialize)]
@@ -156,6 +159,37 @@ impl UnityProjectManager {
     /// Returns the project path.
     pub fn project_path(&self) -> &PathBuf {
         &self.project_path
+    }
+
+    /// Converts a file system URL to a project scheme URL
+    ///
+    /// ## Arguments
+    ///
+    /// * `url` - The URL to convert (typically a file:// URL)
+    ///
+    /// ## Returns
+    ///
+    /// `Some(Url)` if the conversion is successful, `None` if the URL cannot be converted
+    /// 
+    /// ## Note
+    /// The file must exist on file system, otherwise the conversion will fail.
+    pub fn convert_to_project_url(&self, url: &Url) -> Option<Url> {        
+        if url.scheme() == "file" {
+            if let Ok(file_path) = url.to_file_path() {
+                create_project_url_with_normalization(
+                    &file_path,
+                    &self.project_path,
+                )
+                .ok()
+            } else {
+                None
+            }
+        } else if url.scheme() == "project" {
+            // If it's already a project:// URL, use as-is
+            Some(url.clone())
+        }else{
+            None
+        }
     }
 }
 
