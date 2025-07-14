@@ -154,6 +154,15 @@ impl UssLanguageServer {
 
         Some(state.highlighter.generate_tokens(tree, content))
     }
+
+    /// Extract Visual Element class names from the schema manager
+    async fn update_and_get_element_names(&self) -> HashSet<String> {
+        let mut manager = self.uxml_schema_manager.lock().await;
+        if let Err(e) = manager.update().await {
+            log::warn!("Failed to update UXML schemas: {}", e);
+        }
+        manager.get_all_elements().iter().map(|element| element.name.clone()).collect::<HashSet<String>>()
+    }
 }
 
 #[tower_lsp::async_trait]
@@ -321,16 +330,7 @@ impl LanguageServer for UssLanguageServer {
             uri
         );
 
-        // Update UXML schema manager and extract class names
-        let mut uxml_class_names: HashSet<String> = HashSet::new();
-        {
-            let mut manager = self.uxml_schema_manager.lock().await; 
-                if let Err(e) = manager.update().await {
-                    log::warn!("Failed to update UXML schemas for completion: {}", e);
-                }
-                // Extract all element names as a HashSet for completion
-                uxml_class_names = manager.get_all_elements().iter().map(|element| element.name.clone()).collect::<std::collections::HashSet<String>>()
-        }
+        let uxml_class_names = self.update_and_get_element_names().await;
 
         // Perform all operations within a single lock scope
         let completions = {
@@ -399,16 +399,7 @@ impl LanguageServer for UssLanguageServer {
     ) -> Result<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri;
 
-        // Update UXML schema manager and extract class names
-        let mut uxml_class_names: HashSet<String> = HashSet::new();
-        {
-            let mut manager = self.uxml_schema_manager.lock().await; 
-                if let Err(e) = manager.update().await {
-                    log::warn!("Failed to update UXML schemas for diagnostics: {}", e);
-                }
-                // Extract all element names as a HashSet for diagnostics
-                uxml_class_names = manager.get_all_elements().iter().map(|element| element.name.clone()).collect::<std::collections::HashSet<String>>()
-        }
+        let uxml_class_names = self.update_and_get_element_names().await;
 
         // Extract necessary data from state and release lock quickly
         let (mut diagnostics, url_references, _, project_root) = {
