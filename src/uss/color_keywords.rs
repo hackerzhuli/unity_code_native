@@ -1,8 +1,6 @@
 //! USS color keywords definitions
 //!
-//! This module contains all the standard CSS color keywords supported by Unity's USS.
-//! These colors follow the CSS3 specification and include named colors with their
-//! corresponding hex values.
+//! This module contains all the standard USS color keywords supported by Unity's USS.
 
 use std::collections::HashMap;
 
