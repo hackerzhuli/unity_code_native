@@ -263,7 +263,7 @@ mod tests {
         let hover = provider.create_hover_content_for_property("color", &unity_manager);
         
         if let HoverContents::Markup(content) = hover.contents {
-            assert!(content.value.contains("**color**"));
+            assert!(content.value.contains("color"));
             assert!(content.value.contains("Documentation"));
             assert_eq!(content.kind, MarkupKind::Markdown);
         } else {

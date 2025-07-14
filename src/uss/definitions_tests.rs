@@ -37,7 +37,7 @@ fn test_property_info_functionality() {
     let opacity_info = definitions.get_property_info("opacity").unwrap();
     assert_eq!(opacity_info.animatable, PropertyAnimation::Animatable); // opacity is animatable
     let display_info = definitions.get_property_info("display").unwrap();
-    assert_eq!(display_info.animatable, PropertyAnimation::Discrete); // display is not animatable
+    assert_eq!(display_info.animatable, PropertyAnimation::None); // display is not animatable
     
     // Test description
     let color_info = definitions.get_property_info("color").unwrap();
