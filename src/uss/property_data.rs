@@ -836,7 +836,33 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         },
     ];
     
-    for prop in standard_props {
+    // Add 'initial' keyword support to all properties (since Unity supports this value for all properties)
+    let mut enhanced_props = Vec::new();
+    for mut prop in standard_props {
+        // Determine how to add 'initial' based on the property's value specification
+        if prop.value_spec.is_single_format_and_entry() {
+            // For single format and entry properties, add 'initial' to the entry
+            if let Some(format) = prop.value_spec.formats.get_mut(0) {
+                if let Some(entry) = format.entries.get_mut(0) {
+                    if !entry.types.contains(&ValueType::Keyword("initial")) {
+                        entry.types.push(ValueType::Keyword("initial"));
+                    }
+                }
+            }
+        } else {
+            // For other properties, add a separate format that accepts only 'initial'
+            let initial_format = ValueFormat {
+                entries: vec![ValueEntry {
+                    types: vec![ValueType::Keyword("initial")],
+                }],
+            };
+            prop.value_spec.formats.push(initial_format);
+        }
+        
+        enhanced_props.push(prop);
+    }
+
+    for prop in enhanced_props {
         properties.insert(prop.name, prop);
     }
     

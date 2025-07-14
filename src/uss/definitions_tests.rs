@@ -106,3 +106,26 @@ fn test_unit_validation() {
     assert!(all_units.contains(&UNIT_S));
     assert_eq!(all_units.len(), 8); // Should have exactly 8 units
 }
+
+#[test]
+fn test_keyword_only(){
+    let definitions = UssDefinitions::new();
+    let flex_dir = definitions.get_property_info("flex-direction").unwrap();
+    assert!(flex_dir.value_spec.is_keyword_only());
+
+    let width = definitions.get_property_info("width").unwrap();
+    assert!(!width.value_spec.is_keyword_only());
+}
+
+#[test]
+fn test_color_only(){
+    let definitions = UssDefinitions::new();
+    let color = definitions.get_property_info("color").unwrap();
+    assert!(color.value_spec.is_color_only());
+
+    let width = definitions.get_property_info("width").unwrap();
+    assert!(!width.value_spec.is_color_only());
+
+    let bg_color = definitions.get_property_info("background-color").unwrap();
+    assert!(bg_color.value_spec.is_color_only());
+}

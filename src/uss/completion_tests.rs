@@ -434,7 +434,6 @@ fn test_property_value_completion_after_typing() {
 
     // Test case: cursor right after colon
     let content = ".some { \n    color: ro \n}";
-    let length = content.len();
     let tree = parser.parse(content, None).unwrap();
 
     // Position right after ro

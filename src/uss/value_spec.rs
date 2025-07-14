@@ -297,4 +297,9 @@ impl ValueSpec {
     pub(crate) fn is_color_only(&self) -> bool {
         return self.formats.len() == 1 && self.formats[0].is_color_only();
     }
+    
+    /// Check if this value spec is a single format with a single entry
+    pub(crate) fn is_single_format_and_entry(&self) -> bool {
+        self.formats.len() == 1 && self.formats[0].entries.len() == 1
+    }
 }
