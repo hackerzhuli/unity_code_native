@@ -77,7 +77,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position",
             description: "Background image position value.",
-            format: None,
+            format: Some("[ left | center | right | top | bottom | <length> ]  |  [ left | center | right | <length> ] [ top | center | bottom | <length> ]  |  [ center | [ left | right ] <length>? ] && [ center | [ top | bottom ] <length>? ] "),
             documentation_url: format!("{css_url}/background-position"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -86,7 +86,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position-x",
             description: "Background image x position value.",
-            format: None,
+            format: Some("[ center | [ [ left | right | x-start | x-end ]? <length>? ]! ]#"),
             documentation_url: format!("{css_url}/background-position-x"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -95,7 +95,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position-y",
             description: "Background image y position value.",
-            format: None,
+            format: Some("[ center | [ [ top | bottom | y-start | y-end ]? <length>? ]! ]#"),
             documentation_url: format!("{css_url}/background-position-y"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -104,7 +104,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-repeat",
             description: "Background image repeat value.",
-            format: None,
+            format: Some("repeat-x | repeat-y | [ repeat | space | round | no-repeat ]{1,2}  "),
             documentation_url: format!("{css_url}/background-repeat"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
@@ -113,7 +113,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-size",
             description: "Background image size value. Transitions are fully supported only when using size in pixels or percentages, such as pixel-to-pixel or percentage-to-percentage transitions.",
-            format: None,
+            format: Some("  [ <length> | auto ]{1,2} | cover | contain "),
             documentation_url: format!("{css_url}/background-size"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
