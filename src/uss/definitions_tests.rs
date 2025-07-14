@@ -1,61 +1,75 @@
-use crate::uss::{constants::*, definitions::{PropertyAnimation, UssDefinitions}};
-use crate::test_utils::get_project_root;
 use std::fs;
-use std::path::Path;
-
+use scraper::{Html, Selector};
+use crate::uss::definitions::{UssDefinitions, PropertyAnimation};
+use crate::test_utils::get_project_root;
+use crate::uss::constants::*;
 
 #[test]
-fn test_property_info_functionality() {
+fn test_property_exists() {
     let definitions = UssDefinitions::new();
     
-    // Test getting property info
-    let border_radius_info = definitions.get_property_info("border-radius");
-    assert!(border_radius_info.is_some());
+    // Test some known properties
+    assert!(definitions.get_property_info("color").is_some());
+    assert!(definitions.get_property_info("background-color").is_some());
+    assert!(definitions.get_property_info("width").is_some());
+    assert!(definitions.get_property_info("height").is_some());
+    assert!(definitions.get_property_info("margin").is_some());
+    assert!(definitions.get_property_info("padding").is_some());
+    assert!(definitions.get_property_info("border-width").is_some());
+    assert!(definitions.get_property_info("flex-direction").is_some());
+    assert!(definitions.get_property_info("justify-content").is_some());
+    assert!(definitions.get_property_info("align-items").is_some());
     
-    let info = border_radius_info.unwrap();
-    assert_eq!(info.name, "border-radius");
-    assert!(info.description.contains("radius"));
-    assert!(!info.inherited);
-    assert_eq!(info.animatable, PropertyAnimation::Animatable);
+    // Test some Unity-specific properties
+    assert!(definitions.get_property_info("-unity-font").is_some());
+    assert!(definitions.get_property_info("-unity-text-align").is_some());
+    assert!(definitions.get_property_info("-unity-background-scale-mode").is_some());
     
-    // Test documentation URL formatting with specific URLs
-    let border_radius_info = definitions.get_property_info("border-radius").unwrap();
-    let doc_url = border_radius_info.documentation_url.replace("{version}", "2023.3");
-    assert!(doc_url.contains("2023.3"));
-    assert!(doc_url.contains("UIE-USS-SupportedProperties.html#drawing-borders")); // Should have specific section
-    assert_eq!(doc_url, "https://docs.unity3d.com/2023.3/Documentation/Manual/UIE-USS-SupportedProperties.html#drawing-borders");
-    
-    // Test Unity-specific property URL
-    let unity_font_info = definitions.get_property_info("-unity-font").unwrap();
-    let unity_url = unity_font_info.documentation_url.replace("{version}", "2023.3");
-    assert!(unity_url.contains("UIE-USS-SupportedProperties.html#unity-font")); // Should have Unity font section
-    
-    // Test inheritance check
-    let color_info = definitions.get_property_info("color").unwrap();
-    assert!(color_info.inherited); // color is inherited
-    let border_radius_info = definitions.get_property_info("border-radius").unwrap();
-    assert!(!border_radius_info.inherited); // border-radius is not inherited
-    
-    // Test animation check
-    let opacity_info = definitions.get_property_info("opacity").unwrap();
-    assert_eq!(opacity_info.animatable, PropertyAnimation::Animatable); // opacity is animatable
-    let display_info = definitions.get_property_info("display").unwrap();
-    assert_eq!(display_info.animatable, PropertyAnimation::None); // display is not animatable
-    
-    // Test description
-    let color_info = definitions.get_property_info("color").unwrap();
-    let desc = color_info.description;
-    assert!(desc.contains("text"));
-    
-    // Test getting all property names
-    let all_props: Vec<&str> = definitions.properties.keys().cloned().collect();
-    assert!(all_props.contains(&"border-radius"));
-    assert!(all_props.contains(&"-unity-font"));
-    assert!(all_props.len() > 50); // Should have many properties
+    // Test non-existent property
+    assert!(definitions.get_property_info("non-existent-property").is_none());
 }
 
 #[test]
-fn test_unit_validation() {
+fn test_property_inheritance() {
+    let definitions = UssDefinitions::new();
+    
+    // Test inherited properties
+    let color = definitions.get_property_info("color").unwrap();
+    assert!(color.inherited, "color should be inherited");
+    
+    let font_size = definitions.get_property_info("font-size").unwrap();
+    assert!(font_size.inherited, "font-size should be inherited");
+    
+    // Test non-inherited properties
+    let width = definitions.get_property_info("width").unwrap();
+    assert!(!width.inherited, "width should not be inherited");
+    
+    let background_color = definitions.get_property_info("background-color").unwrap();
+    assert!(!background_color.inherited, "background-color should not be inherited");
+}
+
+#[test]
+fn test_property_animation() {
+    let definitions = UssDefinitions::new();
+    
+    // Test fully animatable properties
+    let color = definitions.get_property_info("color").unwrap();
+    assert_eq!(color.animatable, PropertyAnimation::Animatable);
+    
+    let width = definitions.get_property_info("width").unwrap();
+    assert_eq!(width.animatable, PropertyAnimation::Animatable);
+    
+    // Test discrete properties
+    let flex_direction = definitions.get_property_info("flex-direction").unwrap();
+    assert_eq!(flex_direction.animatable, PropertyAnimation::Discrete);
+    
+    // Test non-animatable properties
+    let cursor = definitions.get_property_info("cursor").unwrap();
+    assert_eq!(cursor.animatable, PropertyAnimation::None);
+}
+
+#[test]
+fn test_units() {
     let definitions = UssDefinitions::new();
     
     // Test valid units
@@ -133,97 +147,155 @@ fn test_color_only(){
     assert!(bg_color.value_spec.is_color_only());
 }
 
+
+
 #[test]
 fn test_properties_against_source_data() {
     let definitions = UssDefinitions::new();
     
-    // Read the official properties source data
+    // Read the official properties HTML source data
     let project_root = get_project_root();
-    let properties_file_path = project_root.join("Assets").join("data").join("properties.txt");
+    let html_file_path = project_root.join("Assets").join("data").join("USS_properties_reference_table_6.0_clean.html");
     
-    let content = fs::read_to_string(&properties_file_path)
-        .expect("Failed to read properties.txt file");
+    let html_content = fs::read_to_string(&html_file_path)
+        .expect("Failed to read USS_properties_reference_table.html file");
+    
+    let document = Html::parse_document(&html_content);
+    let row_selector = Selector::parse("tbody tr").unwrap();
+    let cell_selector = Selector::parse("td").unwrap();
+    let link_selector = Selector::parse("a").unwrap();
+    let code_selector = Selector::parse("code").unwrap();
     
     let mut tested_properties = 0;
-     let mut mismatches = Vec::new();
-     let mut missing_properties = Vec::new();
-     
-     for line in content.lines() {
-         if line.trim().is_empty() {
-             continue;
-         }
+    let mut mismatches = Vec::new();
+    let mut missing_properties = Vec::new();
+    
+    for row in document.select(&row_selector) {
+        let cells: Vec<_> = row.select(&cell_selector).collect();
+        if cells.len() != 4 {
+            continue; // Skip malformed rows
+        }
+        
+        // Extract property name from the first cell's <code> tag
+        let property_name = if let Some(code_elem) = cells[0].select(&code_selector).next() {
+            code_elem.text().collect::<String>()
+        } else {
+            continue; // Skip rows without property name in code tag
+        };
+        
+        // Extract other data
+         let inherited_str = cells[1].text().collect::<String>().trim().to_string();
+         let animatable_str = cells[2].text().collect::<String>().trim().to_string();
          
-         // Parse the tab-separated values
-         let parts: Vec<&str> = line.split('\t').collect();
-         if parts.len() != 4 {
-             continue; // Skip malformed lines
-         }
-         
-         let property_name = parts[0];
-         let inherited_str = parts[1];
-         let animatable_str = parts[2];
-         let description = parts[3];
-         
-         // Check if we have this property in our definitions
-         if let Some(property_info) = definitions.get_property_info(property_name) {
-             tested_properties += 1;
-             let mut property_mismatches = Vec::new();
+         // Extract description while excluding tooltip content
+         let description = {
+             let mut desc_text = String::new();
              
-             // Test inherited field
-             let expected_inherited = inherited_str == "Yes";
-             if property_info.inherited != expected_inherited {
-                 property_mismatches.push(format!(
-                     "  - inherited: expected {}, got {}",
-                     expected_inherited, property_info.inherited
-                 ));
+             // Clone the cell to avoid borrowing issues
+             let cell_html = cells[3].html();
+             let cell_fragment = Html::parse_fragment(&cell_html);
+             
+             // Extract text while skipping tooltip subtrees
+             fn collect_text_excluding_tooltips(element: scraper::ElementRef, text: &mut String) {
+                 // Check if this element has tooltip class
+                 if element.value().classes().any(|class| class.starts_with("tooltip") && class != "tooltip") {
+                     return; // Skip this entire subtree
+                 }
+                 
+                 // Process this element's direct text and children
+                 for node in element.children() {
+                     if let Some(text_node) = node.value().as_text() {
+                         text.push_str(text_node);
+                     } else if let Some(child_element) = node.value().as_element() {
+                         let child_ref = scraper::ElementRef::wrap(node).unwrap();
+                         collect_text_excluding_tooltips(child_ref, text);
+                     }
+                 }
              }
              
-             // Test animatable field
-             let expected_animatable = match animatable_str {
-                 "Fully animatable" => PropertyAnimation::Animatable,
-                 "Discrete" => PropertyAnimation::Discrete,
-                 "Non-animatable" => PropertyAnimation::None,
-                 _ => {
+             collect_text_excluding_tooltips(cell_fragment.root_element(), &mut desc_text);
+             
+             desc_text.trim().to_string()
+         };
+        
+        // Extract documentation URL from the first cell's <a> tag
+        let doc_url = if let Some(link_elem) = cells[0].select(&link_selector).next() {
+            link_elem.value().attr("href").unwrap_or("").to_string()
+        } else {
+            String::new()
+        };
+        
+        // Check if we have this property in our definitions
+        if let Some(property_info) = definitions.get_property_info(&property_name) {
+            tested_properties += 1;
+            let mut property_mismatches = Vec::new();
+            
+            // Test inherited field
+            let expected_inherited = inherited_str == "Yes";
+            if property_info.inherited != expected_inherited {
+                property_mismatches.push(format!(
+                    "  - inherited: expected {}, got {}",
+                    expected_inherited, property_info.inherited
+                ));
+            }
+            
+            // Test animatable field
+            let expected_animatable = match animatable_str.as_str() {
+                "Fully animatable" => PropertyAnimation::Animatable,
+                "Discrete" => PropertyAnimation::Discrete,
+                "Non-animatable" => PropertyAnimation::None,
+                _ => {
+                    property_mismatches.push(format!(
+                        "  - unknown animatable value: '{}'",
+                        animatable_str
+                    ));
+                    continue;
+                }
+            };
+            
+            if property_info.animatable != expected_animatable {
+                property_mismatches.push(format!(
+                    "  - animatable: expected {:?}, got {:?}",
+                    expected_animatable, property_info.animatable
+                ));
+            }
+            
+            // Test description field (should contain the official description verbatim)
+            // Normalize quote characters for comparison (official docs use non-standard quotes)
+            let normalized_expected = description.replace("’", "'");
+            let normalized_actual = property_info.description.replace("’", "'");
+            
+            if !normalized_actual.contains(&normalized_expected) {
+                property_mismatches.push(format!(
+                    "  - [{}] description does not contain official text\n    Expected: '{}'\n    Actual: '{}'",
+                    property_name, description, property_info.description
+                ));
+            }
+            
+            // Test documentation URL (replace {version} with "6000.0")
+             if !doc_url.is_empty() && !property_info.documentation_url.is_empty() {
+                 let expected_doc_url = property_info.documentation_url.replace("{version}", "6000.0");
+                 if expected_doc_url != doc_url {
                      property_mismatches.push(format!(
-                         "  - unknown animatable value: '{}'",
-                         animatable_str
+                         "  - [{}] doc_url mismatch\n    Expected: '{}'\n    Actual: '{}'",
+                         property_name, doc_url, expected_doc_url
                      ));
-                     continue;
                  }
-             };
-             
-             if property_info.animatable != expected_animatable {
-                 property_mismatches.push(format!(
-                     "  - animatable: expected {:?}, got {:?}",
-                     expected_animatable, property_info.animatable
-                 ));
              }
-             
-             // Test description field (should contain the official description verbatim)
-             // Normalize quote characters for comparison (official docs use non-standard quotes)
-             let normalized_expected = description.replace("’", "'");
-             let normalized_actual = property_info.description.replace("’", "'");
-             
-             if !normalized_actual.contains(&normalized_expected) {
-                 property_mismatches.push(format!(
-                     "  - [{}] description does not contain official text\n    Expected: '{}'\n    Actual: '{}'",
-                     property_name, description, property_info.description
-                 ));
-             }
-             
-             // Print differences for this property if any
-             if !property_mismatches.is_empty() {
-                 println!("\nProperty '{}' differences:", property_name);
-                 for mismatch in &property_mismatches {
-                     println!("{}", mismatch);
-                 }
-                 mismatches.extend(property_mismatches);
-             }
-         } else {
-             // Property is missing from our definitions
-             missing_properties.push(property_name.to_string());
-         }
-     }
+            
+            // Print differences for this property if any
+            if !property_mismatches.is_empty() {
+                println!("\nProperty '{}' differences:", property_name);
+                for mismatch in &property_mismatches {
+                    println!("{}", mismatch);
+                }
+                mismatches.extend(property_mismatches);
+            }
+        } else {
+            // Property is missing from our definitions
+            missing_properties.push(property_name);
+        }
+    }
     
     // Report missing properties
     if !missing_properties.is_empty() {
@@ -256,5 +328,5 @@ fn test_properties_against_source_data() {
     // Ensure we tested a reasonable number of properties
     assert!(tested_properties > 50, "Expected to test more than 50 properties, but only tested {}", tested_properties);
     
-    println!("Successfully validated {} properties against source data", tested_properties);
+    println!("Successfully validated {} properties against HTML source data", tested_properties);
 }
