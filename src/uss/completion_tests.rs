@@ -1412,3 +1412,81 @@ fn test_url_completion_uss_files() {
         "Should include main.uss file"
     );
 }
+
+#[test]
+fn test_import_statement_completion_at_symbol() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test completion after typing just "@"
+    let content = "@\n.a{color:red}";
+    let tree = parser.parse(content, None).unwrap();
+    let position = Position {
+        line: 0,
+        character: 1, // Right after @
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should provide import statement completions
+    assert!(!completions.is_empty(), "Should provide completions after @");
+}
+
+#[test]
+fn test_import_statement_completion_at_import_keyword() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test completion after typing "@import"
+    let content2 = "@import";
+    let tree2 = parser.parse(content2, None).unwrap();
+    let position2 = Position {
+        line: 0,
+        character: 7, // Right after @import
+    };
+
+    let completions2 = provider.complete(
+        &tree2,
+        content2,
+        position2,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should also provide import statement completions
+    assert!(!completions2.is_empty(), "Should provide completions after @import");
+}
+
+#[test]
+fn test_import_statement_completion_at_import_with_space() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test completion after typing "@import " (with space)
+    let content3 = "@import ";
+    let tree3 = parser.parse(content3, None).unwrap();
+    let position3 = Position {
+        line: 0,
+        character: 8, // Right after @import and space
+    };
+
+    let completions3 = provider.complete(
+        &tree3,
+        content3,
+        position3,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should NOT provide import statement completions after space (per documentation)
+    assert!(completions3.is_empty(), "Should NOT provide completions after @import with space");
+}

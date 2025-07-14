@@ -55,6 +55,8 @@ pub(super) enum CompletionType {
         /// The cursor position within the URL string
         cursor_position: usize,
     },
+    /// Completing import statement structure after @import
+    ImportStatement,
     /// Unknown context
     Unknown,
 }
@@ -116,6 +118,7 @@ impl UssCompletionProvider {
                     url_string,
                     cursor_position,
                 } => self.complete_url_function(&url_string, cursor_position, source_url),
+                CompletionType::ImportStatement => self.complete_import_statement(),
                 _ => Vec::new(),
             }
         } else {
@@ -141,6 +144,11 @@ impl UssCompletionProvider {
             let last_pos = Position::new(position.line, position.character - 1);
 
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
+                // Check for incomplete @import statements first
+                if let Some(import_context) = self.analyze_incomplete_import_context(current_node, content, position) {
+                    return import_context;
+                }
+
                 // Check for selector completion context first
                 if let Some(selector_context) =
                     self.analyze_selector_context(tree, content, current_node, position)
@@ -880,6 +888,58 @@ impl UssCompletionProvider {
         None
     }
 
+    /// Analyze if we're in an incomplete @import statement context
+    fn analyze_incomplete_import_context<'a>(
+        &self,
+        current_node: Node<'a>,
+        content: &str,
+        position: Position,
+    ) -> Option<CompletionContext<'a>> {
+        // Check if we're in an ERROR node that might contain an incomplete @import
+        if current_node.kind() == NODE_ERROR || current_node.kind() == "@import" {
+            // Get the text content of the current line up to the cursor position
+            let line_start = position.line as usize;
+            let lines: Vec<&str> = content.lines().collect();
+            
+            if line_start < lines.len() {
+                let line_content = lines[line_start];
+                let cursor_char = position.character as usize;
+                let text_before_cursor = if cursor_char <= line_content.len() {
+                    &line_content[..cursor_char]
+                } else {
+                    line_content
+                };
+                
+                // Check if the text before cursor contains @import or just @
+                let trimmed = text_before_cursor.trim();
+                
+                // Don't provide completions if cursor is after a space following @import
+                if text_before_cursor.ends_with("@import ") {
+                    return None;
+                }
+                
+                if trimmed == "@" || trimmed == "@import" || (trimmed.starts_with("@import") && trimmed.len() <= 7) {
+                    return Some(CompletionContext {
+                        t: CompletionType::ImportStatement,
+                        current_node: Some(current_node),
+                        position,
+                    });
+                }
+            }
+        }
+        
+        // Also check if current node is @import token
+        if current_node.kind() == "@import" {
+            return Some(CompletionContext {
+                t: CompletionType::ImportStatement,
+                current_node: Some(current_node),
+                position,
+            });
+        }
+        
+        None
+    }
+
     /// Analyze if we're inside a URL function and return appropriate context
     fn analyze_url_function_context<'a>(
         &self,
@@ -1003,6 +1063,55 @@ impl UssCompletionProvider {
         } else {
             Vec::new()
         }
+    }
+
+    /// Complete import statement structure
+    fn complete_import_statement(&self) -> Vec<CompletionItem> {
+        let mut items = Vec::new();
+
+        // Provide @import completion with project scheme (recommended)
+        items.push(CompletionItem {
+            label: "@import url(\"project:///Assets\");".to_string(),
+            kind: Some(CompletionItemKind::SNIPPET),
+            detail: Some("Import statement with project scheme (recommended)".to_string()),
+            insert_text: Some("@import url(\"project:///Assets$1\");$0".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            documentation: Some(Documentation::MarkupContent(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: "Import USS file using project scheme. This is the recommended way to reference assets.".to_string(),
+            })),
+            ..Default::default()
+        });
+
+        // Provide @import completion with empty URL for relative paths
+        items.push(CompletionItem {
+            label: "@import url(\"\");".to_string(),
+            kind: Some(CompletionItemKind::SNIPPET),
+            detail: Some("Import statement with empty URL for custom paths".to_string()),
+            insert_text: Some("@import url(\"$1\");$0".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            documentation: Some(Documentation::MarkupContent(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: "Import USS file with custom URL. You can use relative paths or other schemes.".to_string(),
+            })),
+            ..Default::default()
+        });
+
+        // Provide @import completion with string literal (alternative syntax)
+        items.push(CompletionItem {
+            label: "@import \"\";".to_string(),
+            kind: Some(CompletionItemKind::SNIPPET),
+            detail: Some("Import statement with string literal".to_string()),
+            insert_text: Some("@import \"$1\";$0".to_string()),
+            insert_text_format: Some(InsertTextFormat::SNIPPET),
+            documentation: Some(Documentation::MarkupContent(MarkupContent {
+                kind: MarkupKind::Markdown,
+                value: "Import USS file using string literal syntax.".to_string(),
+            })),
+            ..Default::default()
+        });
+
+        items
     }
 
     /// Collect all selectors from the document, separating classes and IDs
