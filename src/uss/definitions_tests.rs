@@ -16,34 +16,36 @@ fn test_property_info_functionality() {
     assert!(info.animatable);
     
     // Test documentation URL formatting with specific URLs
-    let doc_url = definitions.get_property_documentation_url("border-radius", "2023.3");
-    assert!(doc_url.is_some());
-    let url = doc_url.unwrap();
-    assert!(url.contains("2023.3"));
-    assert!(url.contains("UIE-USS-SupportedProperties.html#drawing-borders")); // Should have specific section
-    assert_eq!(url, "https://docs.unity3d.com/2023.3/Documentation/Manual/UIE-USS-SupportedProperties.html#drawing-borders");
+    let border_radius_info = definitions.get_property_info("border-radius").unwrap();
+    let doc_url = border_radius_info.documentation_url.replace("{version}", "2023.3");
+    assert!(doc_url.contains("2023.3"));
+    assert!(doc_url.contains("UIE-USS-SupportedProperties.html#drawing-borders")); // Should have specific section
+    assert_eq!(doc_url, "https://docs.unity3d.com/2023.3/Documentation/Manual/UIE-USS-SupportedProperties.html#drawing-borders");
     
     // Test Unity-specific property URL
-    let unity_url = definitions.get_property_documentation_url("-unity-font", "2023.3");
-    assert!(unity_url.is_some());
-    let url = unity_url.unwrap();
-    assert!(url.contains("UIE-USS-SupportedProperties.html#unity-font")); // Should have Unity font section
+    let unity_font_info = definitions.get_property_info("-unity-font").unwrap();
+    let unity_url = unity_font_info.documentation_url.replace("{version}", "2023.3");
+    assert!(unity_url.contains("UIE-USS-SupportedProperties.html#unity-font")); // Should have Unity font section
     
     // Test inheritance check
-    assert!(definitions.is_property_inherited("color")); // color is inherited
-    assert!(!definitions.is_property_inherited("border-radius")); // border-radius is not inherited
+    let color_info = definitions.get_property_info("color").unwrap();
+    assert!(color_info.inherited); // color is inherited
+    let border_radius_info = definitions.get_property_info("border-radius").unwrap();
+    assert!(!border_radius_info.inherited); // border-radius is not inherited
     
     // Test animation check
-    assert!(definitions.is_property_animatable("opacity")); // opacity is animatable
-    assert!(!definitions.is_property_animatable("display")); // display is not animatable
+    let opacity_info = definitions.get_property_info("opacity").unwrap();
+    assert!(opacity_info.animatable); // opacity is animatable
+    let display_info = definitions.get_property_info("display").unwrap();
+    assert!(!display_info.animatable); // display is not animatable
     
     // Test description
-    let desc = definitions.get_property_description("color");
-    assert!(desc.is_some());
-    assert!(desc.unwrap().contains("text"));
+    let color_info = definitions.get_property_info("color").unwrap();
+    let desc = color_info.description;
+    assert!(desc.contains("text"));
     
     // Test getting all property names
-    let all_props = definitions.get_all_property_names();
+    let all_props: Vec<&str> = definitions.properties.keys().cloned().collect();
     assert!(all_props.contains(&"border-radius"));
     assert!(all_props.contains(&"-unity-font"));
     assert!(all_props.len() > 50); // Should have many properties
