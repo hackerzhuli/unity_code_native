@@ -395,8 +395,7 @@ impl UssCompletionProvider {
         }
 
         self.definitions
-            .get_all_property_names()
-            .iter()
+            .get_all_properties().keys()
             .filter(|name| name.starts_with(&partial_text))
             .map(|name| {
                 let property_info = self.definitions.get_property_info(name);

@@ -35,12 +35,10 @@ pub struct PropertyInfo {
 pub struct PseudoClassInfo {
     /// Pseudo-class name (without the colon prefix)
     pub name: &'static str,
-    /// Description of when this pseudo-class matches
+    /// Description of this pseudo-class, in markdown format
     pub description: &'static str,
     /// Documentation URL (may contain {version} placeholder for Unity docs)
     pub documentation_url: String,
-    /// Whether this pseudo-class can be chained with others
-    pub chainable: bool,
 }
 
 /// Create pseudo-class information with documentation
@@ -51,56 +49,48 @@ fn create_pseudo_class_info() -> HashMap<&'static str, PseudoClassInfo> {
         name: "hover",
         description: "The cursor is positioned over the element.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-        chainable: true,
     });
     
     pseudo_classes.insert("active", PseudoClassInfo {
         name: "active",
         description: "A user interacts with the element.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-        chainable: true,
     });
     
     pseudo_classes.insert("inactive", PseudoClassInfo {
         name: "inactive",
         description: "A user stops to interact with the element.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-        chainable: true,
     });
     
     pseudo_classes.insert("focus", PseudoClassInfo {
         name: "focus",
         description: "The element has focus.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-        chainable: true,
     });
     
     pseudo_classes.insert("disabled", PseudoClassInfo {
         name: "disabled",
         description: "The element is in a disabled state.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-        chainable: true,
     });
     
     pseudo_classes.insert("enabled", PseudoClassInfo {
         name: "enabled",
         description: "The element is in an enabled state.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-        chainable: true,
     });
     
     pseudo_classes.insert("checked", PseudoClassInfo {
         name: "checked",
         description: "The element is a Toggle or RadioButton element and it's selected.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-        chainable: true,
     });
     
     pseudo_classes.insert("root", PseudoClassInfo {
         name: "root",
         description: "The element is the highest-level element in the visual tree that has the stylesheet applied.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-        chainable: false,
     });
     
     pseudo_classes
@@ -267,38 +257,6 @@ impl UssDefinitions {
         self.properties.get(property_name)
     }
     
-    /// Get documentation URL for a property with version formatting
-    pub fn get_property_documentation_url(&self, property_name: &str, unity_version: &str) -> Option<String> {
-        self.properties.get(property_name).map(|info| {
-            info.documentation_url.replace("{version}", unity_version)
-        })
-    }
-    
-    /// Check if a property is inherited
-    pub fn is_property_inherited(&self, property_name: &str) -> bool {
-        self.properties.get(property_name)
-            .map(|info| info.inherited)
-            .unwrap_or(false)
-    }
-    
-    /// Check if a property is animatable
-    pub fn is_property_animatable(&self, property_name: &str) -> bool {
-        self.properties.get(property_name)
-            .map(|info| info.animatable)
-            .unwrap_or(false)
-    }
-    
-    /// Get property description
-    pub fn get_property_description(&self, property_name: &str) -> Option<&str> {
-        self.properties.get(property_name)
-            .map(|info| info.description)
-    }
-    
-    /// Get all property names
-    pub fn get_all_property_names(&self) -> Vec<&str> {
-        self.properties.keys().copied().collect()
-    }
-    
     /// Get all properties with their information
     pub fn get_all_properties(&self) -> &HashMap<&'static str, PropertyInfo> {
         &self.properties
@@ -313,18 +271,7 @@ impl UssDefinitions {
     pub fn is_valid_keyword(&self, keyword_name: &str) -> bool {
         self.keywords.contains_key(keyword_name)
     }
-    
-    /// Get keyword documentation
-    pub fn get_keyword_documentation(&self, keyword_name: &str) -> Option<&str> {
-        self.keywords.get(keyword_name)
-            .map(|info| info.doc)
-    }
-    
-    /// Get all keyword names
-    pub fn get_all_keyword_names(&self) -> Vec<&str> {
-        self.keywords.keys().copied().collect()
-    }
-    
+
     /// Get all keywords with their information
     pub fn get_all_keywords(&self) -> &HashMap<&'static str, KeywordInfo> {
         &self.keywords
@@ -333,31 +280,6 @@ impl UssDefinitions {
     /// Get pseudo-class information by name
     pub fn get_pseudo_class_info(&self, pseudo_class_name: &str) -> Option<&PseudoClassInfo> {
         self.pseudo_classes.get(pseudo_class_name)
-    }
-    
-    /// Get documentation URL for a pseudo-class with version formatting
-    pub fn get_pseudo_class_documentation_url(&self, pseudo_class_name: &str, unity_version: &str) -> Option<String> {
-        self.pseudo_classes.get(pseudo_class_name).map(|info| {
-            info.documentation_url.replace("{version}", unity_version)
-        })
-    }
-    
-    /// Check if a pseudo-class is chainable with others
-    pub fn is_pseudo_class_chainable(&self, pseudo_class_name: &str) -> bool {
-        self.pseudo_classes.get(pseudo_class_name)
-            .map(|info| info.chainable)
-            .unwrap_or(false)
-    }
-    
-    /// Get pseudo-class description
-    pub fn get_pseudo_class_description(&self, pseudo_class_name: &str) -> Option<&str> {
-        self.pseudo_classes.get(pseudo_class_name)
-            .map(|info| info.description)
-    }
-    
-    /// Get all pseudo-class names
-    pub fn get_all_pseudo_class_names(&self) -> Vec<&str> {
-        self.pseudo_classes.keys().copied().collect()
     }
     
     /// Get all pseudo-classes with their information

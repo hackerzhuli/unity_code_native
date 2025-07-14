@@ -197,13 +197,23 @@ impl UssHoverProvider {
     ) -> Hover {
         let unity_version_for_docs = unity_manager.get_unity_version_for_docs()
             .unwrap_or_else(|| "6000.0".to_string());
-        let description = self.definitions.get_property_description(property_name)
-            .unwrap_or("USS property");
-        let doc_url = self.definitions.get_property_documentation_url(property_name, &unity_version_for_docs)
-            .unwrap_or("https://docs.unity3d.com/Manual/UIE-USS.html".to_string());
+        let property_info = self.definitions.get_property_info(property_name);
+        if property_info.is_none(){
+            return Hover{
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: "Unknown Property".to_string(),
+                }),
+                range: None,
+            };
+        }
         
-        let is_inherited = self.definitions.is_property_inherited(property_name);
-        let is_animatable = self.definitions.is_property_animatable(property_name);
+        let property_info2 = property_info.unwrap();
+
+        let description = property_info2.description;
+        let doc_url = property_info2.documentation_url.replace("{version}", &unity_version_for_docs);
+        let is_inherited = property_info2.inherited;
+        let is_animatable = property_info2.animatable;
         
         let mut content = format!("**{}**\n\n", property_name);
         content.push_str(&format!("{}", description));
