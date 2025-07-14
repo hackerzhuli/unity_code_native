@@ -628,53 +628,6 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             value_spec: ValueSpec::sequence(vec![ValueType::Length, ValueType::Length]),
         },
         PropertyInfo {
-            name: "visibility",
-            description: "Specifies whether or not an element is visible.",
-            documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#appearance".to_string(),
-            inherited: false,
-            animatable: false,
-            value_spec: ValueSpec::keywords(&["visible", "hidden"]),
-        },
-        PropertyInfo {
-            name: "white-space",
-            description: "How white space inside an element is handled.",
-            documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
-            inherited: true,
-            animatable: false,
-            value_spec: ValueSpec::keywords(&["normal", "nowrap"]),
-        },
-        PropertyInfo {
-            name: "width",
-            description: "Fixed width of an element for the layout phase.",
-            documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
-            inherited: false,
-            animatable: true,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
-        },
-        PropertyInfo {
-            name: "word-spacing",
-            description: "Increases or decreases the space between words in text.",
-            documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
-            inherited: true,
-            animatable: true,
-            value_spec: ValueSpec::single(ValueType::Length),
-        },
-    ];
-    
-    for prop in standard_props {
-        properties.insert(prop.name, prop);
-    }
-    
-    properties
-}
-
-/// Create Unity-specific properties
-pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
-    let mut properties = HashMap::new();
-    
-    // Unity-specific properties
-    let unity_props = [
-        PropertyInfo {
             name: "-unity-background-image-tint-color",
             description: "Tinting color for the background image.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-background".to_string(),
@@ -708,7 +661,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-font-definition",
-            description: "Font asset to use to display text.",
+            description: "Font to draw the element’s text, defined as a FontDefinition structure. It takes precedence over -unity-font.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-font".to_string(),
             inherited: true,
             animatable: false,
@@ -716,7 +669,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-font-style",
-            description: "Font style and weight (normal, bold, italic, or bold-and-italic).",
+            description: "Font style and weight (normal, bold, italic) to draw the element’s text.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-font".to_string(),
             inherited: true,
             animatable: false,
@@ -724,7 +677,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-overflow-clip-box",
-            description: "How content overflows are clipped.",
+            description: "Specifies which box the element content is clipped against.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#appearance".to_string(),
             inherited: false,
             animatable: false,
@@ -732,7 +685,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-paragraph-spacing",
-            description: "Space between paragraphs.",
+            description: "Increases or decreases the space between paragraphs.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#appearance".to_string(),
             inherited: true,
             animatable: true,
@@ -740,7 +693,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-slice-bottom",
-            description: "Size of the 9-slice's bottom edge when painting an element's background image.",
+            description: "Size of the 9-slice’s bottom edge when painting an element’s background image.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
@@ -748,7 +701,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-slice-left",
-            description: "Size of the 9-slice's left edge when painting an element's background image.",
+            description: "Size of the 9-slice’s left edge when painting an element’s background image.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
@@ -756,7 +709,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-slice-right",
-            description: "Size of the 9-slice's right edge when painting an element's background image.",
+            description: "Size of the 9-slice’s right edge when painting an element’s background image.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
@@ -764,7 +717,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-slice-scale",
-            description: "Scaling of the 9-slice when painting an element's background image.",
+            description: "Scale applied to an element’s slices.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
@@ -772,7 +725,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-slice-top",
-            description: "Size of the 9-slice's top edge when painting an element's background image.",
+            description: "Size of the 9-slice’s top edge when painting an element’s background image.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
@@ -780,7 +733,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-slice-type",
-            description: "Type of 9-slice when painting an element's background image.",
+            description: "Specifies the type of sclicing.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-slice".to_string(),
             inherited: false,
             animatable: false,
@@ -788,7 +741,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-text-align",
-            description: "Horizontal and vertical text alignment in the element's box.",
+            description: "Horizontal and vertical text alignment in the element’s box.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: false,
@@ -796,7 +749,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-text-generator",
-            description: "Text generator to use for text rendering.",
+            description: "Switches between Unity’s standard and advanced text generator",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: false,
@@ -804,7 +757,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-text-outline",
-            description: "Text outline properties.",
+            description: "Outline width and color of the text.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
@@ -812,7 +765,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-text-outline-color",
-            description: "Color of the text outline.",
+            description: "Outline color of the text.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
@@ -820,7 +773,7 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-text-outline-width",
-            description: "Width of the text outline.",
+            description: "Outline width of the text.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: true,
@@ -828,15 +781,47 @@ pub fn create_unity_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-text-overflow-position",
-            description: "Position where text overflow occurs.",
+            description: "The element’s text overflow position.",
             documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
             inherited: true,
             animatable: false,
             value_spec: ValueSpec::keywords(&["start", "middle", "end"]),
         },
+        PropertyInfo {
+            name: "visibility",
+            description: "Specifies whether or not an element is visible.",
+            documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#appearance".to_string(),
+            inherited: false,
+            animatable: false,
+            value_spec: ValueSpec::keywords(&["visible", "hidden"]),
+        },
+        PropertyInfo {
+            name: "white-space",
+            description: "Word wrap over multiple lines if not enough space is available to draw the text of an element.",
+            documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
+            inherited: true,
+            animatable: false,
+            value_spec: ValueSpec::keywords(&["normal", "nowrap"]),
+        },
+        PropertyInfo {
+            name: "width",
+            description: "Fixed width of an element for the layout.",
+            documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#box-model".to_string(),
+            inherited: false,
+            animatable: true,
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+        },
+        PropertyInfo {
+            name: "word-spacing",
+            description: "Increases or decreases the space between words.",
+            documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html#unity-text".to_string(),
+            inherited: true,
+            animatable: true,
+            value_spec: ValueSpec::single(ValueType::Length),
+        },
     ];
     
-    for prop in unity_props {
+    for prop in standard_props {
         properties.insert(prop.name, prop);
     }
     

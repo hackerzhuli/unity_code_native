@@ -4,13 +4,20 @@
 //! and other validation data that can be shared across different features
 //! like diagnostics and autocomplete.
 
-use crate::uss::property_data::{create_standard_properties, create_unity_properties};
+use crate::uss::property_data::{create_standard_properties};
 use crate::uss::keyword_data::{KeywordInfo, create_keyword_info};
 use crate::uss::color_keywords::create_color_keywords;
 use crate::uss::value_spec::ValueSpec;
 use crate::uss::color::Color;
 use crate::uss::constants::*;
 use std::collections::{HashMap, HashSet};
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum PropertyAnimation {
+    None,
+    Animatable,
+    Discrete,
+}
 
 /// Property documentation information
 #[derive(Debug, Clone)]
@@ -24,7 +31,7 @@ pub struct PropertyInfo {
     /// Whether this property is inherited
     pub inherited: bool,
     /// Whether this property is animatable
-    pub animatable: bool,
+    pub animatable: PropertyAnimation,
     /// Complete value specification for this property
     /// Note: All properties support initial keyword to reset to default, we don't put initial in here for brevity
     pub value_spec: ValueSpec,
@@ -35,7 +42,7 @@ impl PropertyInfo {
     pub fn create_documentation(&self, property_name: &str, unity_version: &str) -> String {
         let doc_url = self.documentation_url.replace("{version}", unity_version);
         
-        let mut content = format!("**{}**\n\n", property_name);
+        let mut content = format!("### Property {}\n", property_name);
         content.push_str(&format!("{}", self.description));
         
         // Add property characteristics
@@ -74,7 +81,8 @@ impl PseudoClassInfo {
     pub fn create_documentation(&self, unity_version: &str) -> String {
         let doc_url = self.documentation_url.replace("{version}", unity_version);
         format!(
-            "{}\n\n[Documentation]({})",
+            "### Pseudo Class: {}\n{}\n\n[Documentation]({})",
+            self.name,
             self.description,
             doc_url
         )
@@ -87,49 +95,49 @@ fn create_pseudo_class_info() -> HashMap<&'static str, PseudoClassInfo> {
     
     pseudo_classes.insert("hover", PseudoClassInfo {
         name: "hover",
-        description: "# Pseudo class :hover\n\nMatches an element when the cursor is positioned over the element.",
+        description: "Matches an element when the cursor is positioned over the element.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
     });
     
     pseudo_classes.insert("active", PseudoClassInfo {
         name: "active",
-        description: "# Pseudo class :active\n\nMatches an element when a user interacts with the element.",
+        description: "Matches an element when a user interacts with the element.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
     });
     
     pseudo_classes.insert("inactive", PseudoClassInfo {
         name: "inactive",
-        description: "# Pseudo class :inactive\n\nMatches an element when a user stops to interact with the element.",
+        description: "Matches an element when a user stops to interact with the element.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
     });
     
     pseudo_classes.insert("focus", PseudoClassInfo {
         name: "focus",
-        description: "# Pseudo class :focus\n\nMatches an element when the element has focus.",
+        description: "Matches an element when the element has focus.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
     });
     
     pseudo_classes.insert("disabled", PseudoClassInfo {
         name: "disabled",
-        description: "# Pseudo class :disabled\n\nMatches an element when the element is in a disabled state.",
+        description: "Matches an element when the element is in a disabled state.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
     });
     
     pseudo_classes.insert("enabled", PseudoClassInfo {
         name: "enabled",
-        description: "# Pseudo class :enabled\n\nMatches an element when the element is in an enabled state.",
+        description: "Matches an element when the element is in an enabled state.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
     });
     
     pseudo_classes.insert("checked", PseudoClassInfo {
         name: "checked",
-        description: "# Pseudo class :checked\n\nMatches an element when the element is a Toggle or RadioButton element and it's selected.",
+        description: "Matches an element when the element is a Toggle or RadioButton element and it's selected.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
     });
     
     pseudo_classes.insert("root", PseudoClassInfo {
         name: "root",
-        description: "# Pseudo class :root\n\nMatches an element when the element is the highest-level element in the visual tree that has the stylesheet applied.",
+        description: "Matches an element when the element is the highest-level element in the visual tree that has the stylesheet applied.",
         documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
     });
     
@@ -165,7 +173,7 @@ impl UssDefinitions {
         }
         
         // Load Unity-specific properties
-        let unity_props = create_unity_properties();
+        let unity_props = create_standard_properties();
         for (name, prop_info) in unity_props {
             properties.insert(name, prop_info);
         }
