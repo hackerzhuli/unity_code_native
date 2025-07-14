@@ -347,7 +347,7 @@ Button {
 ```
 
 ## Additional Notes
-- **Case sensitivity**: Selectors are case-sensitive.
+- **Case sensitivity**: Selectors are case-sensitive(which is in offical docs). Property names are also case sensitive, no official docs found but tests shows they are case sensitive.
 - **Escaping**: Special characters in selectors must be escaped (e.g., `#name\.with\.dots`).
 - **Unity-specific behavior**:
   - `:root` matches stylesheet attachment points, not a fixed root element.

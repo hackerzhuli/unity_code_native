@@ -12,9 +12,9 @@ TODO list:
 - [ ] Add auto completion for @import when user just typed an @ , we assume they typing an import statement, and give user a basic structure complete with quotes and semicolon. Give completion items to show a relative path or a absolute path or with project scheme.   If possible put cursor before closing quote so user can keep typing the path.
 - [x] Add Auto completion for pseudo classes
 - [ ] Make sure our hover will cover everything that needs some docs, including pseudo classes!
-- [ ] Add a warning for duplicate property in same block, that is probably a mistake
+- [x] Add a warning for duplicate property in same block, that is probably a mistake
 - [ ] Add docs when auto completing pseudo classes
-- [ ] Verify property names(not custom variables) are case sensitive or not in uss and ajust our code accordingly
+- [x] Verify property names(not custom variables) are case sensitive or not in uss and ajust our code accordingly
 
 TODO for consideration:
 - [ ] (We should do this later, it is complex because it involves Unity Editor) Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy
