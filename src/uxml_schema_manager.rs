@@ -111,6 +111,7 @@ impl UxmlSchemaManager {
 
         let mut current_files = HashSet::new();
         let mut any_changes = false;
+        let mut processed_files_count = 0;
         
         // Read directory entries
         let mut dir_entries = fs::read_dir(&self.schema_directory).await?;
@@ -131,6 +132,7 @@ impl UxmlSchemaManager {
                 
                 if needs_update {
                     self.process_schema_file(&path, last_modified).await?;
+                    processed_files_count += 1;
                     any_changes = true;
                 }
             }
@@ -158,8 +160,8 @@ impl UxmlSchemaManager {
         self.last_scan_timestamp = current_timestamp;
         
         let duration = start_time.elapsed();
-        log::info!("Schema update completed in {:.2}ms (processed {} files, changes detected: {})", 
-                   duration.as_secs_f64() * 1000.0, current_files.len(), any_changes);
+        log::info!("Schema update completed in {:.2}ms (found {} files, processed {} files, changes detected: {})", 
+                   duration.as_secs_f64() * 1000.0, current_files.len(), processed_files_count, any_changes);
         
         Ok(())
     }

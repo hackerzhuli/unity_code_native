@@ -947,10 +947,10 @@ impl UssDiagnostics {
                 let range = node_to_range(node, content);
                 diagnostics.push(Diagnostic {
                     range,
-                    severity: Some(DiagnosticSeverity::WARNING),
+                    severity: Some(DiagnosticSeverity::ERROR),
                     code: Some(NumberOrString::String("unknown-tag-selector".to_string())),
                     source: Some("uss".to_string()),
-                    message: format!("Unknown tag selector: '{}'. This element type is not found in the current UXML schemas.", tag_name),
+                    message: format!("Unknown VisualElement type: '{}'. This element type is not found in UXML schema. If this is a VisualElement type that you just created, please update UXML schema in Unity Editor.", tag_name),
                     ..Default::default()
                 });
             }
