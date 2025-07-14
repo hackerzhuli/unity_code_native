@@ -1440,6 +1440,32 @@ fn test_import_statement_completion_at_symbol() {
 }
 
 #[test]
+fn test_import_statement_completion_imcomplete_import_keyword() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test completion after typing just "@i"
+    let content = "@import \"a.uss\";\n@i\n.a{color:red}";
+    let tree = parser.parse(content, None).unwrap();
+    let position = Position {
+        line: 1,
+        character: 2, // Right after @i
+    };
+
+    let completions = provider.complete(
+        &tree,
+        content,
+        position,
+        &UnityProjectManager::new(PathBuf::from("test")),
+        None,
+        None,
+    );
+
+    // Should provide import statement completions
+    assert!(!completions.is_empty(), "Should provide completions after @i");
+}
+
+#[test]
 fn test_import_statement_completion_at_import_keyword() {
     let mut parser = UssParser::new().unwrap();
     let provider = UssCompletionProvider::new();

@@ -63,7 +63,9 @@ pub const NODE_TAG_NAME: &str = "tag_name";
 pub const NODE_PSEUDO_CLASS_SELECTOR: &str = "pseudo_class_selector";
 
 // At-rules
-/// Generic CSS at-rule (e.g., `@import`, `@media`)
+/// Generic CSS at-rule
+/// The keyword part of the at rule (it may not be an existing keyword)
+pub const NODE_AT_KEYWORD: &str = "at_keyword";
 pub const NODE_AT_RULE: &str = "at_rule";
 /// The literal `@import` keyword node, note this is not the import statement just the keyword part
 pub const NODE_IMPORT: &str = "@import";

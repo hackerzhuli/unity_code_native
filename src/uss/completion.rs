@@ -898,23 +898,25 @@ impl UssCompletionProvider {
         content: &str,
         position: Position,
     ) -> Option<CompletionContext<'a>> {
-        // Check if we're in an ERROR node that might contain an incomplete @import
-        if current_node.kind() == NODE_ERROR || current_node.kind() == NODE_IMPORT {
+        let kind = current_node.kind();
+        // First is this node an incomplete import keyword or a complete import keyword
+        // If it's just @, then it is error node, if incomplete it is at keyword node, if it is complete, it is import node
+        if kind == NODE_ERROR || kind == NODE_AT_KEYWORD || kind == NODE_IMPORT {
             // first check if we are at the top level, eg, not inside of any blocks
             if get_node_depth(current_node) == 2 {
-                // this node should be inside of an error node(because we haven't finished the keyword or it's arguments yet)
-                let parent = current_node.parent();
-                if parent.is_none() || parent.unwrap().kind() != NODE_ERROR {
-                    return None;
-                }
-                
-                let text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
-                if "@import".starts_with(text) {
-                    return Some(CompletionContext {
-                        t: CompletionType::ImportStatement,
-                        current_node: Some(current_node),
-                        position,
-                    });
+                // this node should be inside of an error node(for just @ or @import) or an at rule(for incomplete import keyword, eg. @i)
+                if let Some(parent) = current_node.parent(){
+                    let parent_kind = parent.kind();
+                    if parent_kind == NODE_ERROR || parent_kind == NODE_AT_RULE {
+                        let text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
+                        if "@import".starts_with(text) {
+                            return Some(CompletionContext {
+                                t: CompletionType::ImportStatement,
+                                current_node: Some(current_node),
+                                position,
+                            });
+                        }
+                    }
                 }
             }
         }
