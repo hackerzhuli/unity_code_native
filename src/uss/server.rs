@@ -399,8 +399,19 @@ impl LanguageServer for UssLanguageServer {
     ) -> Result<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri;
 
+        // Update UXML schema manager and extract class names
+        let mut uxml_class_names: HashSet<String> = HashSet::new();
+        {
+            let mut manager = self.uxml_schema_manager.lock().await; 
+                if let Err(e) = manager.update().await {
+                    log::warn!("Failed to update UXML schemas for diagnostics: {}", e);
+                }
+                // Extract all element names as a HashSet for diagnostics
+                uxml_class_names = manager.get_all_elements().iter().map(|element| element.name.clone()).collect::<std::collections::HashSet<String>>()
+        }
+
         // Extract necessary data from state and release lock quickly
-        let (mut diagnostics, url_references, current_version, project_root) = {
+        let (mut diagnostics, url_references, _, project_root) = {
             if let Ok(state) = self.state.lock() {
                 // Generate diagnostics immediately
                 let (tree_clone, content, doc_version) =
@@ -449,11 +460,12 @@ impl LanguageServer for UssLanguageServer {
                             None
                         };
 
-                    let (diagnostics, url_references) = state.diagnostics.analyze_with_variables(
+                    let (diagnostics, url_references) = state.diagnostics.analyze_with_variables_and_classes(
                         &tree,
                         &content,
                         project_url.as_ref(),
                         variable_resolver,
+                        Some(&uxml_class_names),
                     );
 
                     let project_root = state.unity_manager.project_path().clone();

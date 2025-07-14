@@ -15,6 +15,7 @@ use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use url::Url;
+use std::collections::HashSet;
 
 /// USS diagnostic analyzer
 pub struct UssDiagnostics {
@@ -62,6 +63,26 @@ impl UssDiagnostics {
         source_url: Option<&Url>,
         variable_resolver: Option<&VariableResolver>,
     ) -> (Vec<Diagnostic>, Vec<UrlReference>) {
+        self.analyze_with_variables_and_classes(tree, content, source_url, variable_resolver, None)
+    }
+
+    /// Analyze USS syntax tree and generate diagnostics with variable resolver and UXML class names support
+    ///
+    /// **Note**: Variable resolution has limitations:
+    /// - Only resolves variables defined within the same document
+    /// - Does not support imported variables from other USS files
+    /// - When variable resolution is uncertain, warnings are generated instead of errors
+    ///
+    /// Returns a tuple of (diagnostics, url_references) where url_references contains
+    /// URLs found in import statements and url() functions for future asset validation.
+    pub fn analyze_with_variables_and_classes(
+        &self,
+        tree: &Tree,
+        content: &str,
+        source_url: Option<&Url>,
+        variable_resolver: Option<&VariableResolver>,
+        uxml_class_names: Option<&HashSet<String>>,
+    ) -> (Vec<Diagnostic>, Vec<UrlReference>) {
         let mut diagnostics = Vec::new();
         let mut url_references = Vec::new();
         let root_node = tree.root_node();
@@ -76,11 +97,12 @@ impl UssDiagnostics {
             );
         }
 
-        self.walk_node_with_variables(
+        self.walk_node_with_variables_and_classes(
             root_node,
             content,
             source_url,
             variable_resolver,
+            uxml_class_names,
             &mut diagnostics,
             &mut url_references,
         );
@@ -106,6 +128,28 @@ impl UssDiagnostics {
         diagnostics: &mut Vec<Diagnostic>,
         url_references: &mut Vec<UrlReference>,
     ) {
+        self.walk_node_with_variables_and_classes(
+            node,
+            content,
+            source_url,
+            variable_resolver,
+            None,
+            diagnostics,
+            url_references,
+        );
+    }
+
+    /// Recursively walk the syntax tree and validate nodes with variable resolver and UXML class names support
+    fn walk_node_with_variables_and_classes(
+        &self,
+        node: Node,
+        content: &str,
+        source_url: Option<&Url>,
+        variable_resolver: Option<&VariableResolver>,
+        uxml_class_names: Option<&HashSet<String>>,
+        diagnostics: &mut Vec<Diagnostic>,
+        url_references: &mut Vec<UrlReference>,
+    ) {
         // Track the number of diagnostics before processing children
         let initial_diagnostic_count = diagnostics.len();
 
@@ -117,11 +161,12 @@ impl UssDiagnostics {
         // Recursively check children first to detect any child errors
         for i in 0..node.child_count() {
             if let Some(child) = node.child(i) {
-                self.walk_node_with_variables(
+                self.walk_node_with_variables_and_classes(
                     child,
                     content,
                     source_url,
                     variable_resolver,
+                    uxml_class_names,
                     diagnostics,
                     url_references,
                 );
@@ -157,6 +202,7 @@ impl UssDiagnostics {
                 self.validate_function_call(node, content, diagnostics, source_url, url_references)
             }
             NODE_PSEUDO_CLASS_SELECTOR => self.validate_pseudo_class(node, content, diagnostics),
+            NODE_TAG_NAME => self.validate_tag_selector(node, content, diagnostics, uxml_class_names),
             NODE_AT_RULE
             | NODE_CHARSET_STATEMENT
             | NODE_IMPORT_STATEMENT
@@ -878,6 +924,33 @@ impl UssDiagnostics {
                     code: Some(NumberOrString::String("invalid-import-syntax".to_string())),
                     source: Some("uss".to_string()),
                     message: err.message,
+                    ..Default::default()
+                });
+            }
+        }
+    }
+
+    /// Validate tag selector against UXML class names
+    fn validate_tag_selector(
+        &self,
+        node: Node,
+        content: &str,
+        diagnostics: &mut Vec<Diagnostic>,
+        uxml_class_names: Option<&HashSet<String>>,
+    ) {
+        let tag_name = node.utf8_text(content.as_bytes()).unwrap_or("");
+        
+        // Only validate if we have UXML class names available
+        if let Some(class_names) = uxml_class_names {
+            // Tag names are case-sensitive according to USS spec
+            if !class_names.contains(tag_name) {
+                let range = node_to_range(node, content);
+                diagnostics.push(Diagnostic {
+                    range,
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    code: Some(NumberOrString::String("unknown-tag-selector".to_string())),
+                    source: Some("uss".to_string()),
+                    message: format!("Unknown tag selector: '{}'. This element type is not found in the current UXML schemas.", tag_name),
                     ..Default::default()
                 });
             }

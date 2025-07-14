@@ -753,3 +753,250 @@ Button {
     // Should have 4 url collected
     assert_eq!(url_count, 4, "Should collect at least 2 URL references from url() functions, got {}", url_count);
 }
+
+#[test]
+fn test_tag_selector_validation_with_valid_tags() {
+    use std::collections::HashSet;
+    
+    // Create a hardcoded set of known Unity UI element names
+    let mut uxml_class_names = HashSet::new();
+    uxml_class_names.insert("Button".to_string());
+    uxml_class_names.insert("Label".to_string());
+    uxml_class_names.insert("TextField".to_string());
+    uxml_class_names.insert("Slider".to_string());
+    uxml_class_names.insert("Toggle".to_string());
+    uxml_class_names.insert("Image".to_string());
+    uxml_class_names.insert("ScrollView".to_string());
+    
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with valid Unity UI elements
+    let valid_content = r#"
+Button {
+    color: red;
+}
+
+Label {
+    font-size: 14px;
+}
+
+TextField {
+    background-color: white;
+}
+
+Slider {
+    margin: 5px;
+}
+"#;
+    
+    let tree = parser.parse(valid_content, None).unwrap();
+    let (results, _) = diagnostics.analyze_with_variables_and_classes(
+        &tree,
+        valid_content,
+        None,
+        None,
+        Some(&uxml_class_names),
+    );
+    
+    // Should not have any unknown tag warnings for valid Unity elements
+    let unknown_tag_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("unknown-tag-selector".to_string())))
+        .collect();
+    
+    assert!(unknown_tag_warnings.is_empty(), 
+        "Valid Unity UI elements should not produce unknown tag warnings. Found: {:?}", 
+        unknown_tag_warnings.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_tag_selector_validation_with_invalid_tags() {
+    use std::collections::HashSet;
+    
+    // Create a hardcoded set of known Unity UI element names
+    let mut uxml_class_names = HashSet::new();
+    uxml_class_names.insert("Button".to_string());
+    uxml_class_names.insert("Label".to_string());
+    uxml_class_names.insert("TextField".to_string());
+    uxml_class_names.insert("Slider".to_string());
+    uxml_class_names.insert("Toggle".to_string());
+    uxml_class_names.insert("Image".to_string());
+    uxml_class_names.insert("ScrollView".to_string());
+    
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with invalid/unknown tag selectors
+    let invalid_content = r#"
+/* Valid Unity UI elements */
+Button {
+    color: red;
+}
+
+Label {
+    font-size: 14px;
+}
+
+/* Invalid/unknown tag selectors */
+UnknownElement {
+    background-color: blue;
+}
+
+CustomWidget {
+    margin: 10px;
+}
+
+MyCustomControl {
+    padding: 5px;
+}
+"#;
+    
+    let tree = parser.parse(invalid_content, None).unwrap();
+    let (results, _) = diagnostics.analyze_with_variables_and_classes(
+        &tree,
+        invalid_content,
+        None,
+        None,
+        Some(&uxml_class_names),
+    );
+    
+    // Should detect unknown tag warnings for invalid elements
+    let unknown_tag_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("unknown-tag-selector".to_string())))
+        .collect();
+    
+    println!("Found {} unknown tag warnings", unknown_tag_warnings.len());
+    for warning in &unknown_tag_warnings {
+        println!("Warning: {}", warning.message);
+    }
+    
+    // Should have exactly 3 unknown tag warnings (UnknownElement, CustomWidget, MyCustomControl)
+    assert_eq!(unknown_tag_warnings.len(), 3, 
+        "Should detect exactly 3 unknown tag selectors. Found: {:?}", 
+        unknown_tag_warnings.iter().map(|e| &e.message).collect::<Vec<_>>());
+    
+    // Verify specific unknown tags are detected
+    let warning_messages: Vec<String> = unknown_tag_warnings.iter()
+        .map(|w| w.message.clone())
+        .collect();
+    
+    assert!(warning_messages.iter().any(|msg| msg.contains("UnknownElement")), 
+        "Should detect UnknownElement as unknown tag");
+    assert!(warning_messages.iter().any(|msg| msg.contains("CustomWidget")), 
+        "Should detect CustomWidget as unknown tag");
+    assert!(warning_messages.iter().any(|msg| msg.contains("MyCustomControl")), 
+        "Should detect MyCustomControl as unknown tag");
+}
+
+#[test]
+fn test_tag_selector_validation_without_schema() {
+    
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with tag selectors but no schema provided
+    let content = r#"
+Button {
+    color: red;
+}
+
+UnknownElement {
+    background-color: blue;
+}
+"#;
+    
+    let tree = parser.parse(content, None).unwrap();
+    
+    // Test without providing UXML class names (None)
+    let (results, _) = diagnostics.analyze_with_variables_and_classes(
+        &tree,
+        content,
+        None,
+        None,
+        None, // No class names provided
+    );
+    
+    // Should not have any unknown tag warnings when no schema is provided
+    let unknown_tag_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("unknown-tag-selector".to_string())))
+        .collect();
+    
+    assert!(unknown_tag_warnings.is_empty(), 
+        "Should not produce unknown tag warnings when no schema is provided. Found: {:?}", 
+        unknown_tag_warnings.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_tag_selector_validation_case_sensitivity() {
+    use std::collections::HashSet;
+    
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Create a small set of known class names for testing
+    let mut uxml_class_names = HashSet::new();
+    uxml_class_names.insert("Button".to_string());
+    uxml_class_names.insert("Label".to_string());
+    // Note: lowercase versions are intentionally not included
+    
+    // Test case with case-sensitive tag selectors
+    let case_content = r#"
+/* Correct case - should be valid */
+Button {
+    color: red;
+}
+
+Label {
+    font-size: 14px;
+}
+
+/* Wrong case - should be invalid */
+button {
+    background-color: blue;
+}
+
+label {
+    margin: 10px;
+}
+
+BUTTON {
+    padding: 5px;
+}
+"#;
+    
+    let tree = parser.parse(case_content, None).unwrap();
+    let (results, _) = diagnostics.analyze_with_variables_and_classes(
+        &tree,
+        case_content,
+        None,
+        None,
+        Some(&uxml_class_names),
+    );
+    
+    // Should detect unknown tag warnings for incorrect case
+    let unknown_tag_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("unknown-tag-selector".to_string())))
+        .collect();
+    
+    println!("Found {} case-sensitivity warnings", unknown_tag_warnings.len());
+    for warning in &unknown_tag_warnings {
+        println!("Warning: {}", warning.message);
+    }
+    
+    // Should have exactly 3 unknown tag warnings (button, label, BUTTON)
+    assert_eq!(unknown_tag_warnings.len(), 3, 
+        "Should detect exactly 3 case-sensitive unknown tag selectors. Found: {:?}", 
+        unknown_tag_warnings.iter().map(|e| &e.message).collect::<Vec<_>>());
+    
+    // Verify specific case-incorrect tags are detected
+    let warning_messages: Vec<String> = unknown_tag_warnings.iter()
+        .map(|w| w.message.clone())
+        .collect();
+    
+    assert!(warning_messages.iter().any(|msg| msg.contains("button")), 
+        "Should detect lowercase 'button' as unknown tag");
+    assert!(warning_messages.iter().any(|msg| msg.contains("label")), 
+        "Should detect lowercase 'label' as unknown tag");
+    assert!(warning_messages.iter().any(|msg| msg.contains("BUTTON")), 
+        "Should detect uppercase 'BUTTON' as unknown tag");
+}
