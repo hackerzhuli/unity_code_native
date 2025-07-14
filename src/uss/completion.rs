@@ -9,7 +9,7 @@ use tree_sitter::{Node, Tree};
 use url::Url;
 
 use crate::language::tree_utils::{
-    find_node_at_position, find_node_of_type_at_position, get_node_depth,
+    find_node_at_position, find_node_of_type_at_position, get_node_depth, node_to_range,
 };
 use crate::language::url_completion::UrlCompletionProvider;
 use crate::unity_project_manager::UnityProjectManager;
@@ -120,7 +120,7 @@ impl UssCompletionProvider {
                     url_string,
                     cursor_position,
                 } => self.complete_url_function(&url_string, cursor_position, source_url),
-                CompletionType::ImportStatement => self.complete_import_statement_with_context(current_node, content),
+                CompletionType::ImportStatement => self.complete_import_statement(current_node, content),
                 _ => Vec::new(),
             }
         } else {
@@ -1049,41 +1049,9 @@ impl UssCompletionProvider {
         }
     }
 
-    /// Complete import statement structure with context
-    fn complete_import_statement_with_context(&self, current_node: Node, content: &str) -> Vec<CompletionItem> {
-        // Get the current partial text that the user has typed
-        let partial_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
-        
-        // Calculate the range to replace
-        let start_pos = current_node.start_position();
-        let end_pos = current_node.end_position();
-        
-        let text_edit_range = Range {
-            start: Position {
-                line: start_pos.row as u32,
-                character: start_pos.column as u32,
-            },
-            end: Position {
-                line: end_pos.row as u32,
-                character: end_pos.column as u32,
-            },
-        };
-        
-        self.complete_import_statement_with_range(text_edit_range)
-    }
-    
-    /// Complete import statement structure
-    fn complete_import_statement(&self) -> Vec<CompletionItem> {
-        // For backward compatibility, use empty range
-        let empty_range = Range {
-            start: Position { line: 0, character: 0 },
-            end: Position { line: 0, character: 0 },
-        };
-        self.complete_import_statement_with_range(empty_range)
-    }
-    
     /// Complete import statement structure with specific range
-    fn complete_import_statement_with_range(&self, text_edit_range: Range) -> Vec<CompletionItem> {
+    fn complete_import_statement<'a>(&self, current_node: Node<'a>, content: &str) -> Vec<CompletionItem> {
+        let text_edit_range = node_to_range(current_node, content);
         let mut items = Vec::new();
 
         // Determine if we should use text_edit (when we have a valid range) or insert_text
