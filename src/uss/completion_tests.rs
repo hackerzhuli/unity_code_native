@@ -56,6 +56,7 @@ fn test_pseudo_class_completion_after_colon() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have pseudo-class completions
@@ -98,6 +99,7 @@ fn test_pseudo_class_completion_partial_match() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -144,6 +146,7 @@ fn test_pseudo_class_completion_case_insensitive() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have case-insensitive filtered completions
@@ -175,12 +178,13 @@ fn test_pseudo_class_completion_multiple_selectors() {
     };
 
     let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-    );
+            &tree,
+            content,
+            position,
+            None,
+            None,
+            None,
+        );
 
     // Should have pseudo-class completions
     assert!(
@@ -218,6 +222,7 @@ fn test_pseudo_class_completion_with_block_after() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have pseudo-class completions
@@ -250,6 +255,7 @@ fn test_pseudo_class_completion_partial_with_block_after() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have pseudo-class completions
@@ -278,6 +284,7 @@ fn test_no_pseudo_class_completion_in_property_value() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -318,6 +325,7 @@ fn test_no_completion_after_complete_pseudo_class() {
         position,
         None,
         None,
+        None,
     );
 
     // Should not have any completions since the pseudo-class is already complete
@@ -343,12 +351,13 @@ fn test_no_completion_after_complete_pseudo_class_with_space() {
     };
 
     let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-    );
+            &tree,
+            content,
+            position,
+            None,
+            None,
+            None,
+        );
 
     // Should not have pseudo-class completions since the pseudo-class is complete
     let pseudo_class_completions: Vec<_> = completions
@@ -385,6 +394,7 @@ fn test_property_value_simple_completion_after_colon() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -439,6 +449,7 @@ fn test_property_value_completion_after_typing() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have completions for color property
@@ -481,6 +492,7 @@ fn test_property_value_completion_after_typing_keyword() {
         position,
         None,
         None,
+        None,
     );
 
     assert!(
@@ -518,6 +530,7 @@ fn test_property_name_completion() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -571,6 +584,7 @@ fn test_property_name_completion_empty() {
         position,
         None,
         None,
+        None,
     );
 
     // Should not provide completions when no text has been typed
@@ -600,6 +614,7 @@ fn test_property_name_completion_partial_match() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -648,6 +663,7 @@ fn test_property_name_completion_case_insensitive() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have completions for properties starting with "col" (case insensitive)
@@ -682,6 +698,7 @@ fn test_class_selector_completion_after_dot() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -737,6 +754,7 @@ fn test_class_selector_partial_completion() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have completions for classes starting with 'my'
@@ -780,6 +798,7 @@ fn test_id_selector_completion_after_hash() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -833,6 +852,7 @@ fn test_id_selector_partial_completion() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have completions for IDs starting with 'my'
@@ -877,6 +897,7 @@ fn test_selector_completion_case_insensitive() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have case-insensitive completions
@@ -913,6 +934,7 @@ fn test_no_selector_completion_in_declaration_block() {
         position,
         None,
         None,
+        None,
     );
 
     // Should not provide selector completions inside declaration blocks
@@ -946,6 +968,7 @@ fn test_tag_selector_completion() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -998,6 +1021,7 @@ fn test_tag_selector_completion_partial_match() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have completions for tags starting with 'S'
@@ -1039,6 +1063,7 @@ fn test_tag_selector_completion_case_insensitive() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have case-insensitive completions
@@ -1075,6 +1100,7 @@ fn test_tag_selector_completion_no_empty_input() {
         position,
         None,
         None,
+        None,
     );
 
     // Should not have any tag completions for empty input
@@ -1107,6 +1133,7 @@ fn test_class_selector_excludes_self() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -1144,6 +1171,7 @@ fn test_id_selector_excludes_self() {
         position,
         None,
         None,
+        None,
     );
 
     // Should have completions but not include the exact match "my"
@@ -1178,6 +1206,7 @@ fn test_url_completion() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -1221,6 +1250,7 @@ fn test_url_completion_resources_directory() {
         position,
         None,
         None,
+        None,
     );
 
     // Should provide completions for subdirectories in Resources
@@ -1257,6 +1287,7 @@ fn test_url_completion_specific_files() {
         position,
         None,
         None,
+        None,
     );
 
     // Should provide completions for files in Icons directory
@@ -1287,6 +1318,7 @@ fn test_url_completion_in_import_statement() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -1329,6 +1361,7 @@ fn test_url_completion_in_import_statement_with_url_function() {
         position,
         None,
         None,
+        None,
     );
 
     // Should provide completions for items in UI directory
@@ -1369,6 +1402,7 @@ fn test_url_completion_uss_files() {
         position,
         None,
         None,
+        None,
     );
 
     // Should provide completions for USS files in Styles directory
@@ -1398,6 +1432,7 @@ fn test_import_statement_completion_at_symbol() {
         position,
         None,
         None,
+        None,
     );
 
     // Should provide import statement completions
@@ -1421,6 +1456,7 @@ fn test_import_statement_completion_imcomplete_import_keyword() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );
@@ -1448,6 +1484,7 @@ fn test_import_statement_completion_at_import_keyword() {
         position2,
         None,
         None,
+        None
     );
 
     // Should also provide import statement completions
@@ -1473,6 +1510,7 @@ fn test_import_statement_completion_at_import_with_space() {
         position3,
         None,
         None,
+        None
     );
 
     // Should NOT provide import statement completions after space (per documentation)
@@ -1498,6 +1536,7 @@ fn test_import_statement_completion_inside_ruleset() {
         position,
         None,
         None,
+        None,
     );
 
     // Should NOT provide import statement completions inside a ruleset block
@@ -1521,6 +1560,7 @@ fn test_import_statement_completion_inside_ruleset_2() {
         &tree,
         content,
         position,
+        None,
         None,
         None,
     );

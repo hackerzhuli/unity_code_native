@@ -312,6 +312,7 @@ impl LanguageServer for UssLanguageServer {
                     position,
                     project_url.as_ref(),
                     Some(&uxml_class_names),
+                    Some(&state.unity_manager),
                 )
             } else {
                 log::error!("Failed to lock state");

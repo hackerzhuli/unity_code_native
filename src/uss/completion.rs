@@ -12,7 +12,6 @@ use crate::language::tree_utils::{
     find_node_at_position, find_node_of_type_at_position, get_node_depth, node_to_range,
 };
 use crate::language::url_completion::UrlCompletionProvider;
-use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::constants::*;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value_spec::ValueType;
@@ -82,6 +81,7 @@ impl UssCompletionProvider {
         position: Position,
         source_url: Option<&Url>,
         uxml_element_names: Option<&std::collections::HashSet<String>>,
+        unity_manager: Option<&crate::unity_project_manager::UnityProjectManager>,
     ) -> Vec<CompletionItem> {
         let context = self.get_completion_context(tree, content, position);
 
@@ -94,7 +94,7 @@ impl UssCompletionProvider {
                     self.complete_property_names(context.current_node, content)
                 }
                 CompletionType::PseudoClass => {
-                    self.complete_pseudo_classes_with_filter(current_node, content)
+                    self.complete_pseudo_classes_with_filter(current_node, content, unity_manager)
                 }
                 CompletionType::ClassSelector => {
                     self.complete_class_selectors(tree, content, current_node)
@@ -451,6 +451,7 @@ impl UssCompletionProvider {
         &self,
         current_node: Node,
         content: &str,
+        unity_manager: Option<&crate::unity_project_manager::UnityProjectManager>,
     ) -> Vec<CompletionItem> {
         let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
 
@@ -467,31 +468,38 @@ impl UssCompletionProvider {
 
         let mut items = Vec::new();
 
-        for pseudo_class in &self.definitions.valid_pseudo_classes {
-            let label = pseudo_class;
-            let label_lower = label.to_lowercase();
+        for &pseudo_class in &self.definitions.valid_pseudo_classes {
 
             // Filter based on partial text
-            if partial_text.is_empty() {
-                // Show all pseudo-classes when just typed ':'
-                items.push(CompletionItem {
-                    label: label.to_string(),
-                    kind: Some(CompletionItemKind::KEYWORD),
-                    detail: Some("Pseudo-class".to_string()),
-                    insert_text: Some(label.to_string()),
-                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                    ..Default::default()
-                });
-            } else if label_lower.starts_with(&partial_text) && label_lower != partial_text {
-                // Only show pseudo-classes that start with partial_text but are not exact matches
-                items.push(CompletionItem {
-                    label: label.to_string(),
-                    kind: Some(CompletionItemKind::KEYWORD),
-                    detail: Some("Pseudo-class".to_string()),
-                    insert_text: Some(label.to_string()),
-                    insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                    ..Default::default()
-                });
+            if partial_text.is_empty() || (pseudo_class.starts_with(&partial_text) && pseudo_class != partial_text) {
+                if let Some(info) = self.definitions.get_pseudo_class_info(pseudo_class) {
+                    // Get Unity version from project manager, fallback to "6000.0"
+                    let unity_version = unity_manager
+                        .and_then(|manager| manager.get_unity_version_for_docs())
+                        .unwrap_or_else(|| "6000.0".to_string());
+                    
+                    let doc_url = info.documentation_url.replace("{version}", &unity_version);
+                    
+                    // Create documentation with description and link
+                    let documentation_value = format!(
+                        "{}\n\n[Documentation]({})",
+                        info.description,
+                        doc_url
+                    );
+                    
+                    items.push(CompletionItem {
+                        label: pseudo_class.to_string(),
+                        kind: Some(CompletionItemKind::KEYWORD),
+                        detail: Some(info.description.to_string()),
+                        documentation: Some(Documentation::MarkupContent(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: documentation_value,
+                        })),
+                        insert_text: Some(pseudo_class.to_string()),
+                        insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                        ..Default::default()
+                    });
+                }
             }
         }
 
