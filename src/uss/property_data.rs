@@ -65,7 +65,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Background image to paint in the element's box.",
             documentation_url: format!("{supported_properties_url}#unity-background"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::one_of(vec![ValueType::Asset, ValueType::Keyword("none")]),
         },
         PropertyInfo {
@@ -81,7 +81,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Background image x position value.",
             documentation_url: format!("{css_url}/background-position-x"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
         },
         PropertyInfo {
@@ -89,7 +89,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Background image y position value.",
             documentation_url: format!("{css_url}/background-position-y"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
         },
         PropertyInfo {
@@ -97,7 +97,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Background image repeat value.",
             documentation_url: format!("{css_url}/background-repeat"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["repeat", "repeat-x", "repeat-y", "no-repeat", "space", "round"]),
         },
         PropertyInfo {
@@ -285,7 +285,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Shorthand for flex-grow, flex-shrink, flex-basis.",
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::multiple_formats(vec![
                 ValueFormat::keywords(&["none"]), 
                 ValueFormat::single(ValueType::Number), // flex-grow only
@@ -310,7 +310,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Direction of the main axis to layout children in a container.",
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["row", "row-reverse", "column", "column-reverse"]),
         },
         PropertyInfo {
@@ -334,7 +334,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Placement of children over multiple lines if not enough space is available in this container.",
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["nowrap", "wrap", "wrap-reverse"]),
         },
         PropertyInfo {
@@ -358,7 +358,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Alignment of children on the main axis of this container.",
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["flex-start", "flex-end", "center", "space-between", "space-around"]),
         },
         PropertyInfo {
@@ -434,14 +434,6 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("none")]),
         },
         PropertyInfo {
-            name: "max-width",
-            description: "Maximum width for an element, when it is flexible or measures its own size.",
-            documentation_url: format!("{supported_properties_url}#box-model"),
-            inherited: false,
-            animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("none")]),
-        },
-        PropertyInfo {
             name: "min-height",
             description: "Minimum height for an element, when it is flexible or measures its own size.",
             documentation_url: format!("{supported_properties_url}#box-model"),
@@ -470,7 +462,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "How a container behaves if its content overflows its own box.",
             documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["visible", "hidden", "scroll"]),
         },
         PropertyInfo {
@@ -518,7 +510,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Element positioning type during layout.",
             documentation_url: format!("{supported_properties_url}#positioning"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["relative", "absolute"]),
         },
         PropertyInfo {
@@ -550,7 +542,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "How hidden overflow content is signaled to users.",
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["clip", "ellipsis"]),
         },
         PropertyInfo {
@@ -655,7 +647,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "How the background image is scaled in the element's box.",
             documentation_url: format!("{supported_properties_url}#unity-background"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["stretch-to-fill", "scale-and-crop", "scale-to-fit"]),
         },
         PropertyInfo {
@@ -671,7 +663,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Font to use to display text.",
             documentation_url: format!("{supported_properties_url}#unity-font"),
             inherited: true,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::single(ValueType::Asset),
         },
         PropertyInfo {
@@ -679,7 +671,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Font to draw the element’s text, defined as a FontDefinition structure. It takes precedence over -unity-font.",
             documentation_url: format!("{supported_properties_url}#unity-font"),
             inherited: true,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::single(ValueType::Asset),
         },
         PropertyInfo {
@@ -687,7 +679,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Font style and weight (normal, bold, italic) to draw the element’s text.",
             documentation_url: format!("{supported_properties_url}#unity-font"),
             inherited: true,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["normal", "bold", "italic", "bold-and-italic"]),
         },
         PropertyInfo {
@@ -695,7 +687,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Specifies which box the element content is clipped against.",
             documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["padding-box", "content-box"]),
         },
         PropertyInfo {
@@ -711,7 +703,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Size of the 9-slice's bottom edge when painting an element's background image.",
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
@@ -719,7 +711,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Size of the 9-slice’s left edge when painting an element’s background image.",
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
@@ -727,7 +719,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Size of the 9-slice’s right edge when painting an element’s background image.",
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
@@ -735,7 +727,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Scale applied to an element’s slices.",
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
@@ -743,7 +735,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Size of the 9-slice’s top edge when painting an element’s background image.",
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
@@ -751,7 +743,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Specifies the type of sclicing.",
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["stretch", "tile", "mirror"]),
         },
         PropertyInfo {
@@ -759,7 +751,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Horizontal and vertical text alignment in the element’s box.",
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["upper-left", "middle-left", "lower-left", "upper-center", "middle-center", "lower-center", "upper-right", "middle-right", "lower-right"]),
         },
         PropertyInfo {
@@ -799,7 +791,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "The element's text overflow position.",
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["start", "middle", "end"]),
         },
         PropertyInfo {
@@ -807,7 +799,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Specifies whether or not an element is visible.",
             documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: false,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["visible", "hidden"]),
         },
         PropertyInfo {
@@ -815,7 +807,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Word wrap over multiple lines if not enough space is available to draw the text of an element.",
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
-            animatable: PropertyAnimation::None,
+            animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::keywords(&["normal", "nowrap"]),
         },
         PropertyInfo {
