@@ -210,29 +210,7 @@ impl UssHoverProvider {
         
         let property_info2 = property_info.unwrap();
 
-        let description = property_info2.description;
-        let doc_url = property_info2.documentation_url.replace("{version}", &unity_version_for_docs);
-        let is_inherited = property_info2.inherited;
-        let is_animatable = property_info2.animatable;
-        
-        let mut content = format!("**{}**\n\n", property_name);
-        content.push_str(&format!("{}", description));
-        
-        // Add property characteristics
-        let mut characteristics = Vec::new();
-        if is_inherited {
-            characteristics.push("Inherited");
-        }
-        if is_animatable {
-            characteristics.push("Animatable");
-        }
-        
-        if !characteristics.is_empty() {
-            content.push_str(&format!("\n\n*{}*", characteristics.join(", ")));
-        }
-        
-        // Add documentation link
-        content.push_str(&format!("\n\n[📖 Documentation]({})", doc_url));
+        let content = property_info2.create_documentation(property_name, &unity_version_for_docs);
         
         Hover {
             contents: HoverContents::Markup(MarkupContent {

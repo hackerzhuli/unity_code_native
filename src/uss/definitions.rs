@@ -30,6 +30,34 @@ pub struct PropertyInfo {
     pub value_spec: ValueSpec,
 }
 
+impl PropertyInfo {
+    /// Create full markdown documentation with version-specific URL and property characteristics
+    pub fn create_documentation(&self, property_name: &str, unity_version: &str) -> String {
+        let doc_url = self.documentation_url.replace("{version}", unity_version);
+        
+        let mut content = format!("**{}**\n\n", property_name);
+        content.push_str(&format!("{}", self.description));
+        
+        // Add property characteristics
+        let mut characteristics = Vec::new();
+        if self.inherited {
+            characteristics.push("Inherited");
+        }
+        if self.animatable {
+            characteristics.push("Animatable");
+        }
+        
+        if !characteristics.is_empty() {
+            content.push_str(&format!("\n\n*{}*", characteristics.join(", ")));
+        }
+        
+        // Add documentation link
+        content.push_str(&format!("\n\n[📖 Documentation]({})", doc_url));
+        
+        content
+    }
+}
+
 /// Pseudo-class documentation information
 #[derive(Debug, Clone)]
 pub struct PseudoClassInfo {

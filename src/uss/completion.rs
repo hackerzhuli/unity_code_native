@@ -85,16 +85,23 @@ impl UssCompletionProvider {
     ) -> Vec<CompletionItem> {
         let context = self.get_completion_context(tree, content, position);
 
+        let mut unity_version = "6000.0".to_string();
+        if let Some(u) = unity_manager {
+            if let Some(v) = u.get_unity_version_for_docs() {
+                unity_version = v;
+            }
+        }
+
         if let Some(current_node) = context.current_node {
             match context.t {
                 CompletionType::PropertyValue { property_name } => {
                     self.complete_property_value(&property_name, current_node, content)
                 }
                 CompletionType::Property => {
-                    self.complete_property_names(context.current_node, content)
+                    self.complete_property_names(context.current_node, content, unity_version.as_str())
                 }
                 CompletionType::PseudoClass => {
-                    self.complete_pseudo_classes_with_filter(current_node, content, unity_manager)
+                    self.complete_pseudo_classes_with_filter(current_node, content, unity_version.as_str())
                 }
                 CompletionType::ClassSelector => {
                     self.complete_class_selectors(tree, content, current_node)
@@ -380,6 +387,7 @@ impl UssCompletionProvider {
         &self,
         current_node: Option<tree_sitter::Node>,
         content: &str,
+        unity_version:&str,
     ) -> Vec<CompletionItem> {
         let partial_text = if let Some(node) = current_node {
             node.utf8_text(content.as_bytes())
@@ -399,23 +407,19 @@ impl UssCompletionProvider {
             .filter(|name| name.starts_with(&partial_text))
             .map(|name| {
                 let property_info = self.definitions.get_property_info(name);
-                let description = property_info
+                let documentation = property_info
                     .as_ref()
-                    .map(|info| info.description.to_string())
-                    .unwrap_or_else(|| format!("USS property: {}", name));
-
-                let documentation_url = property_info
-                    .as_ref()
-                    .map(|info| info.documentation_url.clone());
+                    .map(|info| {
+                        info.create_documentation(name, unity_version)
+                    });
 
                 CompletionItem {
                     label: name.to_string(),
                     kind: Some(CompletionItemKind::PROPERTY),
-                    detail: Some(description),
-                    documentation: documentation_url.map(|url| {
+                    documentation: documentation.map(|doc| {
                         Documentation::MarkupContent(MarkupContent {
                             kind: MarkupKind::Markdown,
-                            value: format!("[Documentation]({})", url),
+                            value: doc,
                         })
                     }),
                     insert_text: Some(format!("{}: ", name)),
@@ -451,7 +455,7 @@ impl UssCompletionProvider {
         &self,
         current_node: Node,
         content: &str,
-        unity_manager: Option<&crate::unity_project_manager::UnityProjectManager>,
+        unity_version:&str,
     ) -> Vec<CompletionItem> {
         let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
 
@@ -473,11 +477,6 @@ impl UssCompletionProvider {
             // Filter based on partial text
             if partial_text.is_empty() || (pseudo_class.starts_with(&partial_text) && pseudo_class != partial_text) {
                 if let Some(info) = self.definitions.get_pseudo_class_info(pseudo_class) {
-                    // Get Unity version from project manager, fallback to "6000.0"
-                    let unity_version = unity_manager
-                        .and_then(|manager| manager.get_unity_version_for_docs())
-                        .unwrap_or_else(|| "6000.0".to_string());
-                    
                     // Create documentation with description and link
                     let documentation_value = info.create_documentation(&unity_version);
                     
