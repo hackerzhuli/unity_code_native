@@ -6,10 +6,8 @@ use quick_xml::Reader;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::time::sleep;
-use std::fs;
-use std::sync::Mutex;
-use std::sync::Arc;
-use crate::dir_changed::DirChanged;
+use tokio::fs;
+use crate::dir_changed::{DirChanged};
 
 /// Errors that can occur during UXML schema processing
 #[derive(Error, Debug)]
@@ -53,7 +51,7 @@ pub struct UxmlSchemaManager {
     schema_directory: PathBuf,
     schema_files: HashMap<PathBuf, SchemaFileInfo>,
     visual_elements: HashMap<String, VisualElementInfo>,
-    dir_changed: Arc<Mutex<DirChanged>>,
+    dir_changed: DirChanged,
     last_scan_timestamp: u64,
 }
 
@@ -68,10 +66,10 @@ impl UxmlSchemaManager {
         
         // Set up directory change monitoring for .xsd files
         let dir_changed = match DirChanged::new(&schema_dir, Some("xsd")) {
-            Ok(watcher) => Arc::new(Mutex::new(watcher)),
+            Ok(watcher) => watcher,
             Err(_) => {
                 // Fallback to no-watcher mode if setup fails
-                Arc::new(Mutex::new(DirChanged::new_without_watcher()))
+                DirChanged::new_without_watcher()
             }
         };
         
@@ -97,36 +95,29 @@ impl UxmlSchemaManager {
     /// 
     /// * `Ok(())` if the update completed successfully
     /// * `Err(UxmlSchemaError)` if file I/O or XML parsing failed
-    /// 
-    /// ## Note
-    /// This method can't be async because the struct is stored inside of a mutex. Async operations are not possible. 
-    pub fn update(&mut self) -> Result<(), UxmlSchemaError> {
+    pub async fn update(&mut self) -> Result<(), UxmlSchemaError> {
         // Check if directory has changed since last scan
-        let current_timestamp = if let Ok(dir_changed) = self.dir_changed.lock() {
-            dir_changed.last_change_timestamp()
-        } else {
-            // If we can't lock, assume changes occurred to be safe
-            u64::MAX
-        };
+        let current_timestamp = self.dir_changed.last_change_timestamp();
         
         // Skip scan if no changes detected since last scan
         if current_timestamp <= self.last_scan_timestamp {
             return Ok(());
         }
+
+        log::info!("dir changed, we need to scan schema files");
         
         let mut current_files = HashSet::new();
         let mut any_changes = false;
         
         // Read directory entries
-        let dir_entries = fs::read_dir(&self.schema_directory)?;
+        let mut dir_entries = fs::read_dir(&self.schema_directory).await?;
         
-        for entry in dir_entries {
-            let entry = entry?;
+        while let Some(entry) = dir_entries.next_entry().await? {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("xsd") {
                 current_files.insert(path.clone());
                 
-                let metadata = entry.metadata()?;
+                let metadata = entry.metadata().await?;
                 let last_modified = metadata.modified()?;
                 
                 // Check if file needs to be processed
@@ -136,7 +127,7 @@ impl UxmlSchemaManager {
                 };
                 
                 if needs_update {
-                    self.process_schema_file(&path, last_modified)?;
+                    self.process_schema_file(&path, last_modified).await?;
                     any_changes = true;
                 }
             }
@@ -204,8 +195,8 @@ impl UxmlSchemaManager {
             .collect()
     }
 
-    fn process_schema_file(&mut self, path: &Path, last_modified: SystemTime) -> Result<(), UxmlSchemaError> {
-        let content = fs::read_to_string(path)?;
+    async fn process_schema_file(&mut self, path: &Path, last_modified: SystemTime) -> Result<(), UxmlSchemaError> {
+        let content = fs::read_to_string(path).await?;
         let (namespace, elements) = self.parse_schema_content(&content)?;
         
         // Update file info cache
@@ -236,8 +227,6 @@ impl UxmlSchemaManager {
             }
         }
     } 
-
-
 
     fn parse_schema_content(&self, content: &str) -> Result<(String, Vec<String>), UxmlSchemaError> {
         let mut reader = Reader::from_str(content);

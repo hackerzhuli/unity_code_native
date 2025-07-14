@@ -3,8 +3,8 @@ use crate::test_utils::get_ui_elements_schema_dir;
 use tempfile::TempDir;
 use std::fs;
 
-#[test]
-fn test_real_unity_schema_parsing() {
+#[tokio::test]
+async fn test_real_unity_schema_parsing() {
     let schema_dir = get_ui_elements_schema_dir();
     
     // Ensure schema directory exists - tests should fail loudly if missing
@@ -13,7 +13,7 @@ fn test_real_unity_schema_parsing() {
             schema_dir);
     
     let mut manager = UxmlSchemaManager::new(schema_dir);
-    manager.update().unwrap();
+    manager.update().await.unwrap();
     
     // Test that we can find the Image element from Unity's schema
     let image_element = manager.lookup("UnityEngine.UIElements.Image");
@@ -50,8 +50,8 @@ fn test_real_unity_schema_parsing() {
     println!("Found elements in UnityEngine.UIElements namespace: {}", ui_elements.len());
 }
 
-#[test]
-fn test_file_change_detection() {
+#[tokio::test]
+async fn test_file_change_detection() {
     let temp_dir = TempDir::new().unwrap();
     let dir_path = temp_dir.path().to_path_buf();
     let schema_path = temp_dir.path().join("test.xsd");
@@ -66,7 +66,7 @@ fn test_file_change_detection() {
     fs::write(&schema_path, initial_content).unwrap();
     
     let mut manager = UxmlSchemaManager::new(dir_path);
-    manager.update().unwrap();
+    manager.update().await.unwrap();
     
     assert_eq!(manager.get_all_elements().len(), 1);
     
@@ -82,14 +82,14 @@ fn test_file_change_detection() {
 </xs:schema>"#;
     
     fs::write(&schema_path, updated_content).unwrap();
-    manager.update().unwrap();
+    manager.update().await.unwrap();
     
     assert_eq!(manager.get_all_elements().len(), 2);
     assert!(manager.lookup("Test.Namespace.Element2").is_some());
 }
 
-#[test]
-fn test_namespace_extraction_from_real_files() {
+#[tokio::test]
+async fn test_namespace_extraction_from_real_files() {
     let schema_dir = get_ui_elements_schema_dir();
     
     // Ensure schema directory exists - tests should fail loudly if missing
@@ -98,7 +98,7 @@ fn test_namespace_extraction_from_real_files() {
             schema_dir);
     
     let mut manager = UxmlSchemaManager::new(schema_dir);
-    manager.update().unwrap();
+    manager.update().await.unwrap();
     
     // Verify that we're not using filename as namespace
     // All Unity elements should be in "UnityEngine.UIElements" namespace

@@ -88,7 +88,7 @@ impl UssCompletionProvider {
         position: Position,
         unity_manager: &UnityProjectManager,
         source_url: Option<&Url>,
-        uxml_schema_manager: Option<&UxmlSchemaManager>,
+        uxml_element_names: Option<&std::collections::HashSet<String>>,
     ) -> Vec<CompletionItem> {
         let context = self.get_completion_context(tree, content, position);
 
@@ -110,7 +110,7 @@ impl UssCompletionProvider {
                     self.complete_id_selectors(tree, content, current_node)
                 }
                 CompletionType::TagSelector => {
-                    self.complete_tag_selectors(current_node, content, uxml_schema_manager)
+                    self.complete_tag_selectors(current_node, content, uxml_element_names)
                 }
                 CompletionType::UrlString {
                     url_string,
@@ -742,7 +742,7 @@ impl UssCompletionProvider {
         &self,
         current_node: Node,
         content: &str,
-        uxml_schema_manager: Option<&UxmlSchemaManager>,
+        uxml_element_names: Option<&std::collections::HashSet<String>>,
     ) -> Vec<CompletionItem> {
         let partial_text = current_node
             .utf8_text(content.as_bytes())
@@ -751,35 +751,26 @@ impl UssCompletionProvider {
 
         let mut items = Vec::new();
 
-        if let Some(manager) = uxml_schema_manager {
-            // Use real schema data from UxmlSchemaManager
-            let all_elements = manager.get_all_elements();
-
-            for element_info in all_elements {
-                // Use the simple name for completion (without namespace)
-                if element_info.name.to_lowercase().starts_with(&partial_text) {
+        if let Some(element_names) = uxml_element_names {
+            // Use real schema data from extracted element names
+            for element_name in element_names {
+                if element_name.to_lowercase().starts_with(&partial_text) {
                     items.push(CompletionItem {
-                        label: element_info.name.clone(),
+                        label: element_name.clone(),
                         kind: Some(CompletionItemKind::CLASS),
-                        detail: Some(format!(
-                            "UXML Element: {}",
-                            element_info.fully_qualified_name
-                        )),
-                        insert_text: Some(element_info.name.clone()),
+                        detail: Some("UXML Element".to_string()),
+                        insert_text: Some(element_name.clone()),
                         insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
                         documentation: Some(Documentation::MarkupContent(MarkupContent {
                             kind: MarkupKind::Markdown,
-                            value: format!(
-                                "**Namespace:** `{}`\n\n**Fully Qualified Name:** `{}`",
-                                element_info.namespace, element_info.fully_qualified_name
-                            ),
+                            value: format!("**UXML Element:** `{}`", element_name),
                         })),
                         ..Default::default()
                     });
                 }
             }
         } else {
-            // Fallback to hardcoded list if schema manager is not available
+            // Fallback to hardcoded list if element names are not available
             let unity_tags = vec!["Button", "Label", "Slider", "Dropdown"];
 
             for tag_name in unity_tags {

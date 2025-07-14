@@ -2,6 +2,7 @@
 //!
 //! Provides Language Server Protocol features for USS files using tower-lsp.
 
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
@@ -320,15 +321,20 @@ impl LanguageServer for UssLanguageServer {
             uri
         );
 
+        // Update UXML schema manager and extract class names
+        let mut uxml_class_names: HashSet<String> = HashSet::new();
+        {
+            let mut manager = self.uxml_schema_manager.lock().await; 
+                if let Err(e) = manager.update().await {
+                    log::warn!("Failed to update UXML schemas for completion: {}", e);
+                }
+                // Extract all element names as a HashSet for completion
+                uxml_class_names = manager.get_all_elements().iter().map(|element| element.name.clone()).collect::<std::collections::HashSet<String>>()
+        }
+
         // Perform all operations within a single lock scope
         let completions = {
-            self.uxml_schema_manager.lock().await.some().await;
-            // Update UXML schema manager
-            // if let Err(e) = self.uxml_schema_manager.lock().await.some().await {
-            //     log::warn!("Failed to update UXML schemas for completion: {}", e);
-            // }
-
-            if let Ok(mut state) = self.state.lock() {
+            if let Ok(state) = self.state.lock() {
                 // Get document and validate
                 let document = match state.document_manager.get_document(&uri) {
                     Some(doc) => doc,
@@ -367,7 +373,7 @@ impl LanguageServer for UssLanguageServer {
                     position,
                     &state.unity_manager,
                     project_url.as_ref(),
-                    Some(&self.uxml_schema_manager),
+                    Some(&uxml_class_names),
                 )
             } else {
                 log::error!("Failed to lock state");
