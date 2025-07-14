@@ -24,7 +24,7 @@ pub enum PropertyAnimation {
 pub struct PropertyInfo {
     /// Property name
     pub name: &'static str,
-    /// Property description
+    /// Property description, as a markdown string
     pub description: &'static str,
     /// Documentation URL (may contain {version} placeholder for Unity docs)
     pub documentation_url: String,
