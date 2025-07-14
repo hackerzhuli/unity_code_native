@@ -268,7 +268,7 @@ impl UssDefinitions {
         }
     }
     
-    /// Check if a property name is valid
+    /// Check if a property name is valid, ie, an existing property or a custom property (USS variable)
     pub fn is_valid_property(&self, property_name: &str) -> bool {
         // Allow custom properties (CSS variables)
         if property_name.starts_with("--") {

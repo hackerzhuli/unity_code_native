@@ -1000,3 +1000,134 @@ BUTTON {
     assert!(warning_messages.iter().any(|msg| msg.contains("BUTTON")), 
         "Should detect uppercase 'BUTTON' as unknown tag");
 }
+
+#[test]
+fn test_duplicate_property_detection() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with duplicate valid properties
+    let duplicate_content = r#"
+.button {
+    color: red;
+    background-color: blue;
+    color: green;  /* duplicate */
+    margin: 10px;
+    background-color: yellow;  /* duplicate */
+    padding: 5px;
+}
+"#;
+    
+    let tree = parser.parse(duplicate_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, duplicate_content);
+    
+    // Should detect duplicate property warnings
+    let duplicate_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("duplicate-property".to_string())))
+        .collect();
+    
+    // Should have exactly 4 duplicate warnings (2 for color + 2 for background-color)
+    assert_eq!(duplicate_warnings.len(), 4, 
+        "Should detect exactly 4 duplicate property warnings. Found: {:?}", 
+        duplicate_warnings.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_duplicate_property_with_variables() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with duplicate CSS custom properties (variables)
+    let variable_content = r#"
+.button {
+    --main-color: red;
+    color: blue;
+    --main-color: green;  /* duplicate variable */
+    --secondary-color: yellow;
+    --secondary-color: purple;  /* duplicate variable */
+}
+"#;
+    
+    let tree = parser.parse(variable_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, variable_content);
+    
+    // Should detect duplicate variable warnings
+    let duplicate_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("duplicate-property".to_string())))
+        .collect();
+    
+    println!("Found {} duplicate variable warnings", duplicate_warnings.len());
+    for warning in &duplicate_warnings {
+        println!("Warning: {}", warning.message);
+    }
+    
+    // Should have exactly 4 duplicate warnings (2 for --main-color + 2 for --secondary-color)
+    assert_eq!(duplicate_warnings.len(), 4, 
+        "Should detect exactly 4 duplicate variable warnings. Found: {:?}", 
+        duplicate_warnings.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_duplicate_property_ignores_invalid_properties() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with duplicate invalid properties (should be ignored)
+    let invalid_content = r#"
+.button {
+    color: red;
+    invalid-property: value1;
+    invalid-property: value2;  /* duplicate but invalid */
+    background-color: blue;
+    another-invalid: test1;
+    another-invalid: test2;  /* duplicate but invalid */
+}
+"#;
+    
+    let tree = parser.parse(invalid_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, invalid_content);
+    
+    // Should NOT detect duplicate warnings for invalid properties
+    let duplicate_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("duplicate-property".to_string())))
+        .collect();
+    
+    println!("Found {} duplicate warnings for invalid properties", duplicate_warnings.len());
+    for warning in &duplicate_warnings {
+        println!("Warning: {}", warning.message);
+    }
+    
+    // Should have no duplicate warnings since invalid properties are ignored
+    assert_eq!(duplicate_warnings.len(), 0, 
+        "Should not detect duplicate warnings for invalid properties. Found: {:?}", 
+        duplicate_warnings.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_no_duplicate_property_warnings_for_single_occurrence() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with no duplicate properties
+    let single_content = r#"
+.button {
+    color: red;
+    background-color: blue;
+    margin: 10px;
+    padding: 5px;
+    font-size: 14px;
+}
+"#;
+    
+    let tree = parser.parse(single_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, single_content);
+    
+    // Should NOT detect any duplicate property warnings
+    let duplicate_warnings: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("duplicate-property".to_string())))
+        .collect();
+    
+    assert_eq!(duplicate_warnings.len(), 0, 
+        "Should not detect duplicate warnings when properties appear only once. Found: {:?}", 
+        duplicate_warnings.iter().map(|e| &e.message).collect::<Vec<_>>());
+}

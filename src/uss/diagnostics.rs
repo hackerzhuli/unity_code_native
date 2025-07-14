@@ -15,7 +15,7 @@ use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use url::Url;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 /// USS diagnostic analyzer
 pub struct UssDiagnostics {
@@ -46,7 +46,7 @@ impl UssDiagnostics {
         let (diagnostics, _) = self.analyze_with_variables(tree, content, source_url, None);
         diagnostics
     }
-
+    
     /// Analyze USS syntax tree and generate diagnostics with variable resolver support
     ///
     /// **Note**: Variable resolution has limitations:
@@ -117,7 +117,7 @@ impl UssDiagnostics {
         let root_node = tree.root_node();
         tree_printer::print_tree_to_stdout(root_node, content);
     }
-
+    
     /// Recursively walk the syntax tree and validate nodes with variable resolver support
     fn walk_node_with_variables(
         &self,
@@ -387,6 +387,85 @@ impl UssDiagnostics {
                 }
             }
             parent = p.parent();
+        }
+
+        // Check for duplicate properties within this rule set
+        self.check_duplicate_properties(node, content, diagnostics);
+    }
+
+    /// Check for duplicate properties within a rule set
+    fn check_duplicate_properties(&self, rule_set_node: Node, content: &str, diagnostics: &mut Vec<Diagnostic>) {
+        // Find the block node within the rule set
+        let mut block_node = None;
+        for i in 0..rule_set_node.child_count() {
+            if let Some(child) = rule_set_node.child(i) {
+                if child.kind() == NODE_BLOCK {
+                    block_node = Some(child);
+                    break;
+                }
+            }
+        }
+
+        let Some(block) = block_node else {
+            return; // No block found, nothing to validate
+        };
+
+        // Collect all property declarations and their positions
+        let mut property_occurrences: HashMap<String, Vec<Node>> = HashMap::new();
+
+        // Walk through all children of the block to find declarations
+        for i in 0..block.child_count() {
+            if let Some(child) = block.child(i) {
+                if child.kind() == NODE_DECLARATION {
+                    // Extract property name from the declaration
+                    if let Some(property_node) = child.child(0) {
+                        if property_node.kind() == NODE_PROPERTY_NAME {
+                            let property_name = property_node.utf8_text(content.as_bytes()).unwrap_or("");
+                            
+                            // Check if this is a valid property or a variable name
+                            let is_valid = self.definitions.is_valid_property(property_name);
+
+                            // Only track properties that are valid
+                            if is_valid {
+                                property_occurrences
+                                    .entry(property_name.to_string())
+                                    .or_insert_with(Vec::new)
+                                    .push(property_node);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check for duplicates and generate warnings
+        for (property_name, occurrences) in property_occurrences {
+            if occurrences.len() > 1 {
+                // Generate warning for all duplicate occurrences so users can see all locations
+                for (index, property_node) in occurrences.iter().enumerate() {
+                    let range = node_to_range(*property_node, content);
+                    let message = if index == occurrences.len() - 1 {
+                        format!(
+                            "Duplicate property '{}'. This is the final declaration that will be used.",
+                            property_name
+                        )
+                    } else {
+                        format!(
+                            "Duplicate property '{}'. This declaration will be overridden by a later one.",
+                            property_name
+                        )
+                    };
+                    
+                    diagnostics.push(Diagnostic {
+                        range,
+                        severity: Some(DiagnosticSeverity::WARNING),
+                        code: Some(NumberOrString::String("duplicate-property".to_string())),
+                        source: Some("uss".to_string()),
+                        message,
+                        ..Default::default()
+                    });
+                }
+            }
         }
     }
 
