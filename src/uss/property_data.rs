@@ -54,7 +54,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#all"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::keywords(&["initial"]),
+            value_spec: ValueSpec::keywords(&[]),
         },
         PropertyInfo {
             name: "background-color",
@@ -583,7 +583,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "rotate",
             description: "A rotation transformation.",
-            format: None,
+            format: Some("<angle> | none"),
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -592,7 +592,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "scale",
             description: "A scaling transformation.",
-            format: None,
+            format: Some("<number> | <number> <number> | none"),
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -628,7 +628,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transform-origin",
             description: "The transformation origin is the point around which a transformation is applied.",
-            format: None,
+            format: Some("[<length> | left | center | right] [<length> | top | center | bottom]"),
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -637,7 +637,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition",
             description: "Shorthand for transition-delay, transition-duration, transition-property, transition-timing-function",
-            format: None,
+            format: Some("[<property> <duration> <timing-function> <delay>] | all | none"),
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -663,7 +663,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-delay",
             description: "Duration to wait before starting a property's transition effect when its value changes.",
-            format: None,
+            format: Some("<time>"),
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -672,7 +672,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-duration",
             description: "Time a transition animation should take to complete.",
-            format: None,
+            format: Some("<time>"),
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -681,25 +681,25 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-property",
             description: "Properties to which a transition effect should be applied.",
-            format: None,
+            format: Some("<property> | none"),
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::keywords(&["all", "none"]),
+            value_spec: ValueSpec::one_of(vec![ValueType::PropertyName, ValueType::Keyword("none")])
         },
         PropertyInfo {
             name: "transition-timing-function",
             description: "Determines how intermediate values are calculated for properties modified by a transition effect.",
-            format: None,
+            format: Some("ease | ease-in | ease-out | ease-in-out | linear | ease-in-sine | ease-out-sine | ease-in-out-sine | ease-in-cubic | ease-out-cubic | ease-in-out-cubic | ease-in-circ | ease-out-circ | ease-in-out-circ | ease-in-elastic | ease-out-elastic | ease-in-out-elastic | ease-in-back | ease-out-back | ease-in-out-back | ease-in-bounce | ease-out-bounce | ease-in-out-bounce"),
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::keywords(&["ease", "ease-in", "ease-out", "ease-in-out", "linear"]),
+            value_spec: ValueSpec::keywords(&["ease", "ease-in", "ease-out", "ease-in-out", "linear", "ease-in-sine", "ease-out-sine", "ease-in-out-sine", "ease-in-cubic", "ease-out-cubic", "ease-in-out-cubic", "ease-in-circ", "ease-out-circ", "ease-in-out-circ", "ease-in-elastic", "ease-out-elastic", "ease-in-out-elastic", "ease-in-back", "ease-out-back", "ease-in-out-back", "ease-in-bounce", "ease-out-bounce", "ease-in-out-bounce"]),
         },
         PropertyInfo {
             name: "translate",
             description: "A translate transformation.",
-            format: None,
+            format: Some("<length> <length>"),
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -726,7 +726,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-editor-text-rendering-mode",
             description: "TextElement editor rendering mode.",
-            format: None,
+            format: Some("legacy | distance-field"),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::None,
