@@ -16,23 +16,17 @@ use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::constants::*;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::value_spec::ValueType;
-use crate::uxml_schema_manager::UxmlSchemaManager;
-
-// Import additional constants for selector completion
-use crate::uss::constants::*;
 
 /// USS completion provider
 pub struct UssCompletionProvider {
     pub(crate) definitions: UssDefinitions,
     url_completion_provider: Option<UrlCompletionProvider>,
-    uxml_schema_manager: Option<UxmlSchemaManager>,
 }
 
 #[derive(Debug, Clone)]
 pub(super) struct CompletionContext<'a> {
     pub t: CompletionType,
     pub current_node: Option<Node<'a>>,
-    pub position: Position,
 }
 
 /// Context for completion
@@ -69,7 +63,6 @@ impl UssCompletionProvider {
         Self {
             definitions: UssDefinitions::new(),
             url_completion_provider: None,
-            uxml_schema_manager: None,
         }
     }
 
@@ -78,9 +71,6 @@ impl UssCompletionProvider {
         Self {
             definitions: UssDefinitions::new(),
             url_completion_provider: Some(UrlCompletionProvider::new(project_root)),
-            uxml_schema_manager: Some(UxmlSchemaManager::new(
-                project_root.join("UIElementsSchema"),
-            )),
         }
     }
 
@@ -193,7 +183,6 @@ impl UssCompletionProvider {
                         return CompletionContext {
                             t: CompletionType::Property,
                             current_node: Some(current_node),
-                            position,
                         };
                     }
                 }
@@ -203,7 +192,6 @@ impl UssCompletionProvider {
         return CompletionContext {
             t: CompletionType::Unknown,
             current_node: None,
-            position,
         };
     }
 
@@ -226,7 +214,6 @@ impl UssCompletionProvider {
                     return CompletionContext {
                         t: CompletionType::Property,
                         current_node: Some(current_node),
-                        position,
                     };
                 }
 
@@ -245,7 +232,6 @@ impl UssCompletionProvider {
                 return CompletionContext {
                     t: CompletionType::PropertyValue { property_name },
                     current_node: Some(current_node),
-                    position,
                 };
             }
         }
@@ -253,7 +239,6 @@ impl UssCompletionProvider {
         return CompletionContext {
             t: CompletionType::Unknown,
             current_node: Some(current_node),
-            position,
         };
     }
 
@@ -543,7 +528,6 @@ impl UssCompletionProvider {
             return Some(CompletionContext {
                 t: CompletionType::ClassSelector,
                 current_node: Some(current_node),
-                position,
             });
         }
 
@@ -556,7 +540,6 @@ impl UssCompletionProvider {
                             return Some(CompletionContext {
                                 t: CompletionType::PseudoClass,
                                 current_node: Some(current_node),
-                                position,
                             });
                         }
                     }
@@ -572,7 +555,6 @@ impl UssCompletionProvider {
             return Some(CompletionContext {
                 t: CompletionType::IdSelector,
                 current_node: Some(current_node),
-                position,
             });
         }
 
@@ -581,7 +563,6 @@ impl UssCompletionProvider {
             return Some(CompletionContext {
                 t: CompletionType::TagSelector,
                 current_node: Some(current_node),
-                position,
             });
         }
 
@@ -603,7 +584,6 @@ impl UssCompletionProvider {
                                     return Some(CompletionContext {
                                         t: CompletionType::PseudoClass,
                                         current_node: Some(current_node),
-                                        position,
                                     });
                                 }
                             }
@@ -614,7 +594,6 @@ impl UssCompletionProvider {
                     return Some(CompletionContext {
                         t: CompletionType::TagSelector,
                         current_node: Some(current_node),
-                        position,
                     });
                 }
             }
@@ -625,7 +604,6 @@ impl UssCompletionProvider {
             return Some(CompletionContext {
                 t: CompletionType::ClassSelector,
                 current_node: Some(current_node),
-                position,
             });
         }
 
@@ -633,7 +611,6 @@ impl UssCompletionProvider {
             return Some(CompletionContext {
                 t: CompletionType::IdSelector,
                 current_node: Some(current_node),
-                position,
             });
         }
 
@@ -655,7 +632,6 @@ impl UssCompletionProvider {
                             return Some(CompletionContext {
                                 t: CompletionType::PseudoClass,
                                 current_node: Some(current_node),
-                                position,
                             });
                         }
                     }
@@ -667,7 +643,6 @@ impl UssCompletionProvider {
                                 return Some(CompletionContext {
                                     t: CompletionType::PseudoClass,
                                     current_node: Some(current_node),
-                                    position,
                                 });
                             }
                         }
@@ -880,7 +855,6 @@ impl UssCompletionProvider {
                                     cursor_position: cursor_offset,
                                 },
                                 current_node: Some(current_node),
-                                position,
                             });
                         }
                     }
@@ -913,7 +887,6 @@ impl UssCompletionProvider {
                             return Some(CompletionContext {
                                 t: CompletionType::ImportStatement,
                                 current_node: Some(current_node),
-                                position,
                             });
                         }
                     }
@@ -951,7 +924,6 @@ impl UssCompletionProvider {
                     cursor_position: cursor_pos,
                 },
                 current_node: Some(current_node),
-                position,
             });
         }
 
