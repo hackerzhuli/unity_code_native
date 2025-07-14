@@ -1065,6 +1065,7 @@ impl UssCompletionProvider {
             detail: Some("Import statement with project scheme (recommended)".to_string()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             filter_text: Some("@import".to_string()),
+            sort_text: Some("0001".to_string()),
             documentation: Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
                 value: "Import file using project scheme. This is the recommended way to reference assets.".to_string(),
@@ -1089,6 +1090,7 @@ impl UssCompletionProvider {
             detail: Some("Import statement with empty URL".to_string()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             filter_text: Some("@import".to_string()),
+            sort_text: Some("0002".to_string()),
             documentation: Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
                 value: "Import file with any URL.".to_string(),
@@ -1113,6 +1115,7 @@ impl UssCompletionProvider {
             detail: Some("Import statement with absolute path".to_string()),
             insert_text_format: Some(InsertTextFormat::SNIPPET),
             filter_text: Some("@import".to_string()),
+            sort_text: Some("0003".to_string()),
             documentation: Some(Documentation::MarkupContent(MarkupContent {
                 kind: MarkupKind::Markdown,
                 value: "Import file using absolute path.".to_string(),
