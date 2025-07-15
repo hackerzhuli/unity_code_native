@@ -48,7 +48,7 @@ const TIMING_FUN: [&'static str; 23] = [
 pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
     let mut properties = HashMap::new();
 
-    let spec_length_auto = ValueSpec::one_of(vec![ValueType::LengthOrPercentage, ValueType::Keyword("auto")]);
+    let spec_length_auto = ValueSpec::one_of(vec![ValueType::LengthPercent, ValueType::Keyword("auto")]);
     
     let standard_props = [
         PropertyInfo {
@@ -134,8 +134,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Background image position value.",
             examples_unity: None,
             examples_mozilla: Some("background-position: top;\nbackground-position: bottom;\nbackground-position: left;\nbackground-position: right;\nbackground-position: center;\nbackground-position: 25% 75%;\nbackground-position: 0 0;\nbackground-position: 1cm 2cm;\nbackground-position: 10ch 8em;\nbackground-position:\nbackground-position: bottom 10px right 20px;\nbackground-position: right 3em bottom 10px;\nbackground-position: bottom 10px right;\nbackground-position: top right 10px;\nbackground-position: inherit;\nbackground-position: initial;\nbackground-position: revert;\nbackground-position: revert-layer;\nbackground-position: unset;\nbackground-position:"),
-            format: 
-                "[[ left | center | right | top | bottom | <length-percentage> ]  | \n[ left | center | right | <length-percentage> ] [ top | center | bottom | <length-percentage> ]  | \n[ center | [ left | right ] <length-percentage>? ] && [ center | [ top | bottom ] <length-percentage>? ]]#",
+            format: "[[ left | center | right | top | bottom | <length-percentage> ] | [ left | center | right | <length-percentage> ] [ top | center | bottom | <length-percentage> ]  | [ center | [ left | right ] <length-percentage>? ] && [ center | [ top | bottom ] <length-percentage>? ]]#",
             documentation_url: format!("{CSS_URL}/background-position"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -205,7 +204,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "border-bottom-right-radius",
@@ -216,7 +215,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "border-bottom-width",
@@ -227,7 +226,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "border-color",
@@ -260,7 +259,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "border-radius",
@@ -271,7 +270,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::repeat(ValueType::LengthOrPercentage, 1, 4),
+            value_spec: ValueSpec::repeat(ValueType::LengthPercent, 1, 4),
         },
         PropertyInfo {
             name: "border-right-color",
@@ -293,7 +292,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "border-top-color",
@@ -315,7 +314,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "border-top-right-radius",
@@ -326,7 +325,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "border-top-width",
@@ -337,7 +336,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "border-width",
@@ -348,7 +347,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::repeat(ValueType::LengthOrPercentage, 1, 4),
+            value_spec: ValueSpec::repeat(ValueType::LengthPercent, 1, 4),
         },
         PropertyInfo {
             name: "bottom",
@@ -501,7 +500,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "height",
@@ -551,7 +550,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "margin",
@@ -565,7 +564,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             value_spec: ValueSpec::new(
                 FlexibleFormatBuilder::new()
                     .range(
-                        ValueEntry::new(vec![ValueType::LengthOrPercentage, ValueType::Keyword("auto")]),
+                        ValueEntry::new(vec![ValueType::LengthPercent, ValueType::Keyword("auto")]),
                         1,
                         4,
                     )
@@ -625,7 +624,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::LengthOrPercentage, ValueType::Keyword("none")]),
+            value_spec: ValueSpec::one_of(vec![ValueType::LengthPercent, ValueType::Keyword("none")]),
         },
         PropertyInfo {
             name: "max-width",
@@ -636,7 +635,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::LengthOrPercentage, ValueType::Keyword("none")]),
+            value_spec: ValueSpec::one_of(vec![ValueType::LengthPercent, ValueType::Keyword("none")]),
         },
         PropertyInfo {
             name: "min-height",
@@ -691,7 +690,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::repeat(ValueType::LengthOrPercentage, 1, 4),
+            value_spec: ValueSpec::repeat(ValueType::LengthPercent, 1, 4),
         },
         PropertyInfo {
             name: "padding-bottom",
@@ -702,7 +701,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "padding-left",
@@ -713,7 +712,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "padding-right",
@@ -724,7 +723,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "padding-top",
@@ -735,7 +734,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "position",
@@ -802,9 +801,9 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: true,
             animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::sequence(vec![
-                ValueType::LengthOrPercentage,
-                ValueType::LengthOrPercentage,
-                ValueType::LengthOrPercentage,
+                ValueType::LengthPercent,
+                ValueType::LengthPercent,
+                ValueType::LengthPercent,
                 ValueType::Color,
             ]),
         },
@@ -989,7 +988,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#appearance"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "-unity-slice-bottom",
@@ -1033,7 +1032,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "-unity-slice-top",
@@ -1099,7 +1098,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::new(FlexibleFormatBuilder::any_order().optional(ValueEntry::new(vec![ValueType::LengthOrPercentage])).optional(ValueEntry::new(vec![ValueType::Color])).build()),
+            value_spec: ValueSpec::new(FlexibleFormatBuilder::any_order().optional(ValueEntry::new(vec![ValueType::LengthPercent])).optional(ValueEntry::new(vec![ValueType::Color])).build()),
         },
         PropertyInfo {
             name: "-unity-text-outline-color",
@@ -1121,7 +1120,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
         PropertyInfo {
             name: "-unity-text-overflow-position",
@@ -1176,7 +1175,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::LengthOrPercentage),
+            value_spec: ValueSpec::single(ValueType::LengthPercent),
         },
     ];
 
@@ -1217,8 +1216,8 @@ fn create_translate_formats() -> Vec<ValueFormat> {
     // format
     // none | [<length> | <percentage>] [ [<length> | <percentage>] <length>? ]?
     let mut r = vec![ValueFormat::keywords(&vec!["none"])];
-    let format2= FlexibleFormatBuilder::new().range(ValueEntry::new(vec![ValueType::LengthOrPercentage]), 1, 2).build();
-    let format3 = FlexibleFormatBuilder::new().range(ValueEntry::new(vec![ValueType::LengthOrPercentage]), 2, 2).optional(ValueEntry::new(vec![ValueType::Length])).build();
+    let format2= FlexibleFormatBuilder::new().range(ValueEntry::new(vec![ValueType::LengthPercent]), 1, 2).build();
+    let format3 = FlexibleFormatBuilder::new().range(ValueEntry::new(vec![ValueType::LengthPercent]), 2, 2).optional(ValueEntry::new(vec![ValueType::Length])).build();
     r.extend(format2);
     r.extend(format3);
     r
@@ -1228,12 +1227,12 @@ fn create_transform_origin_formats() -> Vec<ValueFormat> {
     // format
     // [ <length> | <percentage> | left | center | right | top | bottom ] | [ [ <length> | <percentage>  | left | center | right ] && [ <length> | <percentage>  | top | center | bottom ] ] <length>?
     let mut r = vec![ValueFormat{entries: vec![ValueEntry{
-        options: vec![ValueType::LengthOrPercentage, ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Keyword("top"), ValueType::Keyword("bottom")],
+        options: vec![ValueType::LengthPercent, ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Keyword("top"), ValueType::Keyword("bottom")],
     }]}];
     let x_entry = ValueEntry::new(
-        vec![ValueType::LengthOrPercentage, ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right")]);
+        vec![ValueType::LengthPercent, ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right")]);
     let y_entry = ValueEntry::new(
-        vec![ValueType::LengthOrPercentage, ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom")]);
+        vec![ValueType::LengthPercent, ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom")]);
     let z_entry = ValueEntry::new(vec![ValueType::Length]); // there is an optional length here I assume it is for z
     let format2 = FlexibleFormatBuilder::new().required(x_entry.clone()).required(y_entry.clone()).optional(z_entry.clone()).build();
     let format3 = FlexibleFormatBuilder::new().required(y_entry.clone()).required(x_entry.clone()).optional(z_entry.clone()).build();
@@ -1269,14 +1268,14 @@ fn create_flex_formats() -> Vec<ValueFormat> {
         .required(ValueEntry::new(vec![ValueType::Number])) // flex-grow
         .optional(ValueEntry::new(vec![ValueType::Number])) // flex-shrink
         .required(ValueEntry::new(vec![
-            ValueType::LengthOrPercentage,
+            ValueType::LengthPercent,
             ValueType::Keyword("auto"),
         ])) // flex-basis
         .build();
 
     let format3 = FlexibleFormatBuilder::new()
         .required(ValueEntry::new(vec![
-            ValueType::LengthOrPercentage,
+            ValueType::LengthPercent,
             ValueType::Keyword("auto"),
         ])) // flex-basis
         .required(ValueEntry::new(vec![ValueType::Number])) // flex-grow
@@ -1285,7 +1284,7 @@ fn create_flex_formats() -> Vec<ValueFormat> {
 
     let format4 = FlexibleFormatBuilder::new()
         .required(ValueEntry::new(vec![
-            ValueType::LengthOrPercentage,
+            ValueType::LengthPercent,
             ValueType::Keyword("auto"),
         ])) // flex-basis
         .build();
@@ -1303,8 +1302,7 @@ fn create_flex_formats() -> Vec<ValueFormat> {
 }
 
 fn create_formats_for_background_position() -> Vec<ValueFormat> {
-    // format
-    // [ left | center | right | top | bottom | <length> ]  |  [ left | center | right | <length> ] [ top | center | bottom | <length> ]  |  [ center | [ left | right ] <length>? ] && [ center | [ top | bottom ] <length>? ]
+    // [[ left | center | right | top | bottom | <length-percentage> ] | [ left | center | right | <length-percentage> ] [ top | center | bottom | <length-percentage> ] | [ center | [ left | right ] <length-percentage>? ] && [ center | [ top | bottom ] <length-percentage>? ]]#
     let mut result = vec![
         ValueFormat::one_of(vec![
             ValueType::Keyword("left"),
@@ -1312,7 +1310,7 @@ fn create_formats_for_background_position() -> Vec<ValueFormat> {
             ValueType::Keyword("right"),
             ValueType::Keyword("top"),
             ValueType::Keyword("bottom"),
-            ValueType::LengthOrPercentage,
+            ValueType::LengthPercent,
         ]), // single value
         ValueFormat {
             entries: vec![
@@ -1321,7 +1319,7 @@ fn create_formats_for_background_position() -> Vec<ValueFormat> {
                         ValueType::Keyword("left"),
                         ValueType::Keyword("center"),
                         ValueType::Keyword("right"),
-                        ValueType::LengthOrPercentage,
+                        ValueType::LengthPercent,
                     ],
                 },
                 ValueEntry {
@@ -1329,7 +1327,7 @@ fn create_formats_for_background_position() -> Vec<ValueFormat> {
                         ValueType::Keyword("top"),
                         ValueType::Keyword("center"),
                         ValueType::Keyword("bottom"),
-                        ValueType::LengthOrPercentage,
+                        ValueType::LengthPercent,
                     ],
                 },
             ],
@@ -1342,34 +1340,34 @@ fn create_formats_for_background_position() -> Vec<ValueFormat> {
     let format2 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["center"]))
         .required(ValueEntry::keywords(&vec!["top", "bottom"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .build();
     let format3 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["center"]))
         .required(ValueEntry::keywords(&vec!["left", "right"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .build();
     let format4 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["top", "bottom"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .required(ValueEntry::keywords(&vec!["center"]))
         .build();
     let format5 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["left", "right"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .required(ValueEntry::keywords(&vec!["center"]))
         .build();
     let format6 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["left", "right"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .required(ValueEntry::keywords(&vec!["top", "bottom"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .build();
     let format7 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["top", "bottom"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .required(ValueEntry::keywords(&vec!["left", "right"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .build();
     result.extend(format2.into_iter());
     result.extend(format3.into_iter());
@@ -1381,8 +1379,7 @@ fn create_formats_for_background_position() -> Vec<ValueFormat> {
 }
 
 fn create_formats_for_background_position_x() -> Vec<ValueFormat> {
-    // format
-    // [ center | [ [ left | right | x-start | x-end ]? <length>? ]! ]#
+    // [ center | [ [ left | right | x-start | x-end ]? <length-percentage>? ]! ]#
     let mut result = vec![
         ValueFormat::keywords(&vec!["center"]), // center
     ];
@@ -1390,7 +1387,7 @@ fn create_formats_for_background_position_x() -> Vec<ValueFormat> {
         .optional(ValueEntry::keywords(&vec![
             "left", "right", "x-start", "x-end",
         ]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .build();
     result.extend(format2.into_iter());
     result
@@ -1406,7 +1403,7 @@ fn create_formats_for_background_position_y() -> Vec<ValueFormat> {
         .optional(ValueEntry::keywords(&vec![
             "top", "bottom", "y-start", "y-end",
         ]))
-        .optional(ValueEntry::new(vec![ValueType::LengthOrPercentage]))
+        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
         .build();
     result.extend(format2.into_iter());
     result
@@ -1435,7 +1432,7 @@ fn create_formats_for_background_size() -> Vec<ValueFormat> {
     ];
     let format2 = FlexibleFormatBuilder::new()
         .range(
-            ValueEntry::new(vec![ValueType::Keyword("auto"), ValueType::LengthOrPercentage]),
+            ValueEntry::new(vec![ValueType::Keyword("auto"), ValueType::LengthPercent]),
             1,
             2,
         )

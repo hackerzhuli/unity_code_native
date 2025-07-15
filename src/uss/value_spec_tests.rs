@@ -9,7 +9,7 @@ use crate::uss::constants::*;
 
 #[test]
 fn test_length_format() {
-    let length_format = ValueFormat::single(ValueType::LengthOrPercentage);
+    let length_format = ValueFormat::single(ValueType::LengthPercent);
     let definitions = UssDefinitions::new();
     
     // Valid length with px unit
@@ -52,7 +52,7 @@ fn test_length_format() {
 #[test]
 fn test_length_vs_length_or_percentage() {
     let length_format = ValueFormat::single(ValueType::Length);
-    let length_or_percentage_format = ValueFormat::single(ValueType::LengthOrPercentage);
+    let length_or_percentage_format = ValueFormat::single(ValueType::LengthPercent);
     let definitions = UssDefinitions::new();
     
     // Both should accept px units
@@ -163,7 +163,7 @@ fn test_color_format() {
 
 #[test]
 fn test_variable_reference() {
-    let length_format = ValueFormat::single(ValueType::LengthOrPercentage);
+    let length_format = ValueFormat::single(ValueType::LengthPercent);
     let definitions = UssDefinitions::new();
     
     // Variable reference should match any format
@@ -173,7 +173,7 @@ fn test_variable_reference() {
 
 #[test]
 fn test_sequence_format() {
-    let two_length_format = ValueFormat::sequence(vec![ValueType::LengthOrPercentage, ValueType::LengthOrPercentage]);
+    let two_length_format = ValueFormat::sequence(vec![ValueType::LengthPercent, ValueType::LengthPercent]);
     let definitions = UssDefinitions::new();
     
     // Valid sequence

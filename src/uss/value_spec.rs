@@ -13,7 +13,7 @@ pub enum ValueType {
     /// Length values (px, %)
     /// 
     /// note: value 0 can be intepreted as length even without unit
-    LengthOrPercentage,
+    LengthPercent,
     /// Only Length, no percentage(rarely used)
     Length,
     /// Numeric values (unitless numbers)(can be integer or float)
@@ -198,7 +198,7 @@ impl ValueFormat {
             UssValue::Numeric { unit: Some(unit_str), has_fractional: _, .. } => {
                   // Check if this numeric value matches the expected type based on unit
                   match value_type {
-                      ValueType::LengthOrPercentage => unit_str == UNIT_PX || unit_str == UNIT_PERCENT,
+                      ValueType::LengthPercent => unit_str == UNIT_PX || unit_str == UNIT_PERCENT,
                       ValueType::Length => unit_str == UNIT_PX, // Length only accepts px units, no percentage
                       ValueType::Time => unit_str == UNIT_S || unit_str == UNIT_MS,
                       ValueType::Angle => matches!(unit_str.as_str(), UNIT_DEG | UNIT_RAD | UNIT_GRAD | UNIT_TURN),
@@ -212,7 +212,7 @@ impl ValueFormat {
                  match value_type {
                      ValueType::Integer => !has_fractional, // Integers cannot have fractional parts
                      ValueType::Number => true, // Numbers can be fractional or not
-                     ValueType::LengthOrPercentage => *value == 0.0, // Length can only be unitless if it's exactly 0
+                     ValueType::LengthPercent => *value == 0.0, // Length can only be unitless if it's exactly 0
                      ValueType::Length => *value == 0.0, // Length can only be unitless if it's exactly 0
                      _ => false,
                  }
