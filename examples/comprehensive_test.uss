@@ -1,6 +1,6 @@
 /* Comprehensive USS Test File */
-/* This file contains all USS properties with multiple valid examples */
-/* Used for testing the language server diagnostic capabilities */
+/* This file contains all USS properties with multiple valid examples and there are invalid examples */
+/* Used for manually testing the language server diagnostic capabilities */
 
 /* Basic layout and positioning */
 .layout-basic {
@@ -37,14 +37,14 @@
 }
 
 .flex-align-4 {
-    align-content: space-between;
+    align-content: stretch;
     align-items: stretch;
     align-self: center;
     justify-content: space-between;
 }
 
 .flex-align-5 {
-    align-content: space-around;
+    align-content: flex-start;
     align-items: auto;
     align-self: stretch;
     justify-content: space-around;
@@ -611,7 +611,7 @@
     margin-bottom: 15px;
     margin-left: 20px;
 }
-
+ 
 /* Max dimensions */
 .max-height-1 {
     max-height: 200px;
@@ -685,7 +685,7 @@
 }
 
 .overflow-3 {
-    overflow: scroll;
+    overflow: visible ;
 }
 
 /* Padding variations */
@@ -748,24 +748,48 @@
 }
 
 .rotate-3 {
-    rotate: 90deg;
+    rotate: 90rad;
 }
 
 .rotate-4 {
-    rotate: 180deg;
+    rotate: 1turn;
 }
 
 .rotate-5 {
-    rotate: 270deg;
+    rotate: initial;
 }
 
 .rotate-6 {
-    rotate: 360deg;
+    rotate: none;
 }
 
+.rotate-7 {
+    rotate: red; /*error*/ 
+}
+
+.rotate-8 {
+    rotate: x 10deg; /*angle axis*/   
+}
+ 
+.rotate-9 {
+    rotate: 0; /*should be able to omit unit for 0*/    
+}
+
+.rotate-10 {
+    rotate: 10 20 30 10deg; /*angle axis with numbers*/   
+}
+
+.rotate-11 {
+    rotate: 10deg 10 20 30; /*angle axis with numbers*/    
+}
+
+.rotate-12 {
+    rotate: 10 20 10deg 30; /*error: angle can't be inside of the numbers*/   
+}
+ 
 /* Scale variations */
 .scale-1 {
-    scale: 1;
+    scale: 1px;    /* error:no units, it's number */
 }
 
 .scale-2 {
@@ -773,7 +797,7 @@
 }
 
 .scale-3 {
-    scale: 2;
+    scale: 2 3 4; 
 }
 
 .scale-4 {
@@ -786,39 +810,39 @@
 
 /* Text align variations */
 .text-align-1 {
-    text-align: upper-left;
+    -unity-text-align: upper-left;
 }
 
 .text-align-2 {
-    text-align: middle-left;
+    -unity-text-align: middle-left;
 }
 
 .text-align-3 {
-    text-align: lower-left;
+    -unity-text-align: lower-left;
 }
 
 .text-align-4 {
-    text-align: upper-center;
+    -unity-text-align: upper-center;
 }
 
 .text-align-5 {
-    text-align: middle-center;
+    -unity-text-align: middle-center;
 }
 
 .text-align-6 {
-    text-align: lower-center;
+    -unity-text-align: lower-center;
 }
 
 .text-align-7 {
-    text-align: upper-right;
+    -unity-text-align: upper-right;
 }
 
 .text-align-8 {
-    text-align: middle-right;
+    -unity-text-align: middle-right;
 }
 
 .text-align-9 {
-    text-align: lower-right;
+    -unity-text-align: lower-right;
 }
 
 /* Text overflow variations */
@@ -844,7 +868,7 @@
 }
 
 .text-shadow-4 {
-    text-shadow: none;
+    text-shadow: 1px 1px 1px red;
 }
 
 /* Top position variations */
@@ -909,17 +933,29 @@
     transform-origin: 50px 100px;
 }
 
+.transform-origin-12 {
+    transform-origin: 10% 10% 10%; /* error: third value can't be percent */
+}
+
+.transform-origin-13 {
+    transform-origin: 10% 10% 10px; 
+}
+
+.transform-origin-14 {
+    transform-origin: red; /* error*/
+}
+
 /* Transition variations */
 .transition-1 {
     transition: all 0.3s ease;
 }
 
 .transition-2 {
-    transition: opacity 0.5s linear;
+    transition: opacity 2ms; /*this seems to be valid, unity didn't log warning, and there are examples like this*/
 }
 
 .transition-3 {
-    transition: transform 0.2s ease-in;
+    transition: transform 0.2s; 
 }
 
 .transition-4 {
@@ -927,7 +963,15 @@
 }
 
 .transition-5 {
-    transition: background-color 0.6s ease-in-out;
+    transition: background-color 0.6s 100ms ease-in-out;
+}
+
+.transition-6 {
+    transition: background-color ease-in-out 0.6s; /* Error. This is wrong and should show diagnostics. It's odd that unity doesn't report error even here, but it is out of order*/
+}
+
+.transition-8 {
+    transition: red; /*Error. This is wrong and should show diagnostics. Unity deson't event report error for this???*/
 }
 
 .transition-delay-1 {
@@ -940,6 +984,10 @@
 
 .transition-delay-3 {
     transition-delay: 0.2s;
+}
+
+.transition-delay-4 {
+    transition-delay: red; /* error */
 }
 
 .transition-duration-1 {
@@ -956,6 +1004,14 @@
 
 .transition-duration-4 {
     transition-duration: 1s;
+}
+
+.transition-duration-5 {
+    transition-duration: red; /* error */
+}
+
+.transition-duration-6 {
+    transition-duration: 0; /* should be able to omit unit for 0, it turns out Unity doesn't allow it, so error */ 
 }
 
 .transition-property-1 {
@@ -986,6 +1042,14 @@
     transition-property: opacity, transform;
 }
 
+.transition-property-8 {
+    transition-property: red; /*error*/  
+}
+
+.transition-property-9 {
+    transition-property: ignored; 
+}
+
 .transition-timing-1 {
     transition-timing-function: ease;
 }
@@ -1006,21 +1070,38 @@
     transition-timing-function: ease-in-out;
 }
 
-/* Translate variations */
-.translate-1 {
-    translate: 10px;
+.transition-timing-6 {
+    transition-timing-function: ease-in-out-circ; 
 }
 
+.transition-timing-7 {
+    transition-timing-function: red; /*error*/ 
+}
+
+
+/* Translate variations */
+.translate-1 {
+    translate: 10% 10% 10%; /*error: third value can't be percent */ 
+}
+ 
 .translate-2 {
-    translate: 10px 20px;
+    translate: 10% 10% 10px;
 }
 
 .translate-3 {
-    translate: 25% 50%;
+    translate: 10px 20px;
 }
 
 .translate-4 {
+    translate: 25% 50%;
+}
+
+.translate-5 {
     translate: 0;
+}
+
+.translate-6 {
+    translate: 10px;
 }
 
 /* Unity-specific properties */
@@ -1256,7 +1337,7 @@
 }
 
 .complex-bg-pos-2 {
-    background-position: right 25% bottom 30px;
+    background-position: right 25% bottom 30px; 
 }
 
 .complex-bg-pos-3 {
@@ -1268,29 +1349,29 @@
 }
 
 .complex-bg-pos-5 {
-    background-position: top center 10px;
+    background-position: top center 10px; /*error: this is wrong and need to show diagnostics*/
 }
 
 .complex-bg-pos-6 {
-    background-position: bottom center 20px;
+    background-position: bottom center 20px; /*error: this is wrong and need to show diagnostics*/
 }
-
+ 
 .complex-bg-pos-7 {
-    background-position: left center top 15px;
+    background-position: left 10% top 15px;
 }
 
 .complex-bg-pos-8 {
-    background-position: right center bottom 25px;
+    background-position: right bottom 25px; 
 }
 
 .complex-bg-pos-9 {
-    background-position: center top left 10px;
+    background-position: top 10% left 10px;
 }
 
 .complex-bg-pos-10 {
-    background-position: center bottom right 20px;
+    background-position: bottom 20% right 15px;
 }
-
+ 
 /* Complex transition combinations */
 .complex-transition-1 {
     transition: opacity 0.3s ease, transform 0.5s linear;
@@ -1309,14 +1390,14 @@
 }
 
 .complex-transition-5 {
-    transition: background-color 1s linear, opacity 0.2s ease-out;
+    transition: background-color 1s linear, opacity 0.2s ease-out, color 100ms easy; /*error: non existing easing function*/
 }
 
 /* Complex flex combinations */
 .complex-flex-1 {
     flex: 0 0 auto;
 }
-
+ 
 .complex-flex-2 {
     flex: 1 1 0;
 }
