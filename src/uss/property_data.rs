@@ -54,6 +54,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "align-content",
             description: "Alignment of the whole area of children on the cross axis if they span over multiple lines in this container.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "flex-start | flex-end | center | stretch",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -63,6 +65,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "align-items",
             description: "Alignment of children on the cross axis of this container.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "auto | flex-start | flex-end | center | stretch",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -78,6 +82,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "align-self",
             description: "Similar to align-items, but only for this specific element.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "auto | flex-start | flex-end | center | stretch",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -93,6 +99,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "all",
             description: "Allows resetting all properties with the initial keyword. Does not apply to custom USS properties.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "initial",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#all"),
             inherited: false,
@@ -102,6 +110,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-color",
             description: "Background color to paint in the element's box.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-background"),
             inherited: false,
@@ -111,6 +121,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-image",
             description: "Background image to paint in the element's box.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<resource> | <url> | none",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-background"),
             inherited: false,
@@ -120,6 +132,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position",
             description: "Background image position value.",
+            examples_unity: None,
+            examples_mozilla: Some("background-position: top;\nbackground-position: bottom;\nbackground-position: left;\nbackground-position: right;\nbackground-position: center;\nbackground-position: 25% 75%;\nbackground-position: 0 0;\nbackground-position: 1cm 2cm;\nbackground-position: 10ch 8em;\nbackground-position:\nbackground-position: bottom 10px right 20px;\nbackground-position: right 3em bottom 10px;\nbackground-position: bottom 10px right;\nbackground-position: top right 10px;\nbackground-position: inherit;\nbackground-position: initial;\nbackground-position: revert;\nbackground-position: revert-layer;\nbackground-position: unset;\nbackground-position:"),
             format: 
                 "[ left | center | right | top | bottom | <length> ]  |  [ left | center | right | <length> ] [ top | center | bottom | <length> ]  |  [ center | [ left | right ] <length>? ] && [ center | [ top | bottom ] <length>? ] ",
             documentation_url: format!("{CSS_URL}/background-position"),
@@ -130,6 +144,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position-x",
             description: "Background image x position value.",
+            examples_unity: None,
+            examples_mozilla: Some("background-position-x: left;\nbackground-position-x: center;\nbackground-position-x: right;\nbackground-position-x: 25%;\nbackground-position-x: 0px;\nbackground-position-x: 1cm;\nbackground-position-x: 8em;\nbackground-position-x: right 3px;\nbackground-position-x: left 25%;\nbackground-position-x: 0px, center;\nbackground-position-x: inherit;\nbackground-position-x: initial;\nbackground-position-x: revert;\nbackground-position-x: revert-layer;\nbackground-position-x: unset;\nbackground-position-x: center;\nbackground-position-x: right 20px;"),
             format: "[ center | [ [ left | right | x-start | x-end ]? <length>? ]! ]#",
             documentation_url: format!("{CSS_URL}/background-position-x"),
             inherited: false,
@@ -139,6 +155,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position-y",
             description: "Background image y position value.",
+            examples_unity: None,
+            examples_mozilla: Some("background-position-y: top;\nbackground-position-y: center;\nbackground-position-y: bottom;\nbackground-position-y: 25%;\nbackground-position-y: 0px;\nbackground-position-y: 1cm;\nbackground-position-y: 8em;\nbackground-position-y: bottom 3px;\nbackground-position-y: bottom 10%;\nbackground-position-y: 0px, center;\nbackground-position-y: inherit;\nbackground-position-y: initial;\nbackground-position-y: revert;\nbackground-position-y: revert-layer;\nbackground-position-y: unset;\nbackground-position-y: bottom;\nbackground-position-y: bottom 10px;"),
             format: "[ center | [ [ top | bottom | y-start | y-end ]? <length>? ]! ]#",
             documentation_url: format!("{CSS_URL}/background-position-y"),
             inherited: false,
@@ -148,6 +166,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-repeat",
             description: "Background image repeat value.",
+            examples_unity: None,
+            examples_mozilla: Some("background-repeat: repeat;\nbackground-repeat: repeat-x;\nbackground-repeat: repeat-y;\nbackground-repeat: space;\nbackground-repeat: round;\nbackground-repeat: no-repeat;\nbackground-repeat: repeat space;\nbackground-repeat: repeat repeat;\nbackground-repeat: round space;\nbackground-repeat: no-repeat round;\nbackground-repeat: inherit;\nbackground-repeat: initial;\nbackground-repeat: revert;\nbackground-repeat: revert-layer;\nbackground-repeat: unset;\nbackground-repeat: no-repeat;\nbackground-repeat: repeat;\nbackground-repeat: repeat-x;\nbackground-repeat: repeat-y;\nbackground-repeat: space;\nbackground-repeat: round;\nbackground-repeat: repeat-x, repeat-y;"),
             format: "repeat-x | repeat-y | [ repeat | space | round | no-repeat ]{1,2}",
             documentation_url: format!("{CSS_URL}/background-repeat"),
             inherited: false,
@@ -157,6 +177,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-size",
             description: "Background image size value. Transitions are fully supported only when using size in pixels or percentages, such as pixel-to-pixel or percentage-to-percentage transitions.",
+            examples_unity: None,
+            examples_mozilla: Some("background-size: cover;\nbackground-size: contain;\nbackground-size: 50%;\nbackground-size: 3.2em;\nbackground-size: 12px;\nbackground-size: auto;\nbackground-size: 50% auto;\nbackground-size: 3em 25%;\nbackground-size: auto 6px;\nbackground-size: auto auto;\nbackground-size: auto, auto; /* Not to be confused with `auto auto` */\nbackground-size: 50%, 25%, 25%;\nbackground-size: 6px, auto, contain;\nbackground-size: inherit;\nbackground-size: initial;\nbackground-size: revert;\nbackground-size: revert-layer;\nbackground-size: unset;\nbackground-size: 150px;"),
             format: "[ <length> | auto ]{1,2} | cover | contain",
             documentation_url: format!("{CSS_URL}/background-size"),
             inherited: false,
@@ -166,6 +188,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-bottom-color",
             description: "Color of the element's bottom border.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#border-color"),
             inherited: false,
@@ -175,6 +199,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-bottom-left-radius",
             description: "The radius of the bottom-left corner when a rounded rectangle is drawn in the element's box.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
@@ -184,6 +210,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-bottom-right-radius",
             description: "The radius of the bottom-right corner when a rounded rectangle is drawn in the element's box.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
@@ -193,6 +221,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-bottom-width",
             description: "Space reserved for the bottom edge of the border during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -202,6 +232,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-color",
             description: "Shorthand for border-top-color, border-right-color, border-bottom-color, border-left-color",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<color>{1,4}",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#border-color"),
             inherited: false,
@@ -211,6 +243,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-left-color",
             description: "Color of the element's left border.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#border-color"),
             inherited: false,
@@ -220,6 +254,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-left-width",
             description: "Space reserved for the left edge of the border during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -229,6 +265,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-radius",
             description: "Shorthand for border-top-left-radius, border-top-right-radius, border-bottom-right-radius, border-bottom-left-radius",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>{1,4}",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
@@ -238,6 +276,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-right-color",
             description: "Color of the element's right border.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#border-color"),
             inherited: false,
@@ -247,6 +287,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-top-left-radius",
             description: "The radius of the top-left corner when a rounded rectangle is drawn in the element's box.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
@@ -256,6 +298,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-top-color",
             description: "Color of the element's top border.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#border-color"),
             inherited: false,
@@ -265,6 +309,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-right-width",
             description: "Space reserved for the right edge of the border during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -274,6 +320,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-top-right-radius",
             description: "The radius of the top-right corner when a rounded rectangle is drawn in the element's box.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#drawing-borders"),
             inherited: false,
@@ -283,6 +331,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-top-width",
             description: "Space reserved for the top edge of the border during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -292,6 +342,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "border-width",
             description: "Shorthand for border-top-width, border-right-width, border-bottom-width, border-left-width",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>{1,4}",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -301,6 +353,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "bottom",
             description: "Bottom distance from the element's box during layout.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
             inherited: false,
@@ -310,6 +364,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "color",
             description: "Color to use when drawing the text of an element.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
@@ -319,6 +375,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "cursor",
             description: "Mouse cursor to display when the mouse pointer is over an element.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: 
                 "[ [ <resource> | <url> ] [ <integer> <integer>]? , ] [ arrow | text | resize-vertical | resize-horizontal | link | slide-arrow | resize-up-right | resize-up-left | move-arrow | rotate-arrow | scale-arrow | arrow-plus | arrow-minus | pan | orbit | zoom | fps | split-resize-up-down | split-resize-left-right ]",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#cursor"),
@@ -360,6 +418,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "display",
             description: "Defines how an element is displayed in the layout.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "flex | none",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#appearance"),
             inherited: false,
@@ -369,6 +429,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex",
             description: "Shorthand for flex-grow, flex-shrink, flex-basis.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "none | [ <'flex-grow'> <'flex-shrink'>? || <'flex-basis'> ]",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -378,6 +440,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-basis",
             description: "Initial main size of a flex item, on the main flex axis. The final layout might be smaller or larger, according to the flex shrinking and growing determined by the other flex properties.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -387,6 +451,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-direction",
             description: "Direction of the main axis to layout children in a container.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "row | row-reverse | column | column-reverse",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -396,6 +462,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-grow",
             description: "Specifies how the item will grow relative to the rest of the flexible items inside the same container.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<number>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -405,6 +473,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-shrink",
             description: "Specifies how the item will shrink relative to the rest of the flexible items inside the same container.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<number>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -414,6 +484,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "flex-wrap",
             description: "Placement of children over multiple lines if not enough space is available in this container.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "nowrap | wrap | wrap-reverse",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -423,6 +495,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "font-size",
             description: "Font size to draw the element's text, specified in point size. Actually, the format is `<length>`.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<number>", // this is wrong, actual format is `<length>`, but we will keep it the same as offcial docs
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
@@ -432,6 +506,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "height",
             description: "Fixed height of an element for the layout.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -441,6 +517,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "justify-content",
             description: "Justification of children on the main axis of this container.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "flex-start | flex-end | center | space-between | space-around",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
@@ -456,6 +534,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "left",
             description: "Left distance from the element's box during layout.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
             inherited: false,
@@ -465,6 +545,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "letter-spacing",
             description: "Increases or decreases the space between characters.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
@@ -474,6 +556,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin",
             description: "Shorthand for margin-top, margin-right, margin-bottom, margin-left",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "[<length> | auto]{1,4}",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -491,6 +575,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin-bottom",
             description: "Space reserved for the bottom edge of the margin during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -500,6 +586,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin-left",
             description: "Space reserved for the left edge of the margin during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -509,6 +597,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin-right",
             description: "Space reserved for the right edge of the margin during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -518,6 +608,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "margin-top",
             description: "Space reserved for the top edge of the margin during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -527,6 +619,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "max-height",
             description: "Maximum height for an element, when it is flexible or measures its own size.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | none",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -536,6 +630,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "max-width",
             description: "Maximum width for an element, when it is flexible or measures its own size.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | none",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -545,6 +641,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "min-height",
             description: "Minimum height for an element, when it is flexible or measures its own size.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -554,6 +652,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "min-width",
             description: "Minimum width for an element, when it is flexible or measures its own size.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -563,6 +663,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "opacity",
             description: "Specifies the transparency of an element and of its children.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<number>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#opacity"),
             inherited: false,
@@ -572,6 +674,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "overflow",
             description: "How a container behaves if its content overflows its own box.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "hidden | visible",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#appearance"),
             inherited: false,
@@ -581,6 +685,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding",
             description: "Shorthand for padding-top, padding-right, padding-bottom, padding-left",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>{1,4}",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -590,6 +696,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding-bottom",
             description: "Space reserved for the bottom edge of the padding during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -599,6 +707,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding-left",
             description: "Space reserved for the left edge of the padding during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -608,6 +718,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding-right",
             description: "Space reserved for the right edge of the padding during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -617,6 +729,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "padding-top",
             description: "Space reserved for the top edge of the padding during the layout phase.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -626,6 +740,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "position",
             description: "Element's positioning in its parent container.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "absolute | relative",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
             inherited: false,
@@ -635,6 +751,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "right",
             description: "Right distance from the element's box during layout.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
             inherited: false,
@@ -644,6 +762,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "rotate",
             description: "A rotation transformation.",
+            examples_unity: Some("rotate: 45deg;\nrotate: -100grad;\nrotate: -3.14rad;\nrotate: 0.75turn;\nrotate: none;"),
+            examples_mozilla: None,
             format: "<angle> | none",
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
@@ -653,6 +773,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "scale",
             description: "A scaling transformation.",
+            examples_unity: Some("scale: 2.5;\nscale: -1 1;\nscale: none;"),
+            examples_mozilla: None,
             format: "<number> | <number> <number> | none",
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
@@ -662,6 +784,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "text-overflow",
             description: "The element's text overflow mode.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "clip | ellipsis",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: false,
@@ -671,6 +795,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "text-shadow",
             description: "Drop shadow of the text.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<x-offset> <y-offset> <blur-radius> <color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
@@ -685,6 +811,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "top",
             description: "Top distance from the element's box during layout.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
             inherited: false,
@@ -694,6 +822,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transform-origin",
             description: "The transformation origin is the point around which a transformation is applied.",
+            examples_unity: Some("transform-origin: 0% 100%;\ntransform-origin: 20px 10px;\ntransform-origin: 0px 100%;\ntransform-origin: 60% 10px;"),
+            examples_mozilla: None,
             format: "[<length> | left | center | right] [<length> | top | center | bottom]",
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
@@ -720,6 +850,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition",
             description: "Shorthand for transition-delay, transition-duration, transition-property, transition-timing-function",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "[<property> <duration> <timing-function> <delay>] | all | none",
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
@@ -747,6 +879,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-delay",
             description: "Duration to wait before starting a property's transition effect when its value changes.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<time>",
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
@@ -756,6 +890,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-duration",
             description: "Time a transition animation should take to complete.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<time>",
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
@@ -765,6 +901,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-property",
             description: "Properties to which a transition effect should be applied.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<property> | none",
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
@@ -777,6 +915,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-timing-function",
             description: "Determines how intermediate values are calculated for properties modified by a transition effect.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: 
                 "ease | ease-in | ease-out | ease-in-out | linear | ease-in-sine | ease-out-sine | ease-in-out-sine | ease-in-cubic | ease-out-cubic | ease-in-out-cubic | ease-in-circ | ease-out-circ | ease-in-out-circ | ease-in-elastic | ease-out-elastic | ease-in-out-elastic | ease-in-back | ease-out-back | ease-in-out-back | ease-in-bounce | ease-out-bounce | ease-in-out-bounce",
             documentation_url: TRANSITIONS_URL.to_string(),
@@ -787,6 +927,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "translate",
             description: "A translate transformation.",
+            examples_unity: Some("translate: 80%;\ntranslate: 35px;\ntranslate: 5% 10px;\ntranslate: 24px 0%;"),
+            examples_mozilla: None,
             format: "<length> <length>",
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
@@ -796,6 +938,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-background-image-tint-color",
             description: "Tinting color for the element's backgroundImage.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-background"),
             inherited: false,
@@ -805,6 +949,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-background-scale-mode",
             description: "Background image scaling in the element's box.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "stretch-to-fill | scale-and-crop | scale-to-fit",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-background"),
             inherited: false,
@@ -814,6 +960,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-editor-text-rendering-mode",
             description: "TextElement editor rendering mode.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "legacy | distance-field",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
@@ -823,6 +971,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-font",
             description: "Font to draw the element's text, defined as a Font object.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<resource> | <url>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-font"),
             inherited: true,
@@ -832,6 +982,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-font-definition",
             description: "Font to draw the element's text, defined as a FontDefinition structure. It takes precedence over -unity-font.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<resource> | <url>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-font"),
             inherited: true,
@@ -841,6 +993,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-font-style",
             description: "Font style and weight (normal, bold, italic) to draw the element's text.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "normal | italic | bold | bold-and-italic",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-font"),
             inherited: true,
@@ -850,6 +1004,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-overflow-clip-box",
             description: "Specifies which box the element content is clipped against.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "padding-box | content-box",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#appearance"),
             inherited: false,
@@ -859,6 +1015,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-paragraph-spacing",
             description: "Increases or decreases the space between paragraphs.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#appearance"),
             inherited: true,
@@ -868,6 +1026,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-bottom",
             description: "Size of the 9-slice's bottom edge when painting an element's background image.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<integer>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-slice"),
             inherited: false,
@@ -877,6 +1037,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-left",
             description: "Size of the 9-slice's left edge when painting an element's background image.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<integer>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-slice"),
             inherited: false,
@@ -886,6 +1048,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-right",
             description: "Size of the 9-slice's right edge when painting an element's background image.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<integer>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-slice"),
             inherited: false,
@@ -895,6 +1059,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-scale",
             description: "Scale applied to an element's slices.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-slice"),
             inherited: false,
@@ -904,6 +1070,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-top",
             description: "Size of the 9-slice's top edge when painting an element's background image.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<integer>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-slice"),
             inherited: false,
@@ -913,6 +1081,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-slice-type",
             description: "Specifies the type of sclicing.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "sliced | tiled",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-slice"),
             inherited: false,
@@ -922,6 +1092,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-align",
             description: "Horizontal and vertical text alignment in the element's box.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: 
                 "upper-left | middle-left | lower-left | upper-center | middle-center | lower-center | upper-right | middle-right | lower-right",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
@@ -942,6 +1114,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-generator",
             description: "Switches between Unity's standard and advanced text generator",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "standard | advanced",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
@@ -951,6 +1125,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-outline",
             description: "Outline width and color of the text. Actually, the format is `<length> || <color>`.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | <color>", // this is acutally wrong, the actual format is <length> || <color>, but we will keep it the same as offcial docs
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: false,
@@ -960,6 +1136,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-outline-color",
             description: "Outline color of the text.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
@@ -969,6 +1147,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-outline-width",
             description: "Outline width of the text.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
@@ -978,6 +1158,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-overflow-position",
             description: "The element's text overflow position.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "start | middle | end",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: false,
@@ -987,6 +1169,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "visibility",
             description: "Specifies whether or not an element is visible.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "visible | hidden",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#appearance"),
             inherited: true,
@@ -996,6 +1180,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "white-space",
             description: "Word wrap over multiple lines if not enough space is available to draw the text of an element.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "normal | nowrap",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
@@ -1005,6 +1191,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "width",
             description: "Fixed width of an element for the layout.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
@@ -1014,6 +1202,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "word-spacing",
             description: "Increases or decreases the space between words.",
+            examples_unity: None,
+            examples_mozilla: None,
             format: "<length>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
