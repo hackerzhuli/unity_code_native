@@ -764,7 +764,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "A rotation transformation.",
             examples_unity: Some("rotate: 45deg;\nrotate: -100grad;\nrotate: -3.14rad;\nrotate: 0.75turn;\nrotate: none;"),
             examples_mozilla: None,
-            format: "<angle> | none",
+            format: "none | [ x | y | z | <number>{3} ] && <angle> | <angle>",
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -775,7 +775,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "A scaling transformation.",
             examples_unity: Some("scale: 2.5;\nscale: -1 1;\nscale: none;"),
             examples_mozilla: None,
-            format: "<number> | <number> <number> | none",
+            format: "none | <number>{1,3}",
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -824,7 +824,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "The transformation origin is the point around which a transformation is applied.",
             examples_unity: Some("transform-origin: 0% 100%;\ntransform-origin: 20px 10px;\ntransform-origin: 0px 100%;\ntransform-origin: 60% 10px;"),
             examples_mozilla: None,
-            format: "[<length> | left | center | right ] || [<length> | top | center | bottom]",
+            format: "[ <length> | <percentage> | left | center | right | top | bottom ] | [ [ <length> | <percentage>  | left | center | right ] && [ <length> | <percentage>  | top | center | bottom ] ] <length>?",
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -908,7 +908,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "A translate transformation.",
             examples_unity: Some("translate: 80%;\ntranslate: 35px;\ntranslate: 5% 10px;\ntranslate: 24px 0%;"),
             examples_mozilla: None,
-            format: "<length> <length>",
+            format: "none | [<length> | <percentage>] [ [<length> | <percentage>] <length>? ]?",
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
@@ -1320,18 +1320,44 @@ fn create_formats_for_background_position() -> Vec<ValueFormat> {
             ValueType::Keyword("center"),
         ]),
     ]; // center center
-    let format2 = FlexibleFormatBuilder::any_order()
+    let format2 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["center"]))
         .required(ValueEntry::keywords(&vec!["top", "bottom"]))
         .optional(ValueEntry::new(vec![ValueType::Length]))
         .build();
-    let format3 = FlexibleFormatBuilder::any_order()
+    let format3 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["center"]))
+        .required(ValueEntry::keywords(&vec!["left", "right"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
+        .build();
+    let format4 = FlexibleFormatBuilder::new()
+        .required(ValueEntry::keywords(&vec!["top", "bottom"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
+        .required(ValueEntry::keywords(&vec!["center"]))
+        .build();
+    let format5 = FlexibleFormatBuilder::new()
+        .required(ValueEntry::keywords(&vec!["left", "right"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
+        .required(ValueEntry::keywords(&vec!["center"]))
+        .build();
+    let format6 = FlexibleFormatBuilder::new()
+        .required(ValueEntry::keywords(&vec!["left", "right"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
+        .required(ValueEntry::keywords(&vec!["top", "bottom"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
+        .build();
+    let format7 = FlexibleFormatBuilder::new()
+        .required(ValueEntry::keywords(&vec!["top", "bottom"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
         .required(ValueEntry::keywords(&vec!["left", "right"]))
         .optional(ValueEntry::new(vec![ValueType::Length]))
         .build();
     result.extend(format2.into_iter());
     result.extend(format3.into_iter());
+    result.extend(format4.into_iter());
+    result.extend(format5.into_iter());
+    result.extend(format6.into_iter());
+    result.extend(format7.into_iter());
     result
 }
 
