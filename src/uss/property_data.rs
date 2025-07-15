@@ -91,7 +91,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{css_url}/background-position-x"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("center"), ValueType::Keyword("left"), ValueType::Keyword("right"), ValueType::Keyword("x-start"), ValueType::Keyword("x-end")]),
+            value_spec: ValueSpec::multiple_formats(create_formats_for_background_position_x()),
         },
         PropertyInfo {
             name: "background-position-y",
@@ -100,7 +100,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{css_url}/background-position-y"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("center"), ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Keyword("y-start"), ValueType::Keyword("y-end")]),
+            value_spec: ValueSpec::multiple_formats(create_formats_for_background_position_y()),
         },
         PropertyInfo {
             name: "background-repeat",
@@ -1009,5 +1009,27 @@ fn create_formats_for_background_position() -> Vec<ValueFormat> {
     let format3 = FlexibleFormatBuilder::any_order().required(ValueEntry::new(vec![ValueType::Keyword("center")])).required(ValueEntry::new(vec![ValueType::Keyword("left"), ValueType::Keyword("right")])).optional(ValueEntry::new(vec![ValueType::Length])).build();
     result.extend(format2.into_iter());
     result.extend(format3.into_iter());
+    result
+}
+
+fn create_formats_for_background_position_x() -> Vec<ValueFormat> {
+    // format
+    // [ center | [ [ left | right | x-start | x-end ]? <length>? ]! ]#
+    let mut result = vec![
+        ValueFormat::one_of(vec![ValueType::Keyword("center")]), // center
+    ];
+    let format2 = FlexibleFormatBuilder::new().optional(ValueEntry::new(vec![ValueType::Keyword("left"), ValueType::Keyword("right"), ValueType::Keyword("x-start"), ValueType::Keyword("x-end")])).optional(ValueEntry::new(vec![ValueType::Length])).build();
+    result.extend(format2.into_iter());
+    result
+}
+
+fn create_formats_for_background_position_y() -> Vec<ValueFormat> {
+    // format
+    // [ center | [ [ top | bottom | y-start | y-end ]? <length>? ]! ]
+    let mut result = vec![
+        ValueFormat::one_of(vec![ValueType::Keyword("center")]), // center
+    ];
+    let format2 = FlexibleFormatBuilder::new().optional(ValueEntry::new(vec![ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Keyword("y-start"), ValueType::Keyword("y-end")])).optional(ValueEntry::new(vec![ValueType::Length])).build();
+    result.extend(format2.into_iter());
     result
 }
