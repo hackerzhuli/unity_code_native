@@ -187,8 +187,12 @@ fn create_pseudo_class_info() -> HashMap<&'static str, PseudoClassInfo> {
 #[derive(Clone)]
 pub struct UssDefinitions {
     /// USS properties with their metadata (lazy-loaded)
+    /// 
+    /// Propeties are relatively expensive to create, so only create them when needed
     properties: OnceLock<HashMap<&'static str, PropertyInfo>>,
     /// USS keywords with their documentation (lazy-loaded)
+    /// 
+    /// There are lots of keywords, so we only create them when needed
     keywords: OnceLock<HashMap<&'static str, KeywordInfo>>,
     /// USS pseudo-classes with their documentation
     pub pseudo_classes: HashMap<&'static str, PseudoClassInfo>,
@@ -202,6 +206,8 @@ pub struct UssDefinitions {
 
 impl UssDefinitions {
     /// Create a new USS definitions instance
+    /// 
+    /// Relatively lightweight, expensive fields are created when needed.
     pub fn new() -> Self {
         // Load pseudo-class information
         let mut pseudo_classes = HashMap::new();
