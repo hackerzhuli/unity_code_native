@@ -1131,3 +1131,244 @@ fn test_no_duplicate_property_warnings_for_single_occurrence() {
         "Should not detect duplicate warnings when properties appear only once. Found: {:?}", 
         duplicate_warnings.iter().map(|e| &e.message).collect::<Vec<_>>());
 }
+
+#[test]
+fn test_comma_separated_values_valid() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with valid comma-separated transition values
+    let valid_content = r#"
+.element {
+    transition: opacity 0.3s ease-in-out, transform 0.5s linear;
+    transition-property: opacity, transform, color;
+    transition-duration: 0.3s, 0.5s, 1s;
+}
+"#;
+    
+    let tree = parser.parse(valid_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, valid_content);
+    
+    // Should not have any errors for valid comma-separated values
+    let value_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-property-value".to_string())))
+        .collect();
+    
+    assert!(value_errors.is_empty(), 
+        "Valid comma-separated values should not produce errors. Found: {:?}", 
+        value_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_comma_separated_values_invalid_segments() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with some invalid segments in comma-separated values
+    let invalid_content = r#"
+.element {
+    transition: opacity 0.3s ease-in-out, invalid-value, transform 0.5s linear;
+    transition-duration: 0.3s, invalid-time, 1s;
+}
+"#;
+    
+    let tree = parser.parse(invalid_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, invalid_content);
+    
+    // Should detect errors for invalid segments
+    let value_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-property-value".to_string())))
+        .collect();
+    
+    assert!(!value_errors.is_empty(), 
+        "Should detect errors for invalid comma-separated value segments");
+    
+    // Check that error messages mention the specific invalid values
+    let error_messages: Vec<String> = value_errors.iter()
+        .map(|e| e.message.clone())
+        .collect();
+    
+    let has_invalid_value_error = error_messages.iter()
+        .any(|msg| msg.contains("invalid-value"));
+    let has_invalid_time_error = error_messages.iter()
+        .any(|msg| msg.contains("invalid-time"));
+    
+    assert!(has_invalid_value_error || has_invalid_time_error, 
+        "Should detect specific invalid values in comma-separated segments. Found: {:?}", 
+        error_messages);
+}
+
+#[test]
+fn test_comma_not_allowed_property() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with comma in property that doesn't support multiple values
+    let comma_content = r#"
+.element {
+    color: red, blue;
+    background-color: green, yellow;
+    font-size: 12px, 14px;
+}
+"#;
+    
+    let tree = parser.parse(comma_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, comma_content);
+    
+    // Should detect "unexpected-comma" errors
+    let comma_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("unexpected-comma".to_string())))
+        .collect();
+    
+    assert!(!comma_errors.is_empty(), 
+        "Should detect unexpected comma errors for properties that don't support multiple values");
+    
+    // Should have exactly 3 comma errors (one for each property)
+    assert_eq!(comma_errors.len(), 3, 
+        "Should detect exactly 3 unexpected comma errors. Found: {:?}", 
+        comma_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+    
+    // Check that error messages mention the property names
+    let error_messages: Vec<String> = comma_errors.iter()
+        .map(|e| e.message.clone())
+        .collect();
+    
+    assert!(error_messages.iter().any(|msg| msg.contains("color")), 
+        "Should mention 'color' property in error message");
+    assert!(error_messages.iter().any(|msg| msg.contains("background-color")), 
+        "Should mention 'background-color' property in error message");
+    assert!(error_messages.iter().any(|msg| msg.contains("font-size")), 
+        "Should mention 'font-size' property in error message");
+}
+
+#[test]
+fn test_comma_separated_values_error_ranges() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case to verify error ranges are limited to specific segments
+    let content = r#"
+.element {
+    transition: opacity 0.3s ease-in-out, invalid-segment, transform 0.5s linear;
+}
+"#;
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect error for invalid segment
+    let value_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-property-value".to_string())))
+        .collect();
+    
+    assert!(!value_errors.is_empty(), "Should detect error for invalid segment");
+    
+    // Check that error range is limited and doesn't span the entire property value
+    for error in &value_errors {
+        let line_span = error.range.end.line - error.range.start.line;
+        let char_span = if error.range.start.line == error.range.end.line {
+            error.range.end.character - error.range.start.character
+        } else {
+            100 // Multi-line span
+        };
+        
+        // Error range should be reasonable (not spanning the entire property)
+        assert!(line_span == 0 && char_span <= 50, 
+            "Error range should be limited to the invalid segment, not the entire property. Range spans {} lines and {} chars", 
+            line_span, char_span);
+    }
+}
+
+#[test]
+fn test_single_value_error_range_with_comma() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case to verify single value error range stops at comma
+    let content = r#"
+.element {
+    color: invalid-color, blue;
+}
+"#;
+    
+    let tree = parser.parse(content, None).unwrap();
+    let results = diagnostics.analyze(&tree, content);
+    
+    // Should detect unexpected comma error
+    let comma_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("unexpected-comma".to_string())))
+        .collect();
+    
+    assert!(!comma_errors.is_empty(), "Should detect unexpected comma error");
+    
+    // Verify that the error range is positioned at the comma
+    for error in &comma_errors {
+        let line_span = error.range.end.line - error.range.start.line;
+        let char_span = if error.range.start.line == error.range.end.line {
+            error.range.end.character - error.range.start.character
+        } else {
+            100
+        };
+        
+        // Error should be small and precise (just the comma)
+        assert!(line_span == 0 && char_span <= 5, 
+            "Comma error range should be small and precise. Range spans {} lines and {} chars", 
+            line_span, char_span);
+    }
+}
+
+#[test]
+fn test_empty_comma_segments() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with empty segments between commas
+    let empty_content = r#"
+.element {
+    transition: opacity 0.3s, , transform 0.5s;
+    transition-property: opacity, , color;
+}
+"#;
+    
+    let tree = parser.parse(empty_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, empty_content);
+    
+    // The parser should handle empty segments gracefully
+    // We mainly want to ensure no crashes occur
+    println!("Diagnostics for empty segments: {:?}", 
+        results.iter().map(|d| (&d.code, &d.message)).collect::<Vec<_>>());
+    
+    // This test mainly ensures the code doesn't panic with empty segments
+    // The specific behavior for empty segments may vary
+}
+
+#[test]
+fn test_mixed_valid_invalid_comma_separated() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with mix of valid and invalid comma-separated values
+    let mixed_content = r#"
+.element {
+    transition: opacity 0.3s ease-in-out, transform invalid-duration, color 1s linear;
+}
+"#;
+    
+    let tree = parser.parse(mixed_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, mixed_content);
+    
+    // Should detect error only for the invalid segment
+    let value_errors: Vec<_> = results.iter()
+        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-property-value".to_string())))
+        .collect();
+    
+    // Should have exactly one error for the invalid segment
+    assert_eq!(value_errors.len(), 1, 
+        "Should detect exactly one error for the invalid segment. Found: {:?}", 
+        value_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+    
+    // The error should mention the invalid duration
+    let error_message = &value_errors[0].message;
+    assert!(error_message.contains("transform") || error_message.contains("invalid-duration"), 
+        "Error message should reference the invalid segment: {}", error_message);
+}

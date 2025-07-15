@@ -11,6 +11,7 @@ use crate::uss::import_node::ImportNode;
 use crate::language::tree_printer;
 use crate::uss::url_function_node::{UrlFunctionNode, UrlReference};
 use crate::uss::value::UssValue;
+use crate::uss::value_spec::ValueSpec;
 use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
@@ -500,12 +501,14 @@ impl UssDiagnostics {
                 let mut uss_values = Vec::new();
                 let mut parsing_failed = false;
                 let mut value_nodes = Vec::new(); // Keep track of nodes for error reporting
+                let mut comma_positions = Vec::new(); // Track comma positions for range calculation
 
-                // Collect value nodes (everything after the colon, skipping semicolons)
+                // Collect value nodes and comma positions (everything after the colon, skipping semicolons)
                 for i in 2..node.child_count() {
                     if let Some(child) = node.child(i) {
-                        // Skip semicolons and whitespace
-                        if child.kind() != NODE_SEMICOLON && !child.kind().is_empty() {
+                        if child.kind() == NODE_COMMA {
+                            comma_positions.push(child.start_byte());
+                        } else if child.kind() != NODE_SEMICOLON && !child.kind().is_empty() {
                             value_nodes.push(child);
                         }
                     }
@@ -582,130 +585,240 @@ impl UssDiagnostics {
 
                 // Validate the parsed values against the property's ValueSpec
                 if let Some(property_info) = self.definitions.get_property_info(property_name) {
-                    // Check if any of the property's value formats match
-                    let mut any_format_matches = false;
-
-                    for value_format in &property_info.value_spec.formats {
-                        if value_format.is_match(&uss_values, &self.definitions) {
-                            any_format_matches = true;
-                            break;
-                        }
-                    }
-
-                    if !any_format_matches {
-                        // Find the range covering all values
-                        let values_range = if let (Some(first_value_node), Some(last_value_node)) = (
-                            node.child(2),
-                            node.child(node.child_count().saturating_sub(2)),
-                        ) {
-                            let start_pos =
-                                byte_to_position(first_value_node.start_byte(), content);
-                            let end_pos = byte_to_position(last_value_node.end_byte(), content);
-                            Range {
-                                start: start_pos,
-                                end: end_pos,
-                            }
-                        } else {
-                            node_to_range(node, content)
-                        };
-
-                        diagnostics.push(Diagnostic {
-                            range: values_range,
-                            severity: Some(DiagnosticSeverity::ERROR),
-                            code: Some(NumberOrString::String(
-                                "invalid-property-value".to_string(),
-                            )),
-                            source: Some("uss".to_string()),
-                            message: format!("Invalid value for property '{}'", property_name),
-                            ..Default::default()
-                        });
-                    } else if let Some(resolver) = variable_resolver {
-                        // Validation passed without variable resolution, now check with resolved variables for warnings
-                        let resolved_values =
-                            self.resolve_variables_in_values(&uss_values, resolver);
-                        let mut resolved_format_matches = false;
-
-                        // Try validation with resolved values
-                        for value_format in &property_info.value_spec.formats {
-                            if value_format.is_match(&resolved_values, &self.definitions) {
-                                resolved_format_matches = true;
-                                break;
-                            }
-                        }
-
-                        // Only generate warnings if there are unresolved variables and validation would fail with resolved values
-                        if !resolved_format_matches {
-                            let values_range =
-                                if let (Some(first_value_node), Some(last_value_node)) = (
-                                    node.child(2),
-                                    node.child(node.child_count().saturating_sub(2)),
-                                ) {
-                                    let start_pos =
-                                        byte_to_position(first_value_node.start_byte(), content);
-                                    let end_pos =
-                                        byte_to_position(last_value_node.end_byte(), content);
-                                    Range {
-                                        start: start_pos,
-                                        end: end_pos,
-                                    }
-                                } else {
-                                    node_to_range(node, content)
-                                };
-
-                            // Create a readable string of the resolved property values
-                            let resolved_values_str = resolved_values
-                                .iter()
-                                .map(|v| v.to_string())
-                                .collect::<Vec<_>>()
-                                .join(" ");
-
-                            // Collect information about resolved variables
-                            let mut variable_info = Vec::new();
-                            for value in &uss_values {
-                                if let UssValue::VariableReference(var_name) = value {
-                                    if let Some(var_status) = resolver.get_variable(var_name) {
-                                        if let VariableStatus::Resolved(resolved_vals) = var_status
-                                        {
-                                            let resolved_str = resolved_vals
-                                                .iter()
-                                                .map(|v| v.to_string())
-                                                .collect::<Vec<_>>()
-                                                .join(" ");
-                                            variable_info
-                                                .push(format!("--{} = {}", var_name, resolved_str));
-                                        }
-                                    }
-                                }
-                            }
-
-                            let message = if variable_info.is_empty() {
-                                format!(
-                                    "Property '{}' value '{}' is likely invalid",
-                                    property_name, resolved_values_str
-                                )
-                            } else {
-                                format!(
-                                    "Property '{}' value '{}' is likely invalid. The resolved variables are: {}",
-                                    property_name,
-                                    resolved_values_str,
-                                    variable_info.join(", ")
-                                )
-                            };
-
+                    // Check if property supports multiple comma-separated values
+                    if property_info.value_spec.allows_multiple_values {
+                        // Handle comma-separated values
+                        self.validate_comma_separated_values(
+                            &uss_values,
+                            &value_nodes,
+                            &comma_positions,
+                            property_name,
+                            &property_info.value_spec,
+                            content,
+                            node,
+                            diagnostics,
+                            variable_resolver,
+                        );
+                    } else {
+                        // Check for unexpected commas in properties that don't support multiple values
+                        if !comma_positions.is_empty() {
+                            // Report error at the first comma
+                            let comma_pos = byte_to_position(comma_positions[0], content);
                             diagnostics.push(Diagnostic {
-                                range: values_range,
-                                severity: Some(DiagnosticSeverity::WARNING),
+                                range: Range {
+                                    start: comma_pos,
+                                    end: comma_pos,
+                                },
+                                severity: Some(DiagnosticSeverity::ERROR),
                                 code: Some(NumberOrString::String(
-                                    "uncertain-property-value".to_string(),
+                                    "unexpected-comma".to_string(),
                                 )),
                                 source: Some("uss".to_string()),
-                                message,
+                                message: format!(
+                                    "Property '{}' does not support multiple comma-separated values",
+                                    property_name
+                                ),
                                 ..Default::default()
                             });
+                            return; // Don't validate values after comma
                         }
+
+                        // Validate single value (no commas)
+                        self.validate_single_value(
+                            &uss_values,
+                            &value_nodes,
+                            property_name,
+                            &property_info.value_spec,
+                            content,
+                            node,
+                            diagnostics,
+                            variable_resolver,
+                        );
                     }
                 }
                 // If property info is not found, we already reported "unknown-property" error above
+            }
+        }
+    }
+
+    /// Validate comma-separated values for properties that support multiple values
+    fn validate_comma_separated_values(
+        &self,
+        uss_values: &[UssValue],
+        value_nodes: &[Node],
+        comma_positions: &[usize],
+        property_name: &str,
+        value_spec: &ValueSpec,
+        content: &str,
+        node: Node,
+        diagnostics: &mut Vec<Diagnostic>,
+        variable_resolver: Option<&VariableResolver>,
+    ) {
+        // Split values by comma positions
+        let mut value_segments = Vec::new();
+        let mut current_start = 0;
+        
+        for &comma_pos in comma_positions {
+            // Find the index where to split based on comma position
+            let mut split_index = current_start;
+            for (i, &value_node) in value_nodes[current_start..].iter().enumerate() {
+                if value_node.end_byte() <= comma_pos {
+                    split_index = current_start + i + 1;
+                } else {
+                    break;
+                }
+            }
+            
+            // Add segment before comma
+            if split_index > current_start {
+                value_segments.push((current_start, split_index));
+            }
+            current_start = split_index;
+        }
+        
+        // Add the last segment after the final comma
+        if current_start < value_nodes.len() {
+            value_segments.push((current_start, value_nodes.len()));
+        }
+        
+        // Validate each segment using the same logic as single values
+        for (start_idx, end_idx) in value_segments {
+            if start_idx >= end_idx {
+                continue; // Skip empty segments
+            }
+            
+            let segment_values = &uss_values[start_idx..end_idx];
+            let segment_nodes = &value_nodes[start_idx..end_idx];
+            
+            // Use validate_single_value for each segment to avoid code duplication
+            self.validate_single_value(
+                segment_values,
+                segment_nodes,
+                property_name,
+                value_spec,
+                content,
+                node,
+                diagnostics,
+                variable_resolver,
+            );
+        }
+    }
+    
+    /// Validate a single value (no commas) with proper range calculation
+    fn validate_single_value(
+        &self,
+        uss_values: &[UssValue],
+        value_nodes: &[Node],
+        property_name: &str,
+        value_spec: &ValueSpec,
+        content: &str,
+        node: Node,
+        diagnostics: &mut Vec<Diagnostic>,
+        variable_resolver: Option<&VariableResolver>,
+    ) {
+        // Calculate range from colon to end of values (or to first comma if present)
+        let values_range = if let (Some(&first_value_node), Some(&last_value_node)) = (
+            value_nodes.first(),
+            value_nodes.last(),
+        ) {
+            let start_pos = byte_to_position(first_value_node.start_byte(), content);
+            let end_pos = byte_to_position(last_value_node.end_byte(), content);
+            Range {
+                start: start_pos,
+                end: end_pos,
+            }
+        } else {
+            node_to_range(node, content)
+        };
+        
+        // Validate the values
+        let mut format_matches = false;
+        for value_format in &value_spec.formats {
+            if value_format.is_match(uss_values, &self.definitions) {
+                format_matches = true;
+                break;
+            }
+        }
+        
+        if !format_matches {
+            let values_str = uss_values
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(" ");
+            
+            diagnostics.push(Diagnostic {
+                range: values_range,
+                severity: Some(DiagnosticSeverity::ERROR),
+                code: Some(NumberOrString::String(
+                    "invalid-property-value".to_string(),
+                )),
+                source: Some("uss".to_string()),
+                message: format!(
+                    "Property '{}' value '{}' does not match expected format",
+                    property_name, values_str
+                ),
+                ..Default::default()
+            });
+        } else if let Some(resolver) = variable_resolver {
+            // Check for variable resolution warnings
+            let resolved_values = self.resolve_variables_in_values(uss_values, resolver);
+            let mut resolved_format_matches = false;
+            
+            for value_format in &value_spec.formats {
+                if value_format.is_match(&resolved_values, &self.definitions) {
+                    resolved_format_matches = true;
+                    break;
+                }
+            }
+            
+            if !resolved_format_matches {
+                let resolved_values_str = resolved_values
+                    .iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                
+                let mut variable_info = Vec::new();
+                for value in uss_values {
+                    if let UssValue::VariableReference(var_name) = value {
+                        if let Some(var_status) = resolver.get_variable(var_name) {
+                            if let VariableStatus::Resolved(resolved_vals) = var_status {
+                                let resolved_str = resolved_vals
+                                    .iter()
+                                    .map(|v| v.to_string())
+                                    .collect::<Vec<_>>()
+                                    .join(" ");
+                                variable_info.push(format!("--{} = {}", var_name, resolved_str));
+                            }
+                        }
+                    }
+                }
+                
+                let message = if variable_info.is_empty() {
+                    format!(
+                        "Property '{}' value '{}' is likely invalid",
+                        property_name, resolved_values_str
+                    )
+                } else {
+                    format!(
+                        "Property '{}' value '{}' is likely invalid. The resolved variables are: {}",
+                        property_name,
+                        resolved_values_str,
+                        variable_info.join(", ")
+                    )
+                };
+                
+                diagnostics.push(Diagnostic {
+                    range: values_range,
+                    severity: Some(DiagnosticSeverity::WARNING),
+                    code: Some(NumberOrString::String(
+                        "uncertain-property-value".to_string(),
+                    )),
+                    source: Some("uss".to_string()),
+                    message,
+                    ..Default::default()
+                });
             }
         }
     }
