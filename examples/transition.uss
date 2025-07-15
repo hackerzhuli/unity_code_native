@@ -1,0 +1,29 @@
+.classA {
+    transition-property: scale, transform-origin;
+    transition-duration: 4s, 3s;
+    transition-delay: 0s, 600ms;
+    transition-timing-function: ease-in-sine, ease-out-elastic;
+}
+
+.classB {
+    transition-property: all, translate;
+    transition-duration: 500ms, 1s;
+    transition-delay: 0s, 1s;
+    transition-timing-function: linear, ease-in;
+}
+
+.classC {
+    transition-property: scale, rotate, translate;
+    transition-duration: 1s, 2s;
+    transition-delay: 1s, 2s, 3s, 4s, 5s, 6s, 7s;
+}
+
+.classD{
+    /*One transition*/
+    transition: width 2s ease-out;
+}
+
+.classE{
+    /*Two transitions*/
+    transition: margin-right 4s, color 1s;
+}
