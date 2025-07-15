@@ -48,6 +48,12 @@ impl ValueEntry {
         }
     }
 
+    pub fn keywords(keywords: &[&'static str]) -> Self {
+        Self {
+            options: keywords.iter().map(|&k| ValueType::Keyword(k)).collect(),
+        }
+    }
+
     fn is_keyword_only(&self) -> bool {
         return self.options.iter().all(|vt| matches!(vt, ValueType::Keyword(_)));
     }
@@ -295,7 +301,7 @@ impl ValueSpec {
     }
 
     /// Create a ValueSpec with multiple possible formats
-    pub fn multiple_formats(formats: Vec<ValueFormat>) -> Self {
+    pub fn new(formats: Vec<ValueFormat>) -> Self {
         Self { formats }
     }
     

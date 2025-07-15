@@ -3,22 +3,25 @@
 //! Contains the actual property definitions for USS properties.
 //! This module is separated from definitions.rs to improve maintainability.
 
-use crate::uss::definitions::{PropertyInfo, PropertyAnimation};
+use crate::uss::definitions::{PropertyAnimation, PropertyInfo};
 use crate::uss::flexible_format::FlexibleFormatBuilder;
-use crate::uss::value_spec::{ValueType, ValueSpec, ValueFormat, ValueEntry};
+use crate::uss::value_spec::{ValueEntry, ValueFormat, ValueSpec, ValueType};
 use std::collections::HashMap;
 
 /// Create all standard CSS properties supported by USS
 pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
     let mut properties = HashMap::new();
-    
-    let supported_properties_url = "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html";
+
+    let supported_properties_url =
+        "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-SupportedProperties.html";
 
     let css_url = "https://developer.mozilla.org/en-US/docs/Web/CSS";
 
-    let transform_url = "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transform.html";
+    let transform_url =
+        "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transform.html";
 
-    let transitions_url = "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html";
+    let transitions_url =
+        "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html";
 
     let standard_props = [
         PropertyInfo {
@@ -37,7 +40,13 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["auto", "flex-start", "flex-end", "center", "stretch"]),
+            value_spec: ValueSpec::keywords(&[
+                "auto",
+                "flex-start",
+                "flex-end",
+                "center",
+                "stretch",
+            ]),
         },
         PropertyInfo {
             name: "align-self",
@@ -46,7 +55,13 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["auto", "flex-start", "flex-end", "center", "stretch"]),
+            value_spec: ValueSpec::keywords(&[
+                "auto",
+                "flex-start",
+                "flex-end",
+                "center",
+                "stretch",
+            ]),
         },
         PropertyInfo {
             name: "all",
@@ -78,11 +93,13 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-position",
             description: "Background image position value.",
-            format: Some("[ left | center | right | top | bottom | <length> ]  |  [ left | center | right | <length> ] [ top | center | bottom | <length> ]  |  [ center | [ left | right ] <length>? ] && [ center | [ top | bottom ] <length>? ] "),
+            format: Some(
+                "[ left | center | right | top | bottom | <length> ]  |  [ left | center | right | <length> ] [ top | center | bottom | <length> ]  |  [ center | [ left | right ] <length>? ] && [ center | [ top | bottom ] <length>? ] ",
+            ),
             documentation_url: format!("{css_url}/background-position"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::multiple_formats(create_formats_for_background_position()),
+            value_spec: ValueSpec::new(create_formats_for_background_position()),
         },
         PropertyInfo {
             name: "background-position-x",
@@ -91,7 +108,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{css_url}/background-position-x"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::multiple_formats(create_formats_for_background_position_x()),
+            value_spec: ValueSpec::new(create_formats_for_background_position_x()),
         },
         PropertyInfo {
             name: "background-position-y",
@@ -100,39 +117,25 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{css_url}/background-position-y"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::multiple_formats(create_formats_for_background_position_y()),
+            value_spec: ValueSpec::new(create_formats_for_background_position_y()),
         },
         PropertyInfo {
             name: "background-repeat",
             description: "Background image repeat value.",
-            format: Some("repeat-x | repeat-y | [ repeat | space | round | no-repeat ]{1,2}  "),
+            format: Some("repeat-x | repeat-y | [ repeat | space | round | no-repeat ]{1,2}"),
             documentation_url: format!("{css_url}/background-repeat"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("repeat-x"), ValueType::Keyword("repeat-y")] }] }, // single special keywords
-                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] }] }, // single value
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] },
-                    ValueEntry { options: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] }
-                ] }, // two values
-            ]),
+            value_spec: ValueSpec::new(create_formats_for_background_repeat()),
         },
         PropertyInfo {
             name: "background-size",
             description: "Background image size value. Transitions are fully supported only when using size in pixels or percentages, such as pixel-to-pixel or percentage-to-percentage transitions.",
-            format: Some("  [ <length> | auto ]{1,2} | cover | contain "),
+            format: Some("[ <length> | auto ]{1,2} | cover | contain"),
             documentation_url: format!("{css_url}/background-size"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("cover"), ValueType::Keyword("contain")] }] }, // cover, contain
-                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }] }, // single length or auto
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }
-                ] }, // width height (both can be length or auto)
-            ]),
+            value_spec: ValueSpec::new(create_formats_for_background_size()),
         },
         PropertyInfo {
             name: "border-bottom-color",
@@ -290,23 +293,39 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "cursor",
             description: "Mouse cursor to display when the mouse pointer is over an element.",
-            format: Some("[ [ <resource> | <url> ] [ <integer> <integer>]? , ] [ arrow | text | resize-vertical | resize-horizontal | link | slide-arrow | resize-up-right | resize-up-left | move-arrow | rotate-arrow | scale-arrow | arrow-plus | arrow-minus | pan | orbit | zoom | fps | split-resize-up-down | split-resize-left-right ]"),
+            format: Some(
+                "[ [ <resource> | <url> ] [ <integer> <integer>]? , ] [ arrow | text | resize-vertical | resize-horizontal | link | slide-arrow | resize-up-right | resize-up-left | move-arrow | rotate-arrow | scale-arrow | arrow-plus | arrow-minus | pan | orbit | zoom | fps | split-resize-up-down | split-resize-left-right ]",
+            ),
             documentation_url: format!("{supported_properties_url}#cursor"),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::multiple_formats(vec![
+            value_spec: ValueSpec::new(vec![
                 // Built-in cursor keywords
                 ValueFormat::keywords(&[
-                    "arrow", "text", "resize-vertical", "resize-horizontal",
-                    "link", "slide-arrow", "resize-up-right", "resize-up-left",
-                    "move-arrow", "rotate-arrow", "scale-arrow", "arrow-plus",
-                    "arrow-minus", "pan", "orbit", "zoom", "fps", "split-resize-up-down",
-                    "split-resize-left-right"
+                    "arrow",
+                    "text",
+                    "resize-vertical",
+                    "resize-horizontal",
+                    "link",
+                    "slide-arrow",
+                    "resize-up-right",
+                    "resize-up-left",
+                    "move-arrow",
+                    "rotate-arrow",
+                    "scale-arrow",
+                    "arrow-plus",
+                    "arrow-minus",
+                    "pan",
+                    "orbit",
+                    "zoom",
+                    "fps",
+                    "split-resize-up-down",
+                    "split-resize-left-right",
                 ]),
                 // Custom cursor: resource/url + optional hotspot coordinates
-                ValueFormat::sequence(vec![ValueType::Asset, ValueType::Number, ValueType::Number]),
+                ValueFormat::sequence(vec![ValueType::Asset, ValueType::Integer, ValueType::Integer]),
                 // Custom cursor: resource/url only
-                ValueFormat::single(ValueType::Asset)
+                ValueFormat::single(ValueType::Asset),
             ]),
         },
         PropertyInfo {
@@ -325,16 +344,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat::keywords(&["none"]), 
-                ValueFormat::single(ValueType::Number), // flex-grow only
-                ValueFormat::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]), // flex-basis only
-                ValueFormat::sequence(vec![ValueType::Number, ValueType::Number]), // flex-grow flex-shrink
-                ValueFormat::sequence(vec![ValueType::Number, ValueType::Length]), // flex-grow flex-basis (length)
-                ValueFormat::sequence(vec![ValueType::Number, ValueType::Keyword("auto")]), // flex-grow flex-basis (auto)
-                ValueFormat::sequence(vec![ValueType::Number, ValueType::Number, ValueType::Length]), // flex-grow flex-shrink flex-basis (length)
-                ValueFormat::sequence(vec![ValueType::Number, ValueType::Number, ValueType::Keyword("auto")]), // flex-grow flex-shrink flex-basis (auto)
-            ]),
+            value_spec: ValueSpec::new(create_flex_formats()),
         },
         PropertyInfo {
             name: "flex-basis",
@@ -406,7 +416,13 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["flex-start", "flex-end", "center", "space-between", "space-around"]),
+            value_spec: ValueSpec::keywords(&[
+                "flex-start",
+                "flex-end",
+                "center",
+                "space-between",
+                "space-around",
+            ]),
         },
         PropertyInfo {
             name: "left",
@@ -433,23 +449,51 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }] }, // single value
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }
-                ] }, // two values
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }
-                ] }, // three values
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }
-                ] }, // four values
+            value_spec: ValueSpec::new(vec![
+                ValueFormat {
+                    entries: vec![ValueEntry {
+                        options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                    }],
+                }, // single value
+                ValueFormat {
+                    entries: vec![
+                        ValueEntry {
+                            options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                        },
+                    ],
+                }, // two values
+                ValueFormat {
+                    entries: vec![
+                        ValueEntry {
+                            options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                        },
+                    ],
+                }, // three values
+                ValueFormat {
+                    entries: vec![
+                        ValueEntry {
+                            options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Length, ValueType::Keyword("auto")],
+                        },
+                    ],
+                }, // four values
             ]),
         },
         PropertyInfo {
@@ -621,13 +665,27 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Number] }] },
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Number] },
-                    ValueEntry { options: vec![ValueType::Number] }
-                ] },
-                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("none")] }] }
+            value_spec: ValueSpec::new(vec![
+                ValueFormat {
+                    entries: vec![ValueEntry {
+                        options: vec![ValueType::Number],
+                    }],
+                },
+                ValueFormat {
+                    entries: vec![
+                        ValueEntry {
+                            options: vec![ValueType::Number],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Number],
+                        },
+                    ],
+                },
+                ValueFormat {
+                    entries: vec![ValueEntry {
+                        options: vec![ValueType::Keyword("none")],
+                    }],
+                },
             ]),
         },
         PropertyInfo {
@@ -646,7 +704,12 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::sequence(vec![ValueType::Length, ValueType::Length, ValueType::Length, ValueType::Color]),
+            value_spec: ValueSpec::sequence(vec![
+                ValueType::Length,
+                ValueType::Length,
+                ValueType::Length,
+                ValueType::Color,
+            ]),
         },
         PropertyInfo {
             name: "top",
@@ -664,13 +727,23 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec{
-                formats: vec![
-                    ValueFormat{
-                        entries: vec![ValueEntry::new(vec![ValueType::Length, ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right")]),
-                        ValueEntry::new(vec![ValueType::Length, ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom")])]
-                    }
-                ]
+            value_spec: ValueSpec {
+                formats: vec![ValueFormat {
+                    entries: vec![
+                        ValueEntry::new(vec![
+                            ValueType::Length,
+                            ValueType::Keyword("left"),
+                            ValueType::Keyword("center"),
+                            ValueType::Keyword("right"),
+                        ]),
+                        ValueEntry::new(vec![
+                            ValueType::Length,
+                            ValueType::Keyword("top"),
+                            ValueType::Keyword("center"),
+                            ValueType::Keyword("bottom"),
+                        ]),
+                    ],
+                }],
             },
         },
         PropertyInfo {
@@ -680,23 +753,63 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::PropertyName] },
-                    ValueEntry { options: vec![ValueType::Time] },
-                    ValueEntry { options: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")] },
-                    ValueEntry { options: vec![ValueType::Time] }
-                ] },
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::PropertyName] },
-                    ValueEntry { options: vec![ValueType::Time] },
-                    ValueEntry { options: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")] }
-                ] },
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::PropertyName] },
-                    ValueEntry { options: vec![ValueType::Time] }
-                ] },
-                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("all"), ValueType::Keyword("none")] }] }
+            value_spec: ValueSpec::new(vec![
+                ValueFormat {
+                    entries: vec![
+                        ValueEntry {
+                            options: vec![ValueType::PropertyName],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Time],
+                        },
+                        ValueEntry {
+                            options: vec![
+                                ValueType::Keyword("ease"),
+                                ValueType::Keyword("linear"),
+                                ValueType::Keyword("ease-in"),
+                                ValueType::Keyword("ease-out"),
+                                ValueType::Keyword("ease-in-out"),
+                            ],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Time],
+                        },
+                    ],
+                },
+                ValueFormat {
+                    entries: vec![
+                        ValueEntry {
+                            options: vec![ValueType::PropertyName],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Time],
+                        },
+                        ValueEntry {
+                            options: vec![
+                                ValueType::Keyword("ease"),
+                                ValueType::Keyword("linear"),
+                                ValueType::Keyword("ease-in"),
+                                ValueType::Keyword("ease-out"),
+                                ValueType::Keyword("ease-in-out"),
+                            ],
+                        },
+                    ],
+                },
+                ValueFormat {
+                    entries: vec![
+                        ValueEntry {
+                            options: vec![ValueType::PropertyName],
+                        },
+                        ValueEntry {
+                            options: vec![ValueType::Time],
+                        },
+                    ],
+                },
+                ValueFormat {
+                    entries: vec![ValueEntry {
+                        options: vec![ValueType::Keyword("all"), ValueType::Keyword("none")],
+                    }],
+                },
             ]),
         },
         PropertyInfo {
@@ -724,16 +837,45 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::one_of(vec![ValueType::PropertyName, ValueType::Keyword("none")])
+            value_spec: ValueSpec::one_of(vec![
+                ValueType::PropertyName,
+                ValueType::Keyword("none"),
+            ]),
         },
         PropertyInfo {
             name: "transition-timing-function",
             description: "Determines how intermediate values are calculated for properties modified by a transition effect.",
-            format: Some("ease | ease-in | ease-out | ease-in-out | linear | ease-in-sine | ease-out-sine | ease-in-out-sine | ease-in-cubic | ease-out-cubic | ease-in-out-cubic | ease-in-circ | ease-out-circ | ease-in-out-circ | ease-in-elastic | ease-out-elastic | ease-in-out-elastic | ease-in-back | ease-out-back | ease-in-out-back | ease-in-bounce | ease-out-bounce | ease-in-out-bounce"),
+            format: Some(
+                "ease | ease-in | ease-out | ease-in-out | linear | ease-in-sine | ease-out-sine | ease-in-out-sine | ease-in-cubic | ease-out-cubic | ease-in-out-cubic | ease-in-circ | ease-out-circ | ease-in-out-circ | ease-in-elastic | ease-out-elastic | ease-in-out-elastic | ease-in-back | ease-out-back | ease-in-out-back | ease-in-bounce | ease-out-bounce | ease-in-out-bounce",
+            ),
             documentation_url: transitions_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::keywords(&["ease", "ease-in", "ease-out", "ease-in-out", "linear", "ease-in-sine", "ease-out-sine", "ease-in-out-sine", "ease-in-cubic", "ease-out-cubic", "ease-in-out-cubic", "ease-in-circ", "ease-out-circ", "ease-in-out-circ", "ease-in-elastic", "ease-out-elastic", "ease-in-out-elastic", "ease-in-back", "ease-out-back", "ease-in-out-back", "ease-in-bounce", "ease-out-bounce", "ease-in-out-bounce"]),
+            value_spec: ValueSpec::keywords(&[
+                "ease",
+                "ease-in",
+                "ease-out",
+                "ease-in-out",
+                "linear",
+                "ease-in-sine",
+                "ease-out-sine",
+                "ease-in-out-sine",
+                "ease-in-cubic",
+                "ease-out-cubic",
+                "ease-in-out-cubic",
+                "ease-in-circ",
+                "ease-out-circ",
+                "ease-in-out-circ",
+                "ease-in-elastic",
+                "ease-out-elastic",
+                "ease-in-out-elastic",
+                "ease-in-back",
+                "ease-out-back",
+                "ease-in-out-back",
+                "ease-in-bounce",
+                "ease-out-bounce",
+                "ease-in-out-bounce",
+            ]),
         },
         PropertyInfo {
             name: "translate",
@@ -873,11 +1015,23 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "-unity-text-align",
             description: "Horizontal and vertical text alignment in the element's box.",
-            format: Some("upper-left | middle-left | lower-left | upper-center | middle-center | lower-center | upper-right | middle-right | lower-right"),
+            format: Some(
+                "upper-left | middle-left | lower-left | upper-center | middle-center | lower-center | upper-right | middle-right | lower-right",
+            ),
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["upper-left", "middle-left", "lower-left", "upper-center", "middle-center", "lower-center", "upper-right", "middle-right", "lower-right"]),
+            value_spec: ValueSpec::keywords(&[
+                "upper-left",
+                "middle-left",
+                "lower-left",
+                "upper-center",
+                "middle-center",
+                "lower-center",
+                "upper-right",
+                "middle-right",
+                "lower-right",
+            ]),
         },
         PropertyInfo {
             name: "-unity-text-generator",
@@ -961,7 +1115,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             value_spec: ValueSpec::single(ValueType::Length),
         },
     ];
-    
+
     // Add 'initial' keyword support to all properties (since Unity supports this value for all properties)
     let mut enhanced_props = Vec::new();
     for mut prop in standard_props {
@@ -984,29 +1138,92 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             };
             prop.value_spec.formats.push(initial_format);
         }
-        
+
         enhanced_props.push(prop);
     }
 
     for prop in enhanced_props {
         properties.insert(prop.name, prop);
     }
-    
+
     properties
+}
+
+fn create_flex_formats() -> Vec<ValueFormat> {
+    // format
+    // none | [ <'flex-grow'> <'flex-shrink'>? || <'flex-basis'> ]
+    // flex-basis: <length> | auto
+    // flex-grow: <number>
+    // flex-shrink: <number>
+
+    let mut r = vec![
+        ValueFormat::keywords(&["none"]),
+    ];
+
+    let format2 = FlexibleFormatBuilder::new()
+        .required(ValueEntry::new(vec![ValueType::Length]))// flex-grow
+        .optional(ValueEntry::new(vec![ValueType::Length]))// flex-shrink
+        .required(ValueEntry::new(vec![ValueType::Length, ValueType::Keyword("auto")]))// flex-basis
+        .build();
+
+    let format3 = FlexibleFormatBuilder::new()
+        .required(ValueEntry::new(vec![ValueType::Keyword("auto")]))// flex-basis
+        .required(ValueEntry::new(vec![ValueType::Length]))// flex-grow
+        .optional(ValueEntry::new(vec![ValueType::Length]))// flex-shrink
+        .build();
+
+    r.extend(format2.into_iter());
+    r.extend(format3.into_iter());
+    r
 }
 
 fn create_formats_for_background_position() -> Vec<ValueFormat> {
     // format
     // [ left | center | right | top | bottom | <length> ]  |  [ left | center | right | <length> ] [ top | center | bottom | <length> ]  |  [ center | [ left | right ] <length>? ] && [ center | [ top | bottom ] <length>? ]
     let mut result = vec![
-                ValueFormat::one_of(vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Length]), // single value
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Length] },
-                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom"), ValueType::Length] }
-                ] }
-                , ValueFormat::sequence(vec![ValueType::Keyword("center"), ValueType::Keyword("center")])]; // center center
-    let format2 = FlexibleFormatBuilder::any_order().required(ValueEntry::new(vec![ValueType::Keyword("center")])).required(ValueEntry::new(vec![ValueType::Keyword("top"), ValueType::Keyword("bottom")])).optional(ValueEntry::new(vec![ValueType::Length])).build();
-    let format3 = FlexibleFormatBuilder::any_order().required(ValueEntry::new(vec![ValueType::Keyword("center")])).required(ValueEntry::new(vec![ValueType::Keyword("left"), ValueType::Keyword("right")])).optional(ValueEntry::new(vec![ValueType::Length])).build();
+        ValueFormat::one_of(vec![
+            ValueType::Keyword("left"),
+            ValueType::Keyword("center"),
+            ValueType::Keyword("right"),
+            ValueType::Keyword("top"),
+            ValueType::Keyword("bottom"),
+            ValueType::Length,
+        ]), // single value
+        ValueFormat {
+            entries: vec![
+                ValueEntry {
+                    options: vec![
+                        ValueType::Keyword("left"),
+                        ValueType::Keyword("center"),
+                        ValueType::Keyword("right"),
+                        ValueType::Length,
+                    ],
+                },
+                ValueEntry {
+                    options: vec![
+                        ValueType::Keyword("top"),
+                        ValueType::Keyword("center"),
+                        ValueType::Keyword("bottom"),
+                        ValueType::Length,
+                    ],
+                },
+            ],
+        },
+        ValueFormat::sequence(vec![
+            ValueType::Keyword("center"),
+            ValueType::Keyword("center"),
+        ]),
+    ]; // center center
+    let format2 = FlexibleFormatBuilder::any_order()
+        .required(ValueEntry::keywords(&vec!["center"]))
+        .required(ValueEntry::keywords(&vec!["top", "bottom"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
+        .build();
+    let format3 = FlexibleFormatBuilder::any_order()
+        .required(ValueEntry::keywords(&vec!["center"]))
+        .required(ValueEntry::keywords(&vec!["left", "right"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
+        .build();
     result.extend(format2.into_iter());
     result.extend(format3.into_iter());
     result
@@ -1016,9 +1233,12 @@ fn create_formats_for_background_position_x() -> Vec<ValueFormat> {
     // format
     // [ center | [ [ left | right | x-start | x-end ]? <length>? ]! ]#
     let mut result = vec![
-        ValueFormat::one_of(vec![ValueType::Keyword("center")]), // center
+        ValueFormat::keywords(&vec!["center"]), // center
     ];
-    let format2 = FlexibleFormatBuilder::new().optional(ValueEntry::new(vec![ValueType::Keyword("left"), ValueType::Keyword("right"), ValueType::Keyword("x-start"), ValueType::Keyword("x-end")])).optional(ValueEntry::new(vec![ValueType::Length])).build();
+    let format2 = FlexibleFormatBuilder::new()
+        .optional(ValueEntry::keywords(&vec!["left", "right", "x-start", "x-end"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
+        .build();
     result.extend(format2.into_iter());
     result
 }
@@ -1027,9 +1247,41 @@ fn create_formats_for_background_position_y() -> Vec<ValueFormat> {
     // format
     // [ center | [ [ top | bottom | y-start | y-end ]? <length>? ]! ]
     let mut result = vec![
-        ValueFormat::one_of(vec![ValueType::Keyword("center")]), // center
+        ValueFormat::keywords(&vec!["center"]), // center
     ];
-    let format2 = FlexibleFormatBuilder::new().optional(ValueEntry::new(vec![ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Keyword("y-start"), ValueType::Keyword("y-end")])).optional(ValueEntry::new(vec![ValueType::Length])).build();
+    let format2 = FlexibleFormatBuilder::new()
+        .optional(ValueEntry::keywords(&vec!["top", "bottom", "y-start", "y-end"]))
+        .optional(ValueEntry::new(vec![ValueType::Length]))
+        .build();
     result.extend(format2.into_iter());
     result
+}
+
+fn create_formats_for_background_repeat() -> Vec<ValueFormat> {
+    // format
+    // repeat-x | repeat-y | [ repeat | space | round | no-repeat ]{1,2}
+    let mut r = vec![
+        ValueFormat::keywords(&vec!["repeat-x", "repeat-y"]),
+    ];
+    let format2 = FlexibleFormatBuilder::new()
+        .range(ValueEntry::keywords(&vec!["repeat", "space", "round", "no-repeat"]), 1, 2)
+        .build();
+    r.extend(format2.into_iter());
+    r
+}
+
+fn create_formats_for_background_size() -> Vec<ValueFormat> {
+    // format
+    // [ <length> | auto ]{1,2} | cover | contain
+    let mut r = vec![
+        ValueFormat::keywords(&vec!["cover", "contain"])// single special keywords
+    ];
+    let format2 = FlexibleFormatBuilder::new()
+        .range(ValueEntry::new(vec![
+            ValueType::Keyword("auto"),
+            ValueType::Length,
+        ]), 1, 2)
+        .build();
+    r.extend(format2.into_iter());
+    r
 }
