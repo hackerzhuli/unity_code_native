@@ -55,6 +55,22 @@ impl PropertyInfo {
         let mut content = format!("### Property {}\n", property_name);
         content.push_str(&format!("{}", self.description));
         
+        // Add format specification
+        content.push_str(&format!("\n\n**Format:** `{}`", self.format));
+        
+        // Add Unity examples if available
+        if let Some(unity_examples) = self.examples_unity {
+            content.push_str("\n\n**Examples:**\n```css\n");
+            content.push_str(unity_examples);
+            content.push_str("\n```");
+        }
+        // Add Mozilla examples if available
+        else if let Some(mozilla_examples) = self.examples_mozilla {
+            content.push_str("\n\n**Examples:**\n```css\n");
+            content.push_str(mozilla_examples);
+            content.push_str("\n```");
+        }
+        
         // Add property characteristics
         let mut characteristics = Vec::new();
         if self.inherited {
