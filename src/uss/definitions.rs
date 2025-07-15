@@ -11,6 +11,7 @@ use crate::uss::value_spec::ValueSpec;
 use crate::uss::color::Color;
 use crate::uss::constants::*;
 use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PropertyAnimation {
@@ -185,10 +186,10 @@ fn create_pseudo_class_info() -> HashMap<&'static str, PseudoClassInfo> {
 /// USS language definitions and validation data
 #[derive(Clone)]
 pub struct UssDefinitions {
-    /// USS properties with their metadata
-    pub properties: HashMap<&'static str, PropertyInfo>,
-    /// USS keywords with their documentation
-    pub keywords: HashMap<&'static str, KeywordInfo>,
+    /// USS properties with their metadata (lazy-loaded)
+    properties: OnceLock<HashMap<&'static str, PropertyInfo>>,
+    /// USS keywords with their documentation (lazy-loaded)
+    keywords: OnceLock<HashMap<&'static str, KeywordInfo>>,
     /// USS pseudo-classes with their documentation
     pub pseudo_classes: HashMap<&'static str, PseudoClassInfo>,
     /// Valid pseudo-classes (for backward compatibility)
@@ -202,20 +203,6 @@ pub struct UssDefinitions {
 impl UssDefinitions {
     /// Create a new USS definitions instance
     pub fn new() -> Self {
-        let mut properties = HashMap::new();
-        
-        // Load standard CSS properties
-        let standard_props = create_standard_properties();
-        for (name, prop_info) in standard_props {
-            properties.insert(name, prop_info);
-        }
-        
-        // Load Unity-specific properties
-        let unity_props = create_standard_properties();
-        for (name, prop_info) in unity_props {
-            properties.insert(name, prop_info);
-        }
-
         // Load pseudo-class information
         let mut pseudo_classes = HashMap::new();
         let mut valid_pseudo_classes = HashSet::new();
@@ -254,17 +241,34 @@ impl UssDefinitions {
             valid_units.insert(unit);
         }
         
-        // Load keyword information
-        let keywords = create_keyword_info();
-        
         Self {
-            properties,
-            keywords,
+            properties: OnceLock::new(),
+            keywords: OnceLock::new(),
             pseudo_classes,
             valid_pseudo_classes,
             valid_color_keywords,
             valid_units,
         }
+    }
+    
+    /// Get properties (lazy-loaded)
+    fn get_properties(&self) -> &HashMap<&'static str, PropertyInfo> {
+        self.properties.get_or_init(|| {
+            let mut properties = HashMap::new();
+            
+            // Load standard CSS properties
+            let standard_props = create_standard_properties();
+            for (name, prop_info) in standard_props {
+                properties.insert(name, prop_info);
+            }
+
+            properties
+        })
+    }
+    
+    /// Get keywords (lazy-loaded)
+    fn get_keywords(&self) -> &HashMap<&'static str, KeywordInfo> {
+        self.keywords.get_or_init(|| create_keyword_info())
     }
     
     /// Check if a property name is valid, ie, an existing property or a custom property (USS variable)
@@ -274,13 +278,13 @@ impl UssDefinitions {
             return true;
         }
         
-        self.properties.contains_key(property_name)
+        self.get_properties().contains_key(property_name)
     }
     
     /// Check if a property is a predefined USS property (excludes custom CSS variables)
     /// This is used for features like hover that should only show info for predefined properties
     pub fn is_predefined_property(&self, property_name: &str) -> bool {
-        self.properties.contains_key(property_name)
+        self.get_properties().contains_key(property_name)
     }
     
     /// Check if a pseudo-class is valid
@@ -340,27 +344,27 @@ impl UssDefinitions {
     
     /// Get property information including description and metadata
     pub fn get_property_info(&self, property_name: &str) -> Option<&PropertyInfo> {
-        self.properties.get(property_name)
+        self.get_properties().get(property_name)
     }
     
     /// Get all properties with their information
     pub fn get_all_properties(&self) -> &HashMap<&'static str, PropertyInfo> {
-        &self.properties
+        self.get_properties()
     }
     
     /// Get keyword information by name
     pub fn get_keyword_info(&self, keyword_name: &str) -> Option<&KeywordInfo> {
-        self.keywords.get(keyword_name)
+        self.get_keywords().get(keyword_name)
     }
     
     /// Check if a keyword is valid
     pub fn is_valid_keyword(&self, keyword_name: &str) -> bool {
-        self.keywords.contains_key(keyword_name)
+        self.get_keywords().contains_key(keyword_name)
     }
 
     /// Get all keywords with their information
     pub fn get_all_keywords(&self) -> &HashMap<&'static str, KeywordInfo> {
-        &self.keywords
+        self.get_keywords()
     }
     
     /// Get pseudo-class information by name
