@@ -25,6 +25,7 @@ use tower_lsp::lsp_types::Range;
 use tree_sitter::Node;
 use crate::uss::value::UssValue;
 use crate::uss::constants::*;
+use crate::uss::definitions::UssDefinitions;
 
 /// Status and value of a CSS custom property variable
 #[derive(Debug, Clone, PartialEq)]
@@ -46,6 +47,8 @@ pub struct VariableResolver {
     /// Temporary storage for parsed values during extraction
     parsed_values: HashMap<String, Vec<UssValue>>,
     resolved: bool,
+    /// USS language definitions for value parsing
+    definitions: UssDefinitions,
 }
 
 impl VariableResolver {
@@ -55,6 +58,7 @@ impl VariableResolver {
             variables: HashMap::new(),
             parsed_values: HashMap::new(),
             resolved: false,
+            definitions: UssDefinitions::new(),
         }
     }
 
@@ -150,8 +154,7 @@ impl VariableResolver {
     /// Extract UssValues from a declaration node using proper tree-sitter parsing with source URL
     /// Validates strict CSS declaration structure: property : values ;
     fn extract_values_from_declaration_node_with_source_url(&self, declaration_node: Node, content: &str, source_url: Option<&url::Url>) -> Result<Vec<UssValue>, ()> {
-        // Create default definitions
-        let definitions = crate::uss::definitions::UssDefinitions::new();
+        // Use the stored definitions
         let child_count = declaration_node.child_count();
         
         // Validate minimum structure: property + colon + at least one value
@@ -183,7 +186,7 @@ impl VariableResolver {
                 }
                 
                 // If any value fails to parse, return the error
-                let value = UssValue::from_node(child, content, &definitions, source_url).map_err(|_| ())?;
+                let value = UssValue::from_node(child, content, &self.definitions, source_url).map_err(|_| ())?;
                 values.push(value);
             }
         }

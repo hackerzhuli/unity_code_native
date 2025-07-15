@@ -11,12 +11,15 @@ use crate::uss::constants::*;
 pub struct UssHighlighter {
     /// Semantic token legend for USS
     pub legend: SemanticTokensLegend,
+    /// USS language definitions for validation
+    definitions: UssDefinitions,
 }
 
 impl UssHighlighter {
     /// Create a new USS highlighter with the semantic token legend
     pub fn new() -> Self {
         Self {
+            definitions: UssDefinitions::new(),
             legend: SemanticTokensLegend {
                 token_types: vec![
                     SemanticTokenType::NAMESPACE,    // 0 - .class-selector
@@ -44,7 +47,7 @@ impl UssHighlighter {
         
         // Collect all tokens first
         let mut raw_tokens = Vec::new();
-        Self::walk_node_for_tokens(&root, content, &mut raw_tokens);
+        self.walk_node_for_tokens(&root, content, &mut raw_tokens);
         
         // Sort tokens by position
         raw_tokens.sort_by(|a, b| {
@@ -79,7 +82,7 @@ impl UssHighlighter {
     }
     
     /// Walk syntax tree nodes to collect semantic tokens
-    fn walk_node_for_tokens(node: &Node, content: &str, tokens: &mut Vec<RawToken>) {
+    fn walk_node_for_tokens(&self, node: &Node, content: &str, tokens: &mut Vec<RawToken>) {
         let node_type = node.kind();
         
         // Skip certain structural nodes that don't need highlighting
@@ -87,7 +90,7 @@ impl UssHighlighter {
             // Process children for structural nodes
             for i in 0..node.child_count() {
                 if let Some(child) = node.child(i) {
-                    Self::walk_node_for_tokens(&child, content, tokens);
+                    self.walk_node_for_tokens(&child, content, tokens);
                 }
             }
             return;
@@ -115,8 +118,7 @@ impl UssHighlighter {
             NODE_PLAIN_VALUE => {
                 // Check if this plain_value is actually a color keyword
                 if let Ok(text) = node.utf8_text(content.as_bytes()) {
-                    let definitions = UssDefinitions::new();
-                    if definitions.is_valid_color_keyword(text) {
+                    if self.definitions.is_valid_color_keyword(text) {
                         (4, 0) // NUMBER (colors) - same as color_value
                     } else {
                         (4, 0) // NUMBER (regular values)
@@ -150,10 +152,10 @@ impl UssHighlighter {
                                 });
                             } else {
                                 // Process other children normally (like string_value)
-                                Self::walk_node_for_tokens(&child, content, tokens);
+                                self.walk_node_for_tokens(&child, content, tokens);
                             }
                         } else {
-                            Self::walk_node_for_tokens(&child, content, tokens);
+                            self.walk_node_for_tokens(&child, content, tokens);
                         }
                     }
                 }
@@ -178,7 +180,7 @@ impl UssHighlighter {
                 // Process children for unhandled nodes
                 for i in 0..node.child_count() {
                     if let Some(child) = node.child(i) {
-                        Self::walk_node_for_tokens(&child, content, tokens);
+                        self.walk_node_for_tokens(&child, content, tokens);
                     }
                 }
                 return;
@@ -204,7 +206,7 @@ impl UssHighlighter {
                 // Process function name and arguments separately
                 for i in 0..node.child_count() {
                     if let Some(child) = node.child(i) {
-                        Self::walk_node_for_tokens(&child, content, tokens);
+                        self.walk_node_for_tokens(&child, content, tokens);
                     }
                 }
             }

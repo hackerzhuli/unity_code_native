@@ -184,7 +184,7 @@ fn create_pseudo_class_info() -> HashMap<&'static str, PseudoClassInfo> {
 }
 
 /// USS language definitions and validation data
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UssDefinitions {
     /// USS properties with their metadata (lazy-loaded)
     /// 
