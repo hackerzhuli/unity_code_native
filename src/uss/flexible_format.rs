@@ -2,15 +2,16 @@
 //!
 //! This module provides utilities for creating flexible CSS value format specifications
 //! that can handle optional entries and different orderings.
-//! So we don't have to enumerate all cases manually, just let the builder build cases when the format is more complex.
+//! So we don't have to write all cases manually, just let the builder build cases when the format is more complex.
 
 use crate::uss::value_spec::{ValueEntry, ValueFormat};
 
-/// A flexible entry that can be optional
+/// A flexible entry that can appear a specified number of times
 #[derive(Debug, Clone)]
 pub struct FlexibleEntry {
     pub entry: ValueEntry,
-    pub optional: bool,
+    pub min_occurrences: usize,
+    pub max_occurrences: usize,
 }
 
 /// Builder for creating flexible format specifications
@@ -37,20 +38,33 @@ impl FlexibleFormatBuilder {
         }
     }
     
-    /// Add a required entry
+    /// Add a required entry (appears exactly once)
     pub fn required(mut self, entry: ValueEntry) -> Self {
         self.entries.push(FlexibleEntry {
             entry,
-            optional: false,
+            min_occurrences: 1,
+            max_occurrences: 1,
         });
         self
     }
     
-    /// Add an optional entry
+    /// Add an optional entry (appears 0 or 1 times)
     pub fn optional(mut self, entry: ValueEntry) -> Self {
         self.entries.push(FlexibleEntry {
             entry,
-            optional: true,
+            min_occurrences: 0,
+            max_occurrences: 1,
+        });
+        self
+    }
+    
+    /// Add an entry with custom occurrence range
+    pub fn range(mut self, entry: ValueEntry, min: usize, max: usize) -> Self {
+        assert!(min <= max, "min_occurrences must be <= max_occurrences");
+        self.entries.push(FlexibleEntry {
+            entry,
+            min_occurrences: min,
+            max_occurrences: max,
         });
         self
     }
@@ -89,31 +103,43 @@ impl FlexibleFormatBuilder {
         formats
     }
     
-    /// Generate all combinations of optional entries (include/exclude each optional entry)
+    /// Generate all combinations of entries with their occurrence ranges
     fn generate_optional_combinations(&self) -> Vec<Vec<FlexibleEntry>> {
-        let optional_count = self.entries.iter().filter(|entry| entry.optional).count();
-        let mut combinations = Vec::new();
-        
-        // Generate all 2^n combinations for optional entries
-        for mask in 0..(1 << optional_count) {
-            let mut combo = Vec::new();
-            let mut optional_index = 0;
-            
-            for entry in &self.entries {
-                if entry.optional {
-                    if (mask >> optional_index) & 1 == 1 {
-                        combo.push(entry.clone());
-                    }
-                    optional_index += 1;
-                } else {
-                    combo.push(entry.clone());
-                }
-            }
-            
-            combinations.push(combo);
+        if self.entries.is_empty() {
+            return vec![Vec::new()];
         }
         
-        combinations
+        self.generate_combinations_recursive(&self.entries, 0)
+    }
+    
+    /// Recursively generate all valid combinations of entries with their occurrence counts
+    fn generate_combinations_recursive(&self, entries: &[FlexibleEntry], index: usize) -> Vec<Vec<FlexibleEntry>> {
+        if index >= entries.len() {
+            return vec![Vec::new()];
+        }
+        
+        let current_entry = &entries[index];
+        let remaining_combinations = self.generate_combinations_recursive(entries, index + 1);
+        let mut all_combinations = Vec::new();
+        
+        // For each possible occurrence count of the current entry
+        for count in current_entry.min_occurrences..=current_entry.max_occurrences {
+            for remaining_combo in &remaining_combinations {
+                let mut new_combo = Vec::new();
+                
+                // Add the current entry 'count' times
+                for _ in 0..count {
+                    new_combo.push(current_entry.clone());
+                }
+                
+                // Add the remaining entries
+                new_combo.extend(remaining_combo.iter().cloned());
+                
+                all_combinations.push(new_combo);
+            }
+        }
+        
+        all_combinations
     }
     
     /// Generate all permutations of entries

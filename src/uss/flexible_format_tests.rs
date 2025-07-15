@@ -316,3 +316,114 @@ fn test_builder_deduplication() {
     assert!(formats2.contains(&format_single));
     assert!(formats2.contains(&format_double));
 }
+
+#[test]
+fn test_builder_with_occurrences() {
+    let formats = FlexibleFormatBuilder::new()
+        .required(ValueEntry::new(vec![ValueType::Length]))
+        .range(ValueEntry::new(vec![ValueType::Color]), 2, 3)
+        .build();
+    
+    // Should generate 2 formats: with 2 colors and with 3 colors
+    assert_eq!(formats.len(), 2);
+    
+    // Expected formats
+    let format_with_2_colors = ValueFormat {
+        entries: vec![
+            ValueEntry::new(vec![ValueType::Length]),
+            ValueEntry::new(vec![ValueType::Color]),
+            ValueEntry::new(vec![ValueType::Color])
+        ]
+    };
+    let format_with_3_colors = ValueFormat {
+        entries: vec![
+            ValueEntry::new(vec![ValueType::Length]),
+            ValueEntry::new(vec![ValueType::Color]),
+            ValueEntry::new(vec![ValueType::Color]),
+            ValueEntry::new(vec![ValueType::Color])
+        ]
+    };
+    
+    assert!(formats.contains(&format_with_2_colors));
+    assert!(formats.contains(&format_with_3_colors));
+}
+
+#[test]
+fn test_builder_with_occurrences_zero_min() {
+    let formats = FlexibleFormatBuilder::new()
+        .required(ValueEntry::new(vec![ValueType::Length]))
+        .range(ValueEntry::new(vec![ValueType::Color]), 0, 2)
+        .build();
+    
+    // Should generate 3 formats: with 0, 1, and 2 colors
+    assert_eq!(formats.len(), 3);
+    
+    // Expected formats
+    let format_no_color = ValueFormat {
+        entries: vec![ValueEntry::new(vec![ValueType::Length])]
+    };
+    let format_one_color = ValueFormat {
+        entries: vec![
+            ValueEntry::new(vec![ValueType::Length]),
+            ValueEntry::new(vec![ValueType::Color])
+        ]
+    };
+    let format_two_colors = ValueFormat {
+        entries: vec![
+            ValueEntry::new(vec![ValueType::Length]),
+            ValueEntry::new(vec![ValueType::Color]),
+            ValueEntry::new(vec![ValueType::Color])
+        ]
+    };
+    
+    assert!(formats.contains(&format_no_color));
+    assert!(formats.contains(&format_one_color));
+    assert!(formats.contains(&format_two_colors));
+}
+
+#[test]
+fn test_builder_multiple_occurrence_ranges() {
+    let formats = FlexibleFormatBuilder::new()
+        .range(ValueEntry::new(vec![ValueType::Length]), 1, 2)
+        .range(ValueEntry::new(vec![ValueType::Color]), 0, 1)
+        .build();
+    
+    // Should generate 6 formats: (1 or 2 lengths) × (0 or 1 colors)
+    assert_eq!(formats.len(), 4);
+    
+    // Expected formats
+    let format_1l_0c = ValueFormat {
+        entries: vec![ValueEntry::new(vec![ValueType::Length])]
+    };
+    let format_1l_1c = ValueFormat {
+        entries: vec![
+            ValueEntry::new(vec![ValueType::Length]),
+            ValueEntry::new(vec![ValueType::Color])
+        ]
+    };
+    let format_2l_0c = ValueFormat {
+        entries: vec![
+            ValueEntry::new(vec![ValueType::Length]),
+            ValueEntry::new(vec![ValueType::Length])
+        ]
+    };
+    let format_2l_1c = ValueFormat {
+        entries: vec![
+            ValueEntry::new(vec![ValueType::Length]),
+            ValueEntry::new(vec![ValueType::Length]),
+            ValueEntry::new(vec![ValueType::Color])
+        ]
+    };
+    
+    assert!(formats.contains(&format_1l_0c));
+    assert!(formats.contains(&format_1l_1c));
+    assert!(formats.contains(&format_2l_0c));
+    assert!(formats.contains(&format_2l_1c));
+}
+
+#[test]
+#[should_panic(expected = "min_occurrences must be <= max_occurrences")]
+fn test_builder_invalid_occurrence_range() {
+    FlexibleFormatBuilder::new()
+        .range(ValueEntry::new(vec![ValueType::Length]), 3, 1); // min > max should panic
+}
