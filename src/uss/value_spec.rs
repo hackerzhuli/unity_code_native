@@ -44,7 +44,7 @@ pub struct ValueEntry {
 
 
 impl ValueEntry {
-    pub fn new(types: Vec<ValueType>) -> Self {
+    pub fn options(types: Vec<ValueType>) -> Self {
         Self {
             options: types,
         }
@@ -214,9 +214,10 @@ impl ValueFormat {
                      ValueType::Number => true, // Numbers can be fractional or not
                      ValueType::LengthPercent => *value == 0.0, // Length can only be unitless if it's exactly 0
                      ValueType::Length => *value == 0.0, // Length can only be unitless if it's exactly 0
-                     _ => false,
+                     ValueType::Angle => *value == 0.0, // Angle can only be unitless if it's exactly 0
+                     _ => false, // tests show Unity doesn't allow time to be unitless even if it is 0, as of Unity 6.0
                  }
-             },
+            },
             UssValue::String(_) => matches!(value_type, ValueType::String),
             UssValue::Color(_) => matches!(value_type, ValueType::Color),
             UssValue::Identifier(keyword) => {

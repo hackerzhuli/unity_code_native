@@ -8,8 +8,8 @@ use crate::uss::value_spec::{ValueEntry, ValueType, ValueFormat};
 #[test]
 fn test_builder_basic_required_entries() {
     let formats = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .required(ValueEntry::new(vec![ValueType::Color]))
+        .required(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .required(ValueEntry::options(vec![ValueType::Color]))
         .build();
     
     // Should generate exactly one format with both entries in order
@@ -19,8 +19,8 @@ fn test_builder_basic_required_entries() {
     // Check the format structure
     let expected_format = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     assert_eq!(formats[0], expected_format);
@@ -29,8 +29,8 @@ fn test_builder_basic_required_entries() {
 #[test]
 fn test_builder_optional_entries() {
     let formats = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .optional(ValueEntry::new(vec![ValueType::Color]))
+        .required(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::Color]))
         .build();
     
     // Should generate two formats: with and without optional entry
@@ -38,12 +38,12 @@ fn test_builder_optional_entries() {
     
     // Expected formats
     let format_without_optional = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::LengthPercent])]
+        entries: vec![ValueEntry::options(vec![ValueType::LengthPercent])]
     };
     let format_with_optional = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     
@@ -54,9 +54,9 @@ fn test_builder_optional_entries() {
 #[test]
 fn test_builder_multiple_optional_entries() {
     let formats = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .optional(ValueEntry::new(vec![ValueType::Color]))
-        .optional(ValueEntry::new(vec![ValueType::Integer]))
+        .required(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::Color]))
+        .optional(ValueEntry::options(vec![ValueType::Integer]))
         .build();
     
     // Should generate 4 formats: all combinations of optional entries
@@ -64,25 +64,25 @@ fn test_builder_multiple_optional_entries() {
     
     // Expected formats
     let format_required_only = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::LengthPercent])]
+        entries: vec![ValueEntry::options(vec![ValueType::LengthPercent])]
     };
     let format_with_color = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     let format_with_integer = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Integer])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Integer])
         ]
     };
     let format_with_both = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::Integer])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::Integer])
         ]
     };
     
@@ -95,8 +95,8 @@ fn test_builder_multiple_optional_entries() {
 #[test]
 fn test_builder_any_order() {
     let formats = FlexibleFormatBuilder::any_order()
-        .required(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .required(ValueEntry::new(vec![ValueType::Color]))
+        .required(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .required(ValueEntry::options(vec![ValueType::Color]))
         .build();
     
     // Should generate 2 formats: both possible orders
@@ -105,14 +105,14 @@ fn test_builder_any_order() {
     // Expected formats
     let format_length_first = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     let format_color_first = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::LengthPercent])
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::LengthPercent])
         ]
     };
     
@@ -123,9 +123,9 @@ fn test_builder_any_order() {
 #[test]
 fn test_builder_any_order_with_optional() {
     let formats = FlexibleFormatBuilder::any_order()
-        .required(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .required(ValueEntry::new(vec![ValueType::Color]))
-        .optional(ValueEntry::new(vec![ValueType::Integer]))
+        .required(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .required(ValueEntry::options(vec![ValueType::Color]))
+        .optional(ValueEntry::options(vec![ValueType::Integer]))
         .build();
     
     // Should generate multiple formats for all combinations and permutations
@@ -137,21 +137,21 @@ fn test_builder_any_order_with_optional() {
     // Test that we have some expected formats
     let format_length_color = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     let format_color_length = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::LengthPercent])
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::LengthPercent])
         ]
     };
     let format_with_optional_at_end = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::Integer])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::Integer])
         ]
     };
     
@@ -171,8 +171,8 @@ fn test_builder_empty() {
 #[test]
 fn test_builder_only_optional() {
     let formats = FlexibleFormatBuilder::new()
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .optional(ValueEntry::new(vec![ValueType::Color]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::Color]))
         .build();
     
     // Should generate 3 formats: all combinations of optional entries (excluding empty)
@@ -180,15 +180,15 @@ fn test_builder_only_optional() {
     
     // Expected formats (no empty format)
     let format_length_only = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::LengthPercent])]
+        entries: vec![ValueEntry::options(vec![ValueType::LengthPercent])]
     };
     let format_color_only = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::Color])]
+        entries: vec![ValueEntry::options(vec![ValueType::Color])]
     };
     let format_both = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     
@@ -206,8 +206,8 @@ fn test_builder_only_optional() {
 #[test]
 fn test_builder_keywords() {
     let formats = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::Keyword("center")]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .required(ValueEntry::options(vec![ValueType::Keyword("center")]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .build();
     
     // Should generate 2 formats: with and without optional length
@@ -215,12 +215,12 @@ fn test_builder_keywords() {
     
     // Expected formats
     let format_keyword_only = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::Keyword("center")])]
+        entries: vec![ValueEntry::options(vec![ValueType::Keyword("center")])]
     };
     let format_keyword_with_length = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::Keyword("center")]),
-            ValueEntry::new(vec![ValueType::LengthPercent])
+            ValueEntry::options(vec![ValueType::Keyword("center")]),
+            ValueEntry::options(vec![ValueType::LengthPercent])
         ]
     };
     
@@ -231,9 +231,9 @@ fn test_builder_keywords() {
 #[test]
 fn test_builder_all_optional_no_empty_entries() {
     let formats = FlexibleFormatBuilder::new()
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .optional(ValueEntry::new(vec![ValueType::Color]))
-        .optional(ValueEntry::new(vec![ValueType::Integer]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::Color]))
+        .optional(ValueEntry::options(vec![ValueType::Integer]))
         .build();
     
     // Should generate 7 formats: all combinations of 3 optional entries (2^3 - 1, excluding empty)
@@ -249,16 +249,16 @@ fn test_builder_all_optional_no_empty_entries() {
     
     // Verify we have the expected formats (no empty format)
     let format_length_only = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::LengthPercent])]
+        entries: vec![ValueEntry::options(vec![ValueType::LengthPercent])]
     };
     let format_color_only = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::Color])]
+        entries: vec![ValueEntry::options(vec![ValueType::Color])]
     };
     let format_all_three = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::Integer])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::Integer])
         ]
     };
     
@@ -276,8 +276,8 @@ fn test_builder_deduplication() {
     // Create a scenario that could generate duplicates without deduplication
     // Using any_order with identical entries should deduplicate
     let formats = FlexibleFormatBuilder::any_order()
-        .required(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .required(ValueEntry::new(vec![ValueType::LengthPercent])) // Identical entry
+        .required(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .required(ValueEntry::options(vec![ValueType::LengthPercent])) // Identical entry
         .build();
     
     // Should generate only 1 format since both entries are identical
@@ -286,8 +286,8 @@ fn test_builder_deduplication() {
     
     let expected_format = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::LengthPercent])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::LengthPercent])
         ]
     };
     
@@ -295,8 +295,8 @@ fn test_builder_deduplication() {
     
     // Test with optional entries that could create duplicates
     let formats2 = FlexibleFormatBuilder::any_order()
-        .optional(ValueEntry::new(vec![ValueType::Color]))
-        .optional(ValueEntry::new(vec![ValueType::Color])) // Identical optional entry
+        .optional(ValueEntry::options(vec![ValueType::Color]))
+        .optional(ValueEntry::options(vec![ValueType::Color])) // Identical optional entry
         .build();
     
     // Should generate 3 unique formats: empty (filtered out), single color, double color
@@ -304,12 +304,12 @@ fn test_builder_deduplication() {
     assert_eq!(formats2.len(), 2); // Single color and double color (empty filtered out)
     
     let format_single = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::Color])]
+        entries: vec![ValueEntry::options(vec![ValueType::Color])]
     };
     let format_double = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     
@@ -320,8 +320,8 @@ fn test_builder_deduplication() {
 #[test]
 fn test_builder_with_occurrences() {
     let formats = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .range(ValueEntry::new(vec![ValueType::Color]), 2, 3)
+        .required(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .range(ValueEntry::options(vec![ValueType::Color]), 2, 3)
         .build();
     
     // Should generate 2 formats: with 2 colors and with 3 colors
@@ -330,17 +330,17 @@ fn test_builder_with_occurrences() {
     // Expected formats
     let format_with_2_colors = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     let format_with_3_colors = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     
@@ -351,8 +351,8 @@ fn test_builder_with_occurrences() {
 #[test]
 fn test_builder_with_occurrences_zero_min() {
     let formats = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::LengthPercent]))
-        .range(ValueEntry::new(vec![ValueType::Color]), 0, 2)
+        .required(ValueEntry::options(vec![ValueType::LengthPercent]))
+        .range(ValueEntry::options(vec![ValueType::Color]), 0, 2)
         .build();
     
     // Should generate 3 formats: with 0, 1, and 2 colors
@@ -360,19 +360,19 @@ fn test_builder_with_occurrences_zero_min() {
     
     // Expected formats
     let format_no_color = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::LengthPercent])]
+        entries: vec![ValueEntry::options(vec![ValueType::LengthPercent])]
     };
     let format_one_color = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     let format_two_colors = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     
@@ -384,8 +384,8 @@ fn test_builder_with_occurrences_zero_min() {
 #[test]
 fn test_builder_multiple_occurrence_ranges() {
     let formats = FlexibleFormatBuilder::new()
-        .range(ValueEntry::new(vec![ValueType::LengthPercent]), 1, 2)
-        .range(ValueEntry::new(vec![ValueType::Color]), 0, 1)
+        .range(ValueEntry::options(vec![ValueType::LengthPercent]), 1, 2)
+        .range(ValueEntry::options(vec![ValueType::Color]), 0, 1)
         .build();
     
     // Should generate 6 formats: (1 or 2 lengths) × (0 or 1 colors)
@@ -393,25 +393,25 @@ fn test_builder_multiple_occurrence_ranges() {
     
     // Expected formats
     let format_1l_0c = ValueFormat {
-        entries: vec![ValueEntry::new(vec![ValueType::LengthPercent])]
+        entries: vec![ValueEntry::options(vec![ValueType::LengthPercent])]
     };
     let format_1l_1c = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     let format_2l_0c = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::LengthPercent])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::LengthPercent])
         ]
     };
     let format_2l_1c = ValueFormat {
         entries: vec![
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::LengthPercent]),
-            ValueEntry::new(vec![ValueType::Color])
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Color])
         ]
     };
     
@@ -425,5 +425,5 @@ fn test_builder_multiple_occurrence_ranges() {
 #[should_panic(expected = "min_occurrences must be <= max_occurrences")]
 fn test_builder_invalid_occurrence_range() {
     FlexibleFormatBuilder::new()
-        .range(ValueEntry::new(vec![ValueType::LengthPercent]), 3, 1); // min > max should panic
+        .range(ValueEntry::options(vec![ValueType::LengthPercent]), 3, 1); // min > max should panic
 }

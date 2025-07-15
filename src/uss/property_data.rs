@@ -18,7 +18,8 @@ const TRANSFORM_URL: &str =
 const TRANSITIONS_URL: &str =
     "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-Transitions.html";
 
-const TIMING_FUN: [&'static str; 23] = [
+const TIMING_FUN: [&'static str; 24] = [
+    "initial", // same as ease
     "ease",
     "ease-in",
     "ease-out",
@@ -563,7 +564,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             value_spec: ValueSpec::new(
                 FlexibleFormatBuilder::new()
                     .range(
-                        ValueEntry::new(vec![ValueType::LengthPercent, ValueType::Keyword("auto")]),
+                        ValueEntry::options(vec![ValueType::LengthPercent, ValueType::Keyword("auto")]),
                         1,
                         4,
                     )
@@ -766,7 +767,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Angle, ValueType::Keyword("none")]),
+            value_spec: ValueSpec::new(create_rotate_formats()),
         },
         PropertyInfo {
             name: "scale",
@@ -837,7 +838,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::new_with_multiple(FlexibleFormatBuilder::new().required(ValueEntry::new(vec![ValueType::PropertyName])).range(ValueEntry::new(vec![ValueType::Time]), 1, 2).optional(ValueEntry::keywords(&TIMING_FUN)).build(), true),
+            value_spec: ValueSpec::new_with_multiple(FlexibleFormatBuilder::new().required(ValueEntry::options(vec![ValueType::PropertyName])).range(ValueEntry::options(vec![ValueType::Time]), 1, 2).optional(ValueEntry::keywords(&TIMING_FUN)).build(), true),
         },
         PropertyInfo {
             name: "transition-delay",
@@ -1095,7 +1096,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::new(FlexibleFormatBuilder::any_order().optional(ValueEntry::new(vec![ValueType::LengthPercent])).optional(ValueEntry::new(vec![ValueType::Color])).build()),
+            value_spec: ValueSpec::new(FlexibleFormatBuilder::any_order().optional(ValueEntry::options(vec![ValueType::LengthPercent])).optional(ValueEntry::options(vec![ValueType::Color])).build()),
         },
         PropertyInfo {
             name: "-unity-text-outline-color",
@@ -1209,28 +1210,38 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
     properties
 }
 
+fn create_rotate_formats() -> Vec<ValueFormat> {
+    // none | [ x | y | z | <number>{3} ] && <angle> | <angle>
+    let mut r = vec![ValueFormat::keywords(&vec!["none"]), ValueFormat::single(ValueType::Angle)];
+    let entry_named_axis = ValueEntry::keywords(&vec!["x", "y", "z"]);
+    let format_angle_axis_named = FlexibleFormatBuilder::any_order().required(entry_named_axis).required(ValueEntry::options(vec![ValueType::Angle])).build();
+    let format_angle_axis = FlexibleFormatBuilder::any_order().range(ValueEntry::options(vec![ValueType::Number]), 3, 3).required(ValueEntry::options(vec![ValueType::Angle])).build();
+    r.extend(format_angle_axis_named);
+    r.extend(format_angle_axis);
+    r
+}
+
 fn create_translate_formats() -> Vec<ValueFormat> {
     // format
     // none | [<length> | <percentage>] [ [<length> | <percentage>] <length>? ]?
-    let mut r = vec![ValueFormat::keywords(&vec!["none"])];
-    let format2= FlexibleFormatBuilder::new().range(ValueEntry::new(vec![ValueType::LengthPercent]), 1, 2).build();
-    let format3 = FlexibleFormatBuilder::new().range(ValueEntry::new(vec![ValueType::LengthPercent]), 2, 2).optional(ValueEntry::new(vec![ValueType::Length])).build();
+    let mut r = vec![
+        ValueFormat::keywords(&vec!["none"]), 
+        ValueFormat{entries: vec![ValueEntry::options(vec![ValueType::LengthPercent])]}];
+    let format2 = FlexibleFormatBuilder::new().range(ValueEntry::options(vec![ValueType::LengthPercent]), 2, 2).optional(ValueEntry::options(vec![ValueType::Length])).build();
     r.extend(format2);
-    r.extend(format3);
     r
 }
 
 fn create_transform_origin_formats() -> Vec<ValueFormat> {
-    // format
     // [ <length> | <percentage> | left | center | right | top | bottom ] | [ [ <length> | <percentage>  | left | center | right ] && [ <length> | <percentage>  | top | center | bottom ] ] <length>?
     let mut r = vec![ValueFormat{entries: vec![ValueEntry{
         options: vec![ValueType::LengthPercent, ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Keyword("top"), ValueType::Keyword("bottom")],
     }]}];
-    let x_entry = ValueEntry::new(
+    let x_entry = ValueEntry::options(
         vec![ValueType::LengthPercent, ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right")]);
-    let y_entry = ValueEntry::new(
+    let y_entry = ValueEntry::options(
         vec![ValueType::LengthPercent, ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom")]);
-    let z_entry = ValueEntry::new(vec![ValueType::Length]); // there is an optional length here I assume it is for z
+    let z_entry = ValueEntry::options(vec![ValueType::Length]); // there is an optional length here I assume it is for z
     let format2 = FlexibleFormatBuilder::new().required(x_entry.clone()).required(y_entry.clone()).optional(z_entry.clone()).build();
     let format3 = FlexibleFormatBuilder::new().required(y_entry.clone()).required(x_entry.clone()).optional(z_entry.clone()).build();
 
@@ -1241,14 +1252,14 @@ fn create_transform_origin_formats() -> Vec<ValueFormat> {
 
 fn create_scale_formats() -> Vec<ValueFormat> {
     // format
-    // <number> | <number> <number> | none
+    // none | <number>{1,3}
     let mut r = vec![ValueFormat::keywords(&vec!["none"])];
 
     let format1 = FlexibleFormatBuilder::new()
-        .range(ValueEntry::new(vec![ValueType::Number]), 1, 2)
+        .range(ValueEntry::options(vec![ValueType::Number]), 1, 3)
         .build();
 
-    r.extend(format1.into_iter());
+    r.extend(format1);
     r
 }
 
@@ -1262,33 +1273,33 @@ fn create_flex_formats() -> Vec<ValueFormat> {
     let mut r = vec![ValueFormat::keywords(&["none"])];
 
     let format2 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::Number])) // flex-grow
-        .optional(ValueEntry::new(vec![ValueType::Number])) // flex-shrink
-        .required(ValueEntry::new(vec![
+        .required(ValueEntry::options(vec![ValueType::Number])) // flex-grow
+        .optional(ValueEntry::options(vec![ValueType::Number])) // flex-shrink
+        .required(ValueEntry::options(vec![
             ValueType::LengthPercent,
             ValueType::Keyword("auto"),
         ])) // flex-basis
         .build();
 
     let format3 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![
+        .required(ValueEntry::options(vec![
             ValueType::LengthPercent,
             ValueType::Keyword("auto"),
         ])) // flex-basis
-        .required(ValueEntry::new(vec![ValueType::Number])) // flex-grow
-        .optional(ValueEntry::new(vec![ValueType::Number])) // flex-shrink
+        .required(ValueEntry::options(vec![ValueType::Number])) // flex-grow
+        .optional(ValueEntry::options(vec![ValueType::Number])) // flex-shrink
         .build();
 
     let format4 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![
+        .required(ValueEntry::options(vec![
             ValueType::LengthPercent,
             ValueType::Keyword("auto"),
         ])) // flex-basis
         .build();
 
     let format5 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::Number])) // flex-grow
-        .optional(ValueEntry::new(vec![ValueType::Number])) // flex-shrink
+        .required(ValueEntry::options(vec![ValueType::Number])) // flex-grow
+        .optional(ValueEntry::options(vec![ValueType::Number])) // flex-shrink
         .build();
 
     r.extend(format2.into_iter());
@@ -1337,34 +1348,34 @@ fn create_formats_for_background_position() -> Vec<ValueFormat> {
     let format2 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["center"]))
         .required(ValueEntry::keywords(&vec!["top", "bottom"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .build();
     let format3 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["center"]))
         .required(ValueEntry::keywords(&vec!["left", "right"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .build();
     let format4 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["top", "bottom"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .required(ValueEntry::keywords(&vec!["center"]))
         .build();
     let format5 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["left", "right"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .required(ValueEntry::keywords(&vec!["center"]))
         .build();
     let format6 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["left", "right"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .required(ValueEntry::keywords(&vec!["top", "bottom"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .build();
     let format7 = FlexibleFormatBuilder::new()
         .required(ValueEntry::keywords(&vec!["top", "bottom"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .required(ValueEntry::keywords(&vec!["left", "right"]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .build();
     result.extend(format2.into_iter());
     result.extend(format3.into_iter());
@@ -1384,7 +1395,7 @@ fn create_formats_for_background_position_x() -> Vec<ValueFormat> {
         .optional(ValueEntry::keywords(&vec![
             "left", "right", "x-start", "x-end",
         ]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .build();
     result.extend(format2.into_iter());
     result
@@ -1400,7 +1411,7 @@ fn create_formats_for_background_position_y() -> Vec<ValueFormat> {
         .optional(ValueEntry::keywords(&vec![
             "top", "bottom", "y-start", "y-end",
         ]))
-        .optional(ValueEntry::new(vec![ValueType::LengthPercent]))
+        .optional(ValueEntry::options(vec![ValueType::LengthPercent]))
         .build();
     result.extend(format2.into_iter());
     result
@@ -1422,14 +1433,13 @@ fn create_formats_for_background_repeat() -> Vec<ValueFormat> {
 }
 
 fn create_formats_for_background_size() -> Vec<ValueFormat> {
-    // format
-    // [ <length> | auto ]{1,2} | cover | contain
+    // [ <length-percentage [0,∞]> | auto ]{1,2} | cover | contain
     let mut r = vec![
         ValueFormat::keywords(&vec!["cover", "contain"]), // single special keywords
     ];
     let format2 = FlexibleFormatBuilder::new()
         .range(
-            ValueEntry::new(vec![ValueType::Keyword("auto"), ValueType::LengthPercent]),
+            ValueEntry::options(vec![ValueType::Keyword("auto"), ValueType::LengthPercent]),
             1,
             2,
         )
