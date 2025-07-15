@@ -48,6 +48,8 @@ const TIMING_FUN: [&'static str; 23] = [
 pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
     let mut properties = HashMap::new();
 
+    let spec_length_auto = ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]);
+    
     let standard_props = [
         PropertyInfo {
             name: "align-content",
@@ -303,7 +305,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "color",
@@ -380,7 +382,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "flex-direction",
@@ -425,7 +427,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Number),
+            value_spec: ValueSpec::single(ValueType::Length), // the format says it's number but it is actually length, but don't fix the format, keep it as the same as the official docs
         },
         PropertyInfo {
             name: "height",
@@ -434,7 +436,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "justify-content",
@@ -458,7 +460,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "letter-spacing",
@@ -493,7 +495,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "margin-left",
@@ -502,7 +504,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "margin-right",
@@ -511,7 +513,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "margin-top",
@@ -520,7 +522,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "max-height",
@@ -547,7 +549,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "min-width",
@@ -556,7 +558,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "opacity",
@@ -637,7 +639,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "rotate",
@@ -687,7 +689,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "transform-origin",
@@ -888,7 +890,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Number),
+            value_spec: ValueSpec::single(ValueType::Integer),
         },
         PropertyInfo {
             name: "-unity-slice-scale",
@@ -906,7 +908,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Number),
+            value_spec: ValueSpec::single(ValueType::Integer),
         },
         PropertyInfo {
             name: "-unity-slice-type",
@@ -1007,7 +1009,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: spec_length_auto.clone(),
         },
         PropertyInfo {
             name: "word-spacing",

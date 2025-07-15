@@ -421,23 +421,14 @@ fn test_properties_against_markdown_format() {
                     tested_properties += 1;
                     
                     // Check if the format field matches the expected format
-                    match &property_info.format {
-                        Some(existing_format) => {
-                            if *existing_format != format_spec {
-                                not_found_properties.push(format!(
-                                    "Property '{}': expected format '{}', but found '{}'",
-                                    property_name, format_spec, existing_format
-                                ));
-                            } else {
-                                println!("✓ Property '{}' format matches: {}", property_name, format_spec);
-                            }
-                        }
-                        None => {
-                            not_found_properties.push(format!(
-                                "Property '{}': expected format '{}', but format field is None",
-                                property_name, format_spec
-                            ));
-                        }
+                    let existing_format = property_info.format; 
+                    if existing_format != format_spec {
+                        not_found_properties.push(format!(
+                            "Property '{}': expected format '{}', but found '{}'",
+                            property_name, format_spec, existing_format
+                        ));
+                    } else {
+                        println!("✓ Property '{}' format matches: {}", property_name, format_spec);
                     }
                 } else {
                     // Property not found in our definitions - log as info
