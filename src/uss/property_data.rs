@@ -1272,40 +1272,39 @@ fn create_flex_formats() -> Vec<ValueFormat> {
 
     let mut r = vec![ValueFormat::keywords(&["none"])];
 
+    let entry_flex_grow = ValueEntry::options(vec![ValueType::Number]);
+    let entry_flex_shrink  = ValueEntry::options(vec![ValueType::Number]);
+
+    let entry_flex_basis = ValueEntry::options(vec![
+        ValueType::LengthPercent,
+        ValueType::Keyword("auto"),
+    ]);
+
     let format2 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::options(vec![ValueType::Number])) // flex-grow
-        .optional(ValueEntry::options(vec![ValueType::Number])) // flex-shrink
-        .required(ValueEntry::options(vec![
-            ValueType::LengthPercent,
-            ValueType::Keyword("auto"),
-        ])) // flex-basis
+        .required(entry_flex_grow.clone()) // flex-grow
+        .optional(entry_flex_shrink.clone()) // flex-shrink
+        .required(entry_flex_basis.clone()) // flex-basis
         .build();
 
     let format3 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::options(vec![
-            ValueType::LengthPercent,
-            ValueType::Keyword("auto"),
-        ])) // flex-basis
-        .required(ValueEntry::options(vec![ValueType::Number])) // flex-grow
-        .optional(ValueEntry::options(vec![ValueType::Number])) // flex-shrink
+        .required(entry_flex_basis.clone()) // flex-basis
+        .required(entry_flex_grow.clone()) // flex-grow
+        .optional(entry_flex_shrink.clone()) // flex-shrink
         .build();
 
     let format4 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::options(vec![
-            ValueType::LengthPercent,
-            ValueType::Keyword("auto"),
-        ])) // flex-basis
+        .required(entry_flex_basis.clone()) // flex-basis
         .build();
 
     let format5 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::options(vec![ValueType::Number])) // flex-grow
-        .optional(ValueEntry::options(vec![ValueType::Number])) // flex-shrink
+        .required(entry_flex_grow.clone()) // flex-grow
+        .optional(entry_flex_shrink.clone()) // flex-shrink
         .build();
 
-    r.extend(format2.into_iter());
-    r.extend(format3.into_iter());
-    r.extend(format4.into_iter());
-    r.extend(format5.into_iter());
+    r.extend(format2);
+    r.extend(format3);
+    r.extend(format4);
+    r.extend(format5);
     r
 }
 
