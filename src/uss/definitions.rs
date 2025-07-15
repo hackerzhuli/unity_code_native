@@ -25,9 +25,13 @@ pub struct PropertyInfo {
     /// Property name
     pub name: &'static str,
     /// Property description, as a markdown string
+    /// Must contain the string from Unity docs official property reference table
+    /// This is because we have automatic tests that will verify this contains what the official table say
     pub description: &'static str,
-    /// Official format specification from Unity documentation
-    pub format: Option<&'static str>,
+    /// Official format specification from Unity documentation or Mozzila
+    /// For formats from Unity docs, we want to be the same as offcial docs, don't try to fix them, EVEN IF THEY ARE WRONG
+    /// Because we have automatic tests that will verify this matches what official docs say
+    pub format: &'static str,
     /// Documentation URL (may contain {version} placeholder for Unity docs)
     pub documentation_url: String,
     /// Whether this property is inherited
