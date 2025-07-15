@@ -32,9 +32,14 @@ pub struct PropertyInfo {
     pub examples_unity: Option<&'static str>,
     /// Examples markdown from Mozilla docs
     pub examples_mozilla: Option<&'static str>,
-    /// Official format specification from Unity documentation or Mozzila
-    /// For formats from Unity docs, we want to be the same as offcial docs, don't try to fix them, EVEN IF THEY ARE WRONG
-    /// Because we have automatic tests that will verify this matches what official docs say
+    /// Official format specification from Unity or Mozzila docs
+    /// 
+    /// We want to be the same as offcial docs, don't try to fix them, EVEN IF THEY ARE WRONG.
+    /// 
+    /// For formats from Unity docs, MUST BE KEPT VERBATIM, because we have automatic tests that will verify this matches what official docs say.
+    /// Also, this prevents mistakes from our side.
+    /// 
+    /// Note: a few properties have formats that is written by us.
     pub format: &'static str,
     /// Documentation URL (may contain {version} placeholder for Unity docs)
     pub documentation_url: String,
@@ -60,15 +65,16 @@ impl PropertyInfo {
         
         // Add Unity examples if available
         if let Some(unity_examples) = self.examples_unity {
-            content.push_str("\n\n**Examples:**\n```css\n");
+            content.push_str("\n\n**Examples from Unity docs:**\n```css\n");
             content.push_str(unity_examples);
             content.push_str("\n```");
         }
         // Add Mozilla examples if available
         else if let Some(mozilla_examples) = self.examples_mozilla {
-            content.push_str("\n\n**Examples:**\n```css\n");
+            content.push_str("\n\n**Examples from Mozilla docs:**\n```css\n");
             content.push_str(mozilla_examples);
             content.push_str("\n```");
+            content.push_str("\n\nNote: since these examples are from Mozilla docs, some of them may not work in Unity Engine.");
         }
         
         // Add property characteristics
