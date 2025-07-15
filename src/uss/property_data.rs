@@ -27,7 +27,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["flex-start", "flex-end", "center", "space-between", "space-around", "stretch"]),
+            value_spec: ValueSpec::keywords(&["flex-start", "flex-end", "center", "stretch"]),
         },
         PropertyInfo {
             name: "align-items",
@@ -36,7 +36,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["flex-start", "flex-end", "center", "baseline", "stretch"]),
+            value_spec: ValueSpec::keywords(&["auto", "flex-start", "flex-end", "center", "stretch"]),
         },
         PropertyInfo {
             name: "align-self",
@@ -45,7 +45,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#flex-layout"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["auto", "flex-start", "flex-end", "center", "baseline", "stretch"]),
+            value_spec: ValueSpec::keywords(&["auto", "flex-start", "flex-end", "center", "stretch"]),
         },
         PropertyInfo {
             name: "all",
@@ -54,7 +54,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#all"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::keywords(&[]),
+            value_spec: ValueSpec::keywords(&["initial"]),
         },
         PropertyInfo {
             name: "background-color",
@@ -81,7 +81,13 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{css_url}/background-position"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::sequence(vec![ValueType::Length, ValueType::Length]),
+            value_spec: ValueSpec::multiple_formats(vec![
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Length] }] }, // single value
+                ValueFormat { entries: vec![
+                    ValueEntry { types: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Length] },
+                    ValueEntry { types: vec![ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom"), ValueType::Length] }
+                ] }, // two values
+            ]),
         },
         PropertyInfo {
             name: "background-position-x",
@@ -90,7 +96,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{css_url}/background-position-x"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("center"), ValueType::Keyword("left"), ValueType::Keyword("right"), ValueType::Keyword("x-start"), ValueType::Keyword("x-end")]),
         },
         PropertyInfo {
             name: "background-position-y",
@@ -99,7 +105,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{css_url}/background-position-y"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("center"), ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Keyword("y-start"), ValueType::Keyword("y-end")]),
         },
         PropertyInfo {
             name: "background-repeat",
@@ -108,7 +114,14 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{css_url}/background-repeat"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["repeat", "repeat-x", "repeat-y", "no-repeat", "space", "round"]),
+            value_spec: ValueSpec::multiple_formats(vec![
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("repeat-x"), ValueType::Keyword("repeat-y")] }] }, // single special keywords
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] }] }, // single value
+                ValueFormat { entries: vec![
+                    ValueEntry { types: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] },
+                    ValueEntry { types: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] }
+                ] }, // two values
+            ]),
         },
         PropertyInfo {
             name: "background-size",
@@ -118,12 +131,12 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: false,
             animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("cover"), ValueType::Keyword("contain"), ValueType::Keyword("auto")] }] }, // cover, contain, auto
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Length] }] }, // single length
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("cover"), ValueType::Keyword("contain")] }] }, // cover, contain
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }] }, // single length or auto
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Length] },
-                    ValueEntry { types: vec![ValueType::Length] }
-                ] }, // width height
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }
+                ] }, // width height (both can be length or auto)
             ]),
         },
         PropertyInfo {
@@ -380,7 +393,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Length),
+            value_spec: ValueSpec::single(ValueType::Number),
         },
         PropertyInfo {
             name: "height",
@@ -425,7 +438,24 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::repeat(ValueType::Length, 1, 4),
+            value_spec: ValueSpec::multiple_formats(vec![
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }] }, // single value
+                ValueFormat { entries: vec![
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }
+                ] }, // two values
+                ValueFormat { entries: vec![
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }
+                ] }, // three values
+                ValueFormat { entries: vec![
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }
+                ] }, // four values
+            ]),
         },
         PropertyInfo {
             name: "margin-bottom",
@@ -470,7 +500,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("none")]),
         },
         PropertyInfo {
             name: "max-width",
@@ -488,7 +518,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Length),
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
         },
         PropertyInfo {
             name: "min-width",
@@ -497,7 +527,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Length),
+            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
         },
         PropertyInfo {
             name: "opacity",
@@ -515,7 +545,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#appearance"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["visible", "hidden", "scroll"]),
+            value_spec: ValueSpec::keywords(&["visible", "hidden"]),
         },
         PropertyInfo {
             name: "padding",
@@ -533,7 +563,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: ValueSpec::single(ValueType::Length),
         },
         PropertyInfo {
             name: "padding-left",
@@ -542,7 +572,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: ValueSpec::single(ValueType::Length),
         },
         PropertyInfo {
             name: "padding-right",
@@ -551,7 +581,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: ValueSpec::single(ValueType::Length),
         },
         PropertyInfo {
             name: "padding-top",
@@ -560,7 +590,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#box-model"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Keyword("auto")]),
+            value_spec: ValueSpec::single(ValueType::Length),
         },
         PropertyInfo {
             name: "position",
@@ -587,7 +617,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Angle),
+            value_spec: ValueSpec::one_of(vec![ValueType::Angle, ValueType::Keyword("none")]),
         },
         PropertyInfo {
             name: "scale",
@@ -596,7 +626,14 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Number),
+            value_spec: ValueSpec::multiple_formats(vec![
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Number] }] },
+                ValueFormat { entries: vec![
+                    ValueEntry { types: vec![ValueType::Number] },
+                    ValueEntry { types: vec![ValueType::Number] }
+                ] },
+                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("none")] }] }
+            ]),
         },
         PropertyInfo {
             name: "text-overflow",
@@ -632,7 +669,14 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: transform_url.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::sequence(vec![ValueType::Length, ValueType::Length]),
+            value_spec: ValueSpec{
+                formats: vec![
+                    ValueFormat{
+                        entries: vec![ValueEntry::new(vec![ValueType::Length, ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right")]),
+                        ValueEntry::new(vec![ValueType::Length, ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom")])]
+                    }
+                ]
+            },
         },
         PropertyInfo {
             name: "transition",
@@ -739,7 +783,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#unity-font"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::single(ValueType::Asset),
+            value_spec: ValueSpec::one_of(vec![ValueType::Asset]),
         },
         PropertyInfo {
             name: "-unity-font-definition",
@@ -748,7 +792,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#unity-font"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::single(ValueType::Asset),
+            value_spec: ValueSpec::one_of(vec![ValueType::Asset]),
         },
         PropertyInfo {
             name: "-unity-font-style",
@@ -811,7 +855,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Number),
+            value_spec: ValueSpec::single(ValueType::Length),
         },
         PropertyInfo {
             name: "-unity-slice-top",
@@ -829,7 +873,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{supported_properties_url}#unity-slice"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::keywords(&["stretch", "tile", "mirror"]),
+            value_spec: ValueSpec::keywords(&["sliced", "tiled"]),
         },
         PropertyInfo {
             name: "-unity-text-align",

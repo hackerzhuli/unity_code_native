@@ -38,7 +38,14 @@ pub struct ValueEntry {
     /// All valid value types for this entry
     pub types: Vec<ValueType>
 }
+
 impl ValueEntry {
+    pub fn new(types: Vec<ValueType>) -> Self {
+        Self {
+            types,
+        }
+    }
+
     fn is_keyword_only(&self) -> bool {
         return self.types.iter().all(|vt| matches!(vt, ValueType::Keyword(_)));
     }
