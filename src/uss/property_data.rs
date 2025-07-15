@@ -422,12 +422,12 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "font-size",
-            description: "Font size to draw the element's text, specified in point size.",
-            format: "<number>",
+            description: "Font size to draw the element's text, specified in point size. Actually, the format is `<length>`.",
+            format: "<length>", // this is wrong, actual format is `<length>`, but we will keep it the same as offcial docs
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::single(ValueType::Length), // the format says it's number but it is actually length, but don't fix the format, keep it as the same as the official docs
+            value_spec: ValueSpec::single(ValueType::Length),
         },
         PropertyInfo {
             name: "height",
@@ -950,12 +950,12 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         },
         PropertyInfo {
             name: "-unity-text-outline",
-            description: "Outline width and color of the text.",
-            format: "<length> | <color>",
+            description: "Outline width and color of the text. Actually, the format is `<length> || <color>`.",
+            format: "<length> | <color>", // this is acutally wrong, the actual format is <length> || <color>, but we will keep it the same as offcial docs
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::one_of(vec![ValueType::Length, ValueType::Color]),
+            value_spec: ValueSpec::new(FlexibleFormatBuilder::any_order().optional(ValueEntry::new(vec![ValueType::Length])).optional(ValueEntry::new(vec![ValueType::Color])).build()),
         },
         PropertyInfo {
             name: "-unity-text-outline-color",
