@@ -1,0 +1,1452 @@
+/* Comprehensive USS Test File */
+/* This file contains all USS properties with multiple valid examples */
+/* Used for testing the language server diagnostic capabilities */
+
+/* Basic layout and positioning */
+.layout-basic {
+    display: flex;
+    position: relative;
+    width: 200px;
+    height: 100px;
+    top: 10px;
+    left: 10px;
+    bottom: 0;
+    right: 0;
+}
+
+/* Flex alignment variations */
+.flex-align-1 {
+    align-content: flex-start;
+    align-items: flex-start;
+    align-self: auto;
+    justify-content: flex-start;
+}
+
+.flex-align-2 {
+    align-content: flex-end;
+    align-items: flex-end;
+    align-self: flex-start;
+    justify-content: flex-end;
+}
+
+.flex-align-3 {
+    align-content: center;
+    align-items: center;
+    align-self: flex-end;
+    justify-content: center;
+}
+
+.flex-align-4 {
+    align-content: space-between;
+    align-items: stretch;
+    align-self: center;
+    justify-content: space-between;
+}
+
+.flex-align-5 {
+    align-content: space-around;
+    align-items: auto;
+    align-self: stretch;
+    justify-content: space-around;
+}
+
+.flex-align-6 {
+    align-content: stretch;
+}
+
+/* Background color variations */
+.bg-color-1 {
+    background-color: red;
+}
+
+.bg-color-2 {
+    background-color: #ff0000;
+}
+
+.bg-color-3 {
+    background-color: rgb(255, 0, 0);
+}
+
+.bg-color-4 {
+    background-color: rgba(255, 0, 0, 0.5);
+}
+
+.bg-color-5 {
+    background-color: transparent;
+}
+
+/* Background image variations */
+.bg-image-1 {
+    background-image: url("image.png");
+}
+
+.bg-image-2 {
+    background-image: resource("image");
+}
+
+.bg-image-3 {
+    background-image: none;
+}
+
+/* Background position variations */
+.bg-pos-1 {
+    background-position: left;
+}
+
+.bg-pos-2 {
+    background-position: center;
+}
+
+.bg-pos-3 {
+    background-position: right;
+}
+
+.bg-pos-4 {
+    background-position: top;
+}
+
+.bg-pos-5 {
+    background-position: bottom;
+}
+
+.bg-pos-6 {
+    background-position: 25%;
+}
+
+.bg-pos-7 {
+    background-position: 50px;
+}
+
+.bg-pos-8 {
+    background-position: left top;
+}
+
+.bg-pos-9 {
+    background-position: center center;
+}
+
+.bg-pos-10 {
+    background-position: right bottom;
+}
+
+.bg-pos-11 {
+    background-position: 25% 75%;
+}
+
+.bg-pos-12 {
+    background-position: 10px 20px;
+}
+
+.bg-pos-13 {
+    background-position: left 25%;
+}
+
+.bg-pos-14 {
+    background-position: right 50px;
+}
+
+.bg-pos-15 {
+    background-position: center top;
+}
+
+/* Background position x/y variations */
+.bg-pos-x-1 {
+    background-position-x: left;
+}
+
+.bg-pos-x-2 {
+    background-position-x: center;
+}
+
+.bg-pos-x-3 {
+    background-position-x: right;
+}
+
+.bg-pos-x-4 {
+    background-position-x: 25%;
+}
+
+.bg-pos-x-5 {
+    background-position-x: 50px;
+}
+
+.bg-pos-x-6 {
+    background-position-x: left 25%;
+}
+
+.bg-pos-x-7 {
+    background-position-x: right 50px;
+}
+
+.bg-pos-y-1 {
+    background-position-y: top;
+}
+
+.bg-pos-y-2 {
+    background-position-y: center;
+}
+
+.bg-pos-y-3 {
+    background-position-y: bottom;
+}
+
+.bg-pos-y-4 {
+    background-position-y: 25%;
+}
+
+.bg-pos-y-5 {
+    background-position-y: 50px;
+}
+
+.bg-pos-y-6 {
+    background-position-y: top 25%;
+}
+
+.bg-pos-y-7 {
+    background-position-y: bottom 50px;
+}
+
+/* Background repeat variations */
+.bg-repeat-1 {
+    background-repeat: repeat;
+}
+
+.bg-repeat-2 {
+    background-repeat: repeat-x;
+}
+
+.bg-repeat-3 {
+    background-repeat: repeat-y;
+}
+
+.bg-repeat-4 {
+    background-repeat: no-repeat;
+}
+
+.bg-repeat-5 {
+    background-repeat: space;
+}
+
+.bg-repeat-6 {
+    background-repeat: round;
+}
+
+.bg-repeat-7 {
+    background-repeat: repeat repeat;
+}
+
+.bg-repeat-8 {
+    background-repeat: repeat no-repeat;
+}
+
+.bg-repeat-9 {
+    background-repeat: space round;
+}
+
+/* Background size variations */
+.bg-size-1 {
+    background-size: auto;
+}
+
+.bg-size-2 {
+    background-size: cover;
+}
+
+.bg-size-3 {
+    background-size: contain;
+}
+
+.bg-size-4 {
+    background-size: 50%;
+}
+
+.bg-size-5 {
+    background-size: 100px;
+}
+
+.bg-size-6 {
+    background-size: auto auto;
+}
+
+.bg-size-7 {
+    background-size: 50% auto;
+}
+
+.bg-size-8 {
+    background-size: 100px 200px;
+}
+
+.bg-size-9 {
+    background-size: 25% 75%;
+}
+
+/* Border color variations */
+.border-color-1 {
+    border-color: red;
+}
+
+.border-color-2 {
+    border-color: red blue;
+}
+
+.border-color-3 {
+    border-color: red blue green;
+}
+
+.border-color-4 {
+    border-color: red blue green yellow;
+}
+
+.border-individual-colors {
+    border-top-color: blue;
+    border-right-color: green;
+    border-bottom-color: yellow;
+    border-left-color: purple;
+}
+
+/* Border width variations */
+.border-widths {
+    border-top-width: 1px;
+    border-right-width: 2px;
+    border-bottom-width: 3px;
+    border-left-width: 4px;
+}
+
+/* Border radius variations */
+.border-radius-1 {
+    border-radius: 5px;
+}
+
+.border-radius-2 {
+    border-radius: 5px 10px;
+}
+
+.border-radius-3 {
+    border-radius: 5px 10px 15px;
+}
+
+.border-radius-4 {
+    border-radius: 5px 10px 15px 20px;
+}
+
+.border-individual-radius {
+    border-top-left-radius: 5px;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 15px;
+    border-bottom-left-radius: 20px;
+}
+
+/* Position variations */
+.position-1 {
+    bottom: 0;
+}
+
+.position-2 {
+    bottom: 10px;
+}
+
+.position-3 {
+    bottom: 50%;
+}
+
+.position-4 {
+    bottom: auto;
+}
+
+/* Color variations */
+.color-1 {
+    color: black;
+}
+
+.color-2 {
+    color: #000000;
+}
+
+.color-3 {
+    color: rgb(0, 0, 0);
+}
+
+.color-4 {
+    color: rgba(0, 0, 0, 1);
+}
+
+/* Cursor variations */
+.cursor-1 {
+    cursor: arrow;
+}
+
+.cursor-2 {
+    cursor: text;
+}
+
+.cursor-3 {
+    cursor: resize-vertical;
+}
+
+.cursor-4 {
+    cursor: resize-horizontal;
+}
+
+.cursor-5 {
+    cursor: link;
+}
+
+.cursor-6 {
+    cursor: slide-arrow;
+}
+
+.cursor-7 {
+    cursor: resize-up-right;
+}
+
+.cursor-8 {
+    cursor: resize-up-left;
+}
+
+.cursor-9 {
+    cursor: move-arrow;
+}
+
+.cursor-10 {
+    cursor: rotate-arrow;
+}
+
+.cursor-11 {
+    cursor: scale-arrow;
+}
+
+.cursor-12 {
+    cursor: arrow-plus;
+}
+
+.cursor-13 {
+    cursor: arrow-minus;
+}
+
+.cursor-14 {
+    cursor: pan;
+}
+
+.cursor-15 {
+    cursor: orbit;
+}
+
+.cursor-16 {
+    cursor: zoom;
+}
+
+.cursor-17 {
+    cursor: fps;
+}
+
+.cursor-18 {
+    cursor: split-resize-up-down;
+}
+
+.cursor-19 {
+    cursor: split-resize-left-right;
+}
+
+/* Display variations */
+.display-1 {
+    display: flex;
+}
+
+.display-2 {
+    display: none;
+}
+
+/* Flex property variations */
+.flex-1 {
+    flex: 1;
+}
+
+.flex-2 {
+    flex: 0 1 auto;
+}
+
+.flex-3 {
+    flex: 2 0 50px;
+}
+
+.flex-basis-1 {
+    flex-basis: auto;
+}
+
+.flex-basis-2 {
+    flex-basis: 100px;
+}
+
+.flex-basis-3 {
+    flex-basis: 50%;
+}
+
+.flex-direction-1 {
+    flex-direction: row;
+}
+
+.flex-direction-2 {
+    flex-direction: row-reverse;
+}
+
+.flex-direction-3 {
+    flex-direction: column;
+}
+
+.flex-direction-4 {
+    flex-direction: column-reverse;
+}
+
+.flex-grow-1 {
+    flex-grow: 0;
+}
+
+.flex-grow-2 {
+    flex-grow: 1;
+}
+
+.flex-grow-3 {
+    flex-grow: 2;
+}
+
+.flex-shrink-1 {
+    flex-shrink: 0;
+}
+
+.flex-shrink-2 {
+    flex-shrink: 1;
+}
+
+.flex-shrink-3 {
+    flex-shrink: 2;
+}
+
+.flex-wrap-1 {
+    flex-wrap: nowrap;
+}
+
+.flex-wrap-2 {
+    flex-wrap: wrap;
+}
+
+.flex-wrap-3 {
+    flex-wrap: wrap-reverse;
+}
+
+/* Font size variations */
+.font-size-1 {
+    font-size: 12px;
+}
+
+.font-size-2 {
+    font-size: 14px;
+}
+
+.font-size-3 {
+    font-size: 16px;
+}
+
+.font-size-4 {
+    font-size: 18px;
+}
+
+.font-size-5 {
+    font-size: 20px;
+}
+
+/* Height variations */
+.height-1 {
+    height: 100px;
+}
+
+.height-2 {
+    height: 50%;
+}
+
+.height-3 {
+    height: auto;
+}
+
+/* Left position variations */
+.left-1 {
+    left: 0;
+}
+
+.left-2 {
+    left: 10px;
+}
+
+.left-3 {
+    left: 25%;
+}
+
+.left-4 {
+    left: auto;
+}
+
+/* Margin variations */
+.margin-1 {
+    margin: 10px;
+}
+
+.margin-2 {
+    margin: 10px 20px;
+}
+
+.margin-3 {
+    margin: 10px 20px 30px;
+}
+
+.margin-4 {
+    margin: 10px 20px 30px 40px;
+}
+
+.margin-5 {
+    margin: auto;
+}
+
+.margin-individual {
+    margin-top: 5px;
+    margin-right: 10px;
+    margin-bottom: 15px;
+    margin-left: 20px;
+}
+
+/* Max dimensions */
+.max-height-1 {
+    max-height: 200px;
+}
+
+.max-height-2 {
+    max-height: 100%;
+}
+
+.max-height-3 {
+    max-height: none;
+}
+
+.max-width-1 {
+    max-width: 300px;
+}
+
+.max-width-2 {
+    max-width: 100%;
+}
+
+.max-width-3 {
+    max-width: none;
+}
+
+/* Min dimensions */
+.min-height-1 {
+    min-height: 50px;
+}
+
+.min-height-2 {
+    min-height: 25%;
+}
+
+.min-height-3 {
+    min-height: auto;
+}
+
+.min-width-1 {
+    min-width: 100px;
+}
+
+.min-width-2 {
+    min-width: 50%;
+}
+
+.min-width-3 {
+    min-width: auto;
+}
+
+/* Opacity variations */
+.opacity-1 {
+    opacity: 0;
+}
+
+.opacity-2 {
+    opacity: 0.5;
+}
+
+.opacity-3 {
+    opacity: 1;
+}
+
+/* Overflow variations */
+.overflow-1 {
+    overflow: visible;
+}
+
+.overflow-2 {
+    overflow: hidden;
+}
+
+.overflow-3 {
+    overflow: scroll;
+}
+
+/* Padding variations */
+.padding-1 {
+    padding: 5px;
+}
+
+.padding-2 {
+    padding: 5px 10px;
+}
+
+.padding-3 {
+    padding: 5px 10px 15px;
+}
+
+.padding-4 {
+    padding: 5px 10px 15px 20px;
+}
+
+.padding-individual {
+    padding-top: 5px;
+    padding-right: 10px;
+    padding-bottom: 15px;
+    padding-left: 20px;
+}
+
+/* Position type variations */
+.position-type-1 {
+    position: relative;
+}
+
+.position-type-2 {
+    position: absolute;
+}
+
+/* Right position variations */
+.right-1 {
+    right: 0;
+}
+
+.right-2 {
+    right: 10px;
+}
+
+.right-3 {
+    right: 25%;
+}
+
+.right-4 {
+    right: auto;
+}
+
+/* Rotate variations */
+.rotate-1 {
+    rotate: 0deg;
+}
+
+.rotate-2 {
+    rotate: 45deg;
+}
+
+.rotate-3 {
+    rotate: 90deg;
+}
+
+.rotate-4 {
+    rotate: 180deg;
+}
+
+.rotate-5 {
+    rotate: 270deg;
+}
+
+.rotate-6 {
+    rotate: 360deg;
+}
+
+/* Scale variations */
+.scale-1 {
+    scale: 1;
+}
+
+.scale-2 {
+    scale: 0.5;
+}
+
+.scale-3 {
+    scale: 2;
+}
+
+.scale-4 {
+    scale: 1.5;
+}
+
+.scale-5 {
+    scale: 0.8 1.2;
+}
+
+/* Text align variations */
+.text-align-1 {
+    text-align: upper-left;
+}
+
+.text-align-2 {
+    text-align: middle-left;
+}
+
+.text-align-3 {
+    text-align: lower-left;
+}
+
+.text-align-4 {
+    text-align: upper-center;
+}
+
+.text-align-5 {
+    text-align: middle-center;
+}
+
+.text-align-6 {
+    text-align: lower-center;
+}
+
+.text-align-7 {
+    text-align: upper-right;
+}
+
+.text-align-8 {
+    text-align: middle-right;
+}
+
+.text-align-9 {
+    text-align: lower-right;
+}
+
+/* Text overflow variations */
+.text-overflow-1 {
+    text-overflow: clip;
+}
+
+.text-overflow-2 {
+    text-overflow: ellipsis;
+}
+
+/* Text shadow variations */
+.text-shadow-1 {
+    text-shadow: 1px 1px 2px black;
+}
+
+.text-shadow-2 {
+    text-shadow: 0 0 5px red;
+}
+
+.text-shadow-3 {
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.text-shadow-4 {
+    text-shadow: none;
+}
+
+/* Top position variations */
+.top-1 {
+    top: 0;
+}
+
+.top-2 {
+    top: 10px;
+}
+
+.top-3 {
+    top: 25%;
+}
+
+.top-4 {
+    top: auto;
+}
+
+/* Transform origin variations */
+.transform-origin-1 {
+    transform-origin: center;
+}
+
+.transform-origin-2 {
+    transform-origin: top;
+}
+
+.transform-origin-3 {
+    transform-origin: bottom;
+}
+
+.transform-origin-4 {
+    transform-origin: left;
+}
+
+.transform-origin-5 {
+    transform-origin: right;
+}
+
+.transform-origin-6 {
+    transform-origin: top left;
+}
+
+.transform-origin-7 {
+    transform-origin: top right;
+}
+
+.transform-origin-8 {
+    transform-origin: bottom left;
+}
+
+.transform-origin-9 {
+    transform-origin: bottom right;
+}
+
+.transform-origin-10 {
+    transform-origin: 25% 75%;
+}
+
+.transform-origin-11 {
+    transform-origin: 50px 100px;
+}
+
+/* Transition variations */
+.transition-1 {
+    transition: all 0.3s ease;
+}
+
+.transition-2 {
+    transition: opacity 0.5s linear;
+}
+
+.transition-3 {
+    transition: transform 0.2s ease-in;
+}
+
+.transition-4 {
+    transition: color 0.4s ease-out;
+}
+
+.transition-5 {
+    transition: background-color 0.6s ease-in-out;
+}
+
+.transition-delay-1 {
+    transition-delay: 0s;
+}
+
+.transition-delay-2 {
+    transition-delay: 0.1s;
+}
+
+.transition-delay-3 {
+    transition-delay: 0.2s;
+}
+
+.transition-duration-1 {
+    transition-duration: 0.1s;
+}
+
+.transition-duration-2 {
+    transition-duration: 0.3s;
+}
+
+.transition-duration-3 {
+    transition-duration: 0.5s;
+}
+
+.transition-duration-4 {
+    transition-duration: 1s;
+}
+
+.transition-property-1 {
+    transition-property: none;
+}
+
+.transition-property-2 {
+    transition-property: all;
+}
+
+.transition-property-3 {
+    transition-property: opacity;
+}
+
+.transition-property-4 {
+    transition-property: transform;
+}
+
+.transition-property-5 {
+    transition-property: color;
+}
+
+.transition-property-6 {
+    transition-property: background-color;
+}
+
+.transition-property-7 {
+    transition-property: opacity, transform;
+}
+
+.transition-timing-1 {
+    transition-timing-function: ease;
+}
+
+.transition-timing-2 {
+    transition-timing-function: linear;
+}
+
+.transition-timing-3 {
+    transition-timing-function: ease-in;
+}
+
+.transition-timing-4 {
+    transition-timing-function: ease-out;
+}
+
+.transition-timing-5 {
+    transition-timing-function: ease-in-out;
+}
+
+/* Translate variations */
+.translate-1 {
+    translate: 10px;
+}
+
+.translate-2 {
+    translate: 10px 20px;
+}
+
+.translate-3 {
+    translate: 25% 50%;
+}
+
+.translate-4 {
+    translate: 0;
+}
+
+/* Unity-specific properties */
+.unity-bg-tint-1 {
+    -unity-background-image-tint-color: white;
+}
+
+.unity-bg-tint-2 {
+    -unity-background-image-tint-color: red;
+}
+
+.unity-bg-tint-3 {
+    -unity-background-image-tint-color: rgba(255, 255, 255, 0.8);
+}
+
+.unity-bg-scale-1 {
+    -unity-background-scale-mode: stretch-to-fill;
+}
+
+.unity-bg-scale-2 {
+    -unity-background-scale-mode: scale-and-crop;
+}
+
+.unity-bg-scale-3 {
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.unity-font-1 {
+    -unity-font: resource("Fonts/MyFont");
+}
+
+.unity-font-2 {
+    -unity-font: url("Fonts/MyFont.ttf");
+}
+
+.unity-font-def-1 {
+    -unity-font-definition: resource("FontAssets/MyFontAsset");
+}
+
+.unity-font-def-2 {
+    -unity-font-definition: url("FontAssets/MyFontAsset.asset");
+}
+
+.unity-font-style-1 {
+    -unity-font-style: normal;
+}
+
+.unity-font-style-2 {
+    -unity-font-style: bold;
+}
+
+.unity-font-style-3 {
+    -unity-font-style: italic;
+}
+
+.unity-font-style-4 {
+    -unity-font-style: bold-and-italic;
+}
+
+.unity-overflow-clip-1 {
+    -unity-overflow-clip-box: padding-box;
+}
+
+.unity-overflow-clip-2 {
+    -unity-overflow-clip-box: content-box;
+}
+
+.unity-paragraph-1 {
+    -unity-paragraph-spacing: 0;
+}
+
+.unity-paragraph-2 {
+    -unity-paragraph-spacing: 5px;
+}
+
+.unity-paragraph-3 {
+    -unity-paragraph-spacing: 10px;
+}
+
+.unity-slice-bottom-1 {
+    -unity-slice-bottom: 0;
+}
+
+.unity-slice-bottom-2 {
+    -unity-slice-bottom: 5;
+}
+
+.unity-slice-bottom-3 {
+    -unity-slice-bottom: 10;
+}
+
+.unity-slice-left-1 {
+    -unity-slice-left: 0;
+}
+
+.unity-slice-left-2 {
+    -unity-slice-left: 5;
+}
+
+.unity-slice-left-3 {
+    -unity-slice-left: 10;
+}
+
+.unity-slice-right-1 {
+    -unity-slice-right: 0;
+}
+
+.unity-slice-right-2 {
+    -unity-slice-right: 5;
+}
+
+.unity-slice-right-3 {
+    -unity-slice-right: 10;
+}
+
+.unity-slice-top-1 {
+    -unity-slice-top: 0;
+}
+
+.unity-slice-top-2 {
+    -unity-slice-top: 5;
+}
+
+.unity-slice-top-3 {
+    -unity-slice-top: 10;
+}
+
+.unity-text-align-1 {
+    -unity-text-align: upper-left;
+}
+
+.unity-text-align-2 {
+    -unity-text-align: middle-left;
+}
+
+.unity-text-align-3 {
+    -unity-text-align: lower-left;
+}
+
+.unity-text-align-4 {
+    -unity-text-align: upper-center;
+}
+
+.unity-text-align-5 {
+    -unity-text-align: middle-center;
+}
+
+.unity-text-align-6 {
+    -unity-text-align: lower-center;
+}
+
+.unity-text-align-7 {
+    -unity-text-align: upper-right;
+}
+
+.unity-text-align-8 {
+    -unity-text-align: middle-right;
+}
+
+.unity-text-align-9 {
+    -unity-text-align: lower-right;
+}
+
+.unity-text-outline-color-1 {
+    -unity-text-outline-color: black;
+}
+
+.unity-text-outline-color-2 {
+    -unity-text-outline-color: white;
+}
+
+.unity-text-outline-color-3 {
+    -unity-text-outline-color: rgba(0, 0, 0, 0.5);
+}
+
+.unity-text-outline-width-1 {
+    -unity-text-outline-width: 0;
+}
+
+.unity-text-outline-width-2 {
+    -unity-text-outline-width: 1px;
+}
+
+.unity-text-outline-width-3 {
+    -unity-text-outline-width: 2px;
+}
+
+.unity-text-overflow-pos-1 {
+    -unity-text-overflow-position: start;
+}
+
+.unity-text-overflow-pos-2 {
+    -unity-text-overflow-position: middle;
+}
+
+.unity-text-overflow-pos-3 {
+    -unity-text-overflow-position: end;
+}
+
+/* Visibility and whitespace */
+.visibility-1 {
+    visibility: visible;
+}
+
+.visibility-2 {
+    visibility: hidden;
+}
+
+.whitespace-1 {
+    white-space: normal;
+}
+
+.whitespace-2 {
+    white-space: nowrap;
+}
+
+/* Width variations */
+.width-1 {
+    width: 200px;
+}
+
+.width-2 {
+    width: 100%;
+}
+
+.width-3 {
+    width: auto;
+}
+
+/* Additional test cases for complex properties */
+.complex-bg-pos-1 {
+    background-position: left 10px top 20px;
+}
+
+.complex-bg-pos-2 {
+    background-position: right 25% bottom 30px;
+}
+
+.complex-bg-pos-3 {
+    background-position: center left 15px;
+}
+
+.complex-bg-pos-4 {
+    background-position: center right 25%;
+}
+
+.complex-bg-pos-5 {
+    background-position: top center 10px;
+}
+
+.complex-bg-pos-6 {
+    background-position: bottom center 20px;
+}
+
+.complex-bg-pos-7 {
+    background-position: left center top 15px;
+}
+
+.complex-bg-pos-8 {
+    background-position: right center bottom 25px;
+}
+
+.complex-bg-pos-9 {
+    background-position: center top left 10px;
+}
+
+.complex-bg-pos-10 {
+    background-position: center bottom right 20px;
+}
+
+/* Complex transition combinations */
+.complex-transition-1 {
+    transition: opacity 0.3s ease, transform 0.5s linear;
+}
+
+.complex-transition-2 {
+    transition: color 0.2s ease-in, background-color 0.4s ease-out;
+}
+
+.complex-transition-3 {
+    transition: all 0.6s ease-in-out, opacity 0.1s linear;
+}
+
+.complex-transition-4 {
+    transition: transform 0.8s ease, color 0.3s ease-in;
+}
+
+.complex-transition-5 {
+    transition: background-color 1s linear, opacity 0.2s ease-out;
+}
+
+/* Complex flex combinations */
+.complex-flex-1 {
+    flex: 0 0 auto;
+}
+
+.complex-flex-2 {
+    flex: 1 1 0;
+}
+
+.complex-flex-3 {
+    flex: 2 0 100px;
+}
+
+.complex-flex-4 {
+    flex: 0 1 50%;
+}
+
+.complex-flex-5 {
+    flex: 3 2 200px;
+}
+
+.complex-flex-6 {
+    flex: 1 0 25%;
+}
+
+.complex-flex-7 {
+    flex: 0 2 150px;
+}
+
+.complex-flex-8 {
+    flex: 4 1 75%;
+}
+
+/* Various margin combinations */
+.complex-margin-1 {
+    margin: 5px 10px 15px 20px;
+}
+
+.complex-margin-2 {
+    margin: 10px 20px 30px;
+}
+
+.complex-margin-3 {
+    margin: 15px 25px;
+}
+
+.complex-margin-4 {
+    margin: 20px;
+}
+
+/* Various padding combinations */
+.complex-padding-1 {
+    padding: 2px 4px 6px 8px;
+}
+
+.complex-padding-2 {
+    padding: 5px 10px 15px;
+}
+
+.complex-padding-3 {
+    padding: 8px 12px;
+}
+
+.complex-padding-4 {
+    padding: 10px;
+}
+
+/* Various border-radius combinations */
+.complex-border-radius-1 {
+    border-radius: 5px 10px 15px 20px;
+}
+
+.complex-border-radius-2 {
+    border-radius: 8px 12px 16px;
+}
+
+.complex-border-radius-3 {
+    border-radius: 10px 20px;
+}
+
+.complex-border-radius-4 {
+    border-radius: 15px;
+}
+
+/* Various color formats - text color */
+.complex-text-color-1 {
+    color: red;
+}
+
+.complex-text-color-2 {
+    color: #ff0000;
+}
+
+.complex-text-color-3 {
+    color: #f00;
+}
+
+.complex-text-color-4 {
+    color: rgb(255, 0, 0);
+}
+
+.complex-text-color-5 {
+    color: rgba(255, 0, 0, 0.8);
+}
+
+/* Various color formats - background color */
+.complex-bg-color-1 {
+    background-color: blue;
+}
+
+.complex-bg-color-2 {
+    background-color: #0000ff;
+}
+
+.complex-bg-color-3 {
+    background-color: #00f;
+}
+
+.complex-bg-color-4 {
+    background-color: rgb(0, 0, 255);
+}
+
+.complex-bg-color-5 {
+    background-color: rgba(0, 0, 255, 0.6);
+}
+
+/* Various border color combinations */
+.complex-border-color-1 {
+    border-color: green yellow purple orange;
+}
+
+.complex-border-color-2 {
+    border-color: #00ff00 #ffff00 #800080;
+}
+
+.complex-border-color-3 {
+    border-color: rgb(0, 255, 0) rgba(255, 255, 0, 0.7);
+}
