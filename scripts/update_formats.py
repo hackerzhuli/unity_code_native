@@ -72,6 +72,17 @@ def parse_unity_examples(md_content):
     """Parse Unity USS documentation to extract property examples"""
     property_examples = {}
     lines = md_content.split('\n')
+    
+    # List of transition properties we want to find examples for
+    transition_properties = [
+        'transition-property',
+        'transition-duration', 
+        'transition-timing-function',
+        'transition-delay',
+        'transition'
+    ]
+    
+    # Also look for other properties with ### headings
     current_property = None
     in_examples_section = False
     examples_buffer = []
@@ -97,7 +108,7 @@ def parse_unity_examples(md_content):
                 in_examples_section = False
         
         # Look for "Examples" section
-        elif line.strip() == '**Examples**' or line.strip().lower() == 'examples':
+        elif line.strip() == '**Examples**' or line.strip().lower() == 'examples' or 'USS examples' in line or line.strip() == '### USS examples' or line.strip() == '### C# examples':
             in_examples_section = True
             examples_buffer = []
         
@@ -124,6 +135,54 @@ def parse_unity_examples(md_content):
     # Handle last property
     if current_property and examples_buffer:
         property_examples[current_property] = '\n'.join(examples_buffer).strip()
+    
+    # Now search for ALL property examples by looking for property names directly in indented code
+    # This will catch properties that don't have explicit section headings
+    # Only extract actual usage examples (ending with semicolon), not format strings
+    
+    for line in lines:
+        if line.startswith('    ') and ':' in line and line.strip().endswith(';'):
+            code_line = line[4:].strip()  # Remove indentation
+            
+            # Skip comments and invalid lines
+            if code_line.startswith('/*') or code_line.startswith('//'):
+                continue
+                
+            # Extract property name
+            if ':' in code_line:
+                prop_name = code_line.split(':')[0].strip()
+                
+                # Skip if we already have examples for this property from headings
+                if prop_name in property_examples:
+                    continue
+                
+                # Skip format strings (contain | or < > characters)
+                if '|' in code_line or '<' in code_line or '>' in code_line:
+                    continue
+                    
+                # This looks like a real usage example
+                if prop_name not in property_examples:
+                    property_examples[prop_name] = []
+                    
+                # Find all examples for this property
+                examples = []
+                for search_line in lines:
+                    if search_line.startswith('    ') and f'{prop_name}:' in search_line and search_line.strip().endswith(';'):
+                        search_code_line = search_line[4:].strip()
+                        # Skip format strings and comments
+                        if ('|' not in search_code_line and '<' not in search_code_line and '>' not in search_code_line and 
+                            not search_code_line.startswith('/*') and not search_code_line.startswith('//')):                            
+                            examples.append(search_code_line)
+                
+                if examples:
+                    # Remove duplicates while preserving order
+                    unique_examples = []
+                    seen = set()
+                    for example in examples:
+                        if example not in seen:
+                            unique_examples.append(example)
+                            seen.add(example)
+                    property_examples[prop_name] = '\n'.join(unique_examples)
     
     return property_examples
 
@@ -215,7 +274,7 @@ def parse_mozilla_examples(md_content):
 def update_property_data(file_path, property_formats, unity_examples=None, mozilla_examples=None):
     """Update the property_data.rs file with formats and examples"""
     with open(file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
+        lines = f.readlines()
     
     # Collect all properties that need updating
     all_properties = set()
@@ -228,55 +287,70 @@ def update_property_data(file_path, property_formats, unity_examples=None, mozil
     
     updated_count = 0
     
-    # For each property that needs updating
-    for prop_name in all_properties:
-        # Escape special regex characters in the property name
-        escaped_prop_name = re.escape(prop_name)
+    # Process line by line
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         
-        # Get the values for this property
-        format_spec = property_formats.get(prop_name) if property_formats else None
-        unity_example = unity_examples.get(prop_name) if unity_examples else None
-        mozilla_example = mozilla_examples.get(prop_name) if mozilla_examples else None
-        
-        # Pattern to find the PropertyInfo struct for this property
-        pattern = rf'(PropertyInfo \{{\s*name: "{escaped_prop_name}",\s*description: "[^"]*",\s*)(examples_unity: [^,]*,\s*)(examples_mozilla: [^,]*,\s*)(.*?\}},)'
-        
-        def build_replacement(match):
-            result = match.group(1)  # name and description
-            
-            # Add examples_unity
-            if unity_example:
-                escaped_unity = unity_example.replace('\\', '\\\\\\\\')
-                escaped_unity = escaped_unity.replace('"', '\\"')
-                escaped_unity = escaped_unity.replace('\n', '\\n')
-                result += f'examples_unity: Some("{escaped_unity}"),\n            '
-            else:
-                result += 'examples_unity: None,\n            '
-            
-            # Add examples_mozilla
-            if mozilla_example:
-                escaped_mozilla = mozilla_example.replace('\\', '\\\\\\\\')
-                escaped_mozilla = escaped_mozilla.replace('"', '\\"')
-                escaped_mozilla = escaped_mozilla.replace('\n', '\\n')
-                result += f'examples_mozilla: Some("{escaped_mozilla}"),\n            '
-            else:
-                result += 'examples_mozilla: None,\n            '
-            
-            # Add the rest of the struct
-            result += match.group(4)  # format and remaining fields
-            
-            return result
-        
-        # Apply the replacement
-        new_content = re.sub(pattern, build_replacement, content, flags=re.MULTILINE | re.DOTALL)
-        if new_content != content:
-            content = new_content
-            updated_count += 1
-        else:
-            print(f"Warning: Could not find PropertyInfo for property '{prop_name}'")
+        # Look for name: "property-name" lines
+        if 'name:' in line and '"' in line:
+            # Extract property name from the line
+            start_quote = line.find('"') + 1
+            end_quote = line.find('"', start_quote)
+            if start_quote > 0 and end_quote > start_quote:
+                prop_name = line[start_quote:end_quote]
+                
+                if prop_name in all_properties:
+                    # Get the values for this property
+                    unity_example = unity_examples.get(prop_name) if unity_examples else None
+                    mozilla_example = mozilla_examples.get(prop_name) if mozilla_examples else None
+                    
+                    # Find the examples_unity and examples_mozilla lines
+                    j = i + 1
+                    unity_line_idx = None
+                    mozilla_line_idx = None
+                    
+                    while j < len(lines) and not lines[j].strip().startswith('}'):
+                        if 'examples_unity:' in lines[j]:
+                            unity_line_idx = j
+                        elif 'examples_mozilla:' in lines[j]:
+                            mozilla_line_idx = j
+                        elif lines[j].strip().startswith('format:'):
+                            break
+                        j += 1
+                    
+                    # Update examples_unity line
+                    if unity_line_idx is not None:
+                        indent = len(lines[unity_line_idx]) - len(lines[unity_line_idx].lstrip())
+                        if unity_example:
+                            escaped_unity = unity_example.replace('\\', '\\\\\\\\')
+                            escaped_unity = escaped_unity.replace('"', '\\"')
+                            escaped_unity = escaped_unity.replace('\n', '\\n')
+                            lines[unity_line_idx] = ' ' * indent + f'examples_unity: Some("{escaped_unity}"),\n'
+                        else:
+                            lines[unity_line_idx] = ' ' * indent + 'examples_unity: None,\n'
+                    
+                    # Update examples_mozilla line
+                    if mozilla_line_idx is not None:
+                        indent = len(lines[mozilla_line_idx]) - len(lines[mozilla_line_idx].lstrip())
+                        if mozilla_example:
+                            escaped_mozilla = mozilla_example.replace('\\', '\\\\\\\\')
+                            escaped_mozilla = escaped_mozilla.replace('"', '\\"')
+                            escaped_mozilla = escaped_mozilla.replace('\n', '\\n')
+                            lines[mozilla_line_idx] = ' ' * indent + f'examples_mozilla: Some("{escaped_mozilla}"),\n'
+                        else:
+                            lines[mozilla_line_idx] = ' ' * indent + 'examples_mozilla: None,\n'
+                    
+                    if unity_line_idx is not None or mozilla_line_idx is not None:
+                        updated_count += 1
+                    else:
+                        print(f"Warning: Could not find examples fields for property '{prop_name}'")
+                        
+        i += 1
     
+    # Write the updated content back
     with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(content)
+        f.writelines(lines)
     
     print(f"Updated {updated_count} properties with formats and/or examples")
 
@@ -318,6 +392,12 @@ if __name__ == '__main__':
     # Parse examples from Mozilla documentation
     mozilla_examples = parse_mozilla_examples(mozilla_md_content)
     print(f"Found {len(mozilla_examples)} property examples in Mozilla documentation")
+    
+    # Debug: Print what Unity examples were found
+    print("Unity examples found:")
+    for prop, example in unity_examples.items():
+        print(f"  {prop}: {example[:50]}..." if len(example) > 50 else f"  {prop}: {example}")
+    print()
     
     # Debug: Print some examples
     print("\nSample Unity examples:")

@@ -99,7 +99,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "all",
             description: "Allows resetting all properties with the initial keyword. Does not apply to custom USS properties.",
-            examples_unity: None,
+            examples_unity: Some("all: initial"),
             examples_mozilla: None,
             format: "initial",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#all"),
@@ -110,7 +110,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "background-color",
             description: "Background color to paint in the element's box.",
-            examples_unity: None,
+            examples_unity: Some("background-color: red;\nbackground-color: blue;"),
             examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-background"),
@@ -364,7 +364,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "color",
             description: "Color to use when drawing the text of an element.",
-            examples_unity: None,
+            examples_unity: Some("background-color: red;\nbackground-color: blue;\ncolor: black;\ncolor: red;"),
             examples_mozilla: None,
             format: "<color>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
@@ -534,7 +534,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "left",
             description: "Left distance from the element's box during layout.",
-            examples_unity: None,
+            examples_unity: Some("left: 20px;\nleft: 50px;\nleft: 0px;"),
             examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
@@ -663,7 +663,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "opacity",
             description: "Specifies the transparency of an element and of its children.",
-            examples_unity: None,
+            examples_unity: Some("opacity: 0.5;"),
             examples_mozilla: None,
             format: "<number>",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#opacity"),
@@ -811,7 +811,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "top",
             description: "Top distance from the element's box during layout.",
-            examples_unity: None,
+            examples_unity: Some("top: 20px;"),
             examples_mozilla: None,
             format: "<length> | auto",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#positioning"),
@@ -850,7 +850,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition",
             description: "Shorthand for transition-delay, transition-duration, transition-property, transition-timing-function",
-            examples_unity: None,
+            examples_unity: Some("transition: width 2s ease-out;\ntransition: margin-right 4s, color 1s;"),
             examples_mozilla: None,
             format: "[<property> <duration> <timing-function> <delay>] | all | none",
             documentation_url: TRANSITIONS_URL.to_string(),
@@ -879,7 +879,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-delay",
             description: "Duration to wait before starting a property's transition effect when its value changes.",
-            examples_unity: None,
+            examples_unity: Some("transition-delay: 0s;\ntransition-delay: 300ms;\ntransition-delay: 2s, 650ms, 2.75s;\ntransition-delay: initial;\ntransition-delay: 0s, 600ms;\ntransition-delay: 0s, 1s;\ntransition-delay: 1s, 2s, 3s, 4s, 5s, 6s, 7s;"),
             examples_mozilla: None,
             format: "<time>",
             documentation_url: TRANSITIONS_URL.to_string(),
@@ -890,7 +890,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-duration",
             description: "Time a transition animation should take to complete.",
-            examples_unity: None,
+            examples_unity: Some("transition-duration: 2s;\ntransition-duration: 800ms;\ntransition-duration: 3s, 1500ms, 1.75s;\ntransition-duration: initial;\ntransition-duration: 1s, 2s, 3s;\ntransition-duration: 4s, 3s;\ntransition-duration: 500ms, 1s;\ntransition-duration: 1s, 2s;"),
             examples_mozilla: None,
             format: "<time>",
             documentation_url: TRANSITIONS_URL.to_string(),
@@ -901,7 +901,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-property",
             description: "Properties to which a transition effect should be applied.",
-            examples_unity: None,
+            examples_unity: Some("transition-property: color, rotate;\ntransition-property: left;\ntransition-property: scale;\ntransition-property: translate, all, rotate;\ntransition-property: initial;\ntransition-property: none;\ntransition-property: scale, all, rotate;\ntransition-property: scale, transform-origin;\ntransition-property: all, translate;\ntransition-property: scale, rotate, translate;"),
             examples_mozilla: None,
             format: "<property> | none",
             documentation_url: TRANSITIONS_URL.to_string(),
@@ -915,7 +915,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "transition-timing-function",
             description: "Determines how intermediate values are calculated for properties modified by a transition effect.",
-            examples_unity: None,
+            examples_unity: Some("transition-timing-function: ease-in-out-sine;\ntransition-timing-function: linear;\ntransition-timing-function: ease-in, ease-out-circ, ease-in-out-cubic;\ntransition-timing-function: initial;\ntransition-timing-function: ease-in-sine, ease-out-elastic;\ntransition-timing-function: linear, ease-in;"),
             examples_mozilla: None,
             format: 
                 "ease | ease-in | ease-out | ease-in-out | linear | ease-in-sine | ease-out-sine | ease-in-out-sine | ease-in-cubic | ease-out-cubic | ease-in-out-cubic | ease-in-circ | ease-out-circ | ease-in-out-circ | ease-in-elastic | ease-out-elastic | ease-in-out-elastic | ease-in-back | ease-out-back | ease-in-out-back | ease-in-bounce | ease-out-bounce | ease-in-out-bounce",
