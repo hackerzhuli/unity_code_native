@@ -824,57 +824,36 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "The transformation origin is the point around which a transformation is applied.",
             examples_unity: Some("transform-origin: 0% 100%;\ntransform-origin: 20px 10px;\ntransform-origin: 0px 100%;\ntransform-origin: 60% 10px;"),
             examples_mozilla: None,
-            format: "[<length> | left | center | right] [<length> | top | center | bottom]",
+            format: "[<length> | left | center | right ] || [<length> | top | center | bottom]",
             documentation_url: TRANSFORM_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec {
-                formats: vec![ValueFormat {
-                    entries: vec![
+                formats: FlexibleFormatBuilder::any_order().optional(
                         ValueEntry::new(vec![
                             ValueType::Length,
                             ValueType::Keyword("left"),
                             ValueType::Keyword("center"),
                             ValueType::Keyword("right"),
-                        ]),
+                        ])).optional(
                         ValueEntry::new(vec![
                             ValueType::Length,
                             ValueType::Keyword("top"),
                             ValueType::Keyword("center"),
                             ValueType::Keyword("bottom"),
-                        ]),
-                    ],
-                }],
-            },
+                        ])).build(),
+                    }
         },
         PropertyInfo {
             name: "transition",
             description: "Shorthand for transition-delay, transition-duration, transition-property, transition-timing-function",
             examples_unity: Some("transition: width 2s ease-out;\ntransition: margin-right 4s, color 1s;"),
             examples_mozilla: None,
-            format: "[<property> <duration> <timing-function> <delay>] | all | none",
+            format: "<property> <duration> <timing-function>? <delay>?",
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::new(vec![
-                ValueFormat {
-                    entries: vec![ValueEntry::keywords(&vec!["all", "none"])],
-                },
-                ValueFormat {
-                    entries: vec![
-                        ValueEntry {
-                            options: vec![ValueType::PropertyName],
-                        },
-                        ValueEntry {
-                            options: vec![ValueType::Time],
-                        },
-                        ValueEntry::keywords(&TIMING_FUN),
-                        ValueEntry {
-                            options: vec![ValueType::Time],
-                        },
-                    ],
-                },
-            ]),
+            value_spec: ValueSpec::new(FlexibleFormatBuilder::new().required(ValueEntry::new(vec![ValueType::PropertyName])).range(ValueEntry::new(vec![ValueType::Time]), 1, 2).optional(ValueEntry::keywords(&TIMING_FUN)).build()),
         },
         PropertyInfo {
             name: "transition-delay",
