@@ -1161,15 +1161,15 @@ fn create_flex_formats() -> Vec<ValueFormat> {
     ];
 
     let format2 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::Length]))// flex-grow
-        .optional(ValueEntry::new(vec![ValueType::Length]))// flex-shrink
+        .required(ValueEntry::new(vec![ValueType::Number]))// flex-grow
+        .optional(ValueEntry::new(vec![ValueType::Number]))// flex-shrink
         .required(ValueEntry::new(vec![ValueType::Length, ValueType::Keyword("auto")]))// flex-basis
         .build();
 
     let format3 = FlexibleFormatBuilder::new()
-        .required(ValueEntry::new(vec![ValueType::Keyword("auto")]))// flex-basis
-        .required(ValueEntry::new(vec![ValueType::Length]))// flex-grow
-        .optional(ValueEntry::new(vec![ValueType::Length]))// flex-shrink
+        .required(ValueEntry::new(vec![ValueType::Length, ValueType::Keyword("auto")]))// flex-basis
+        .required(ValueEntry::new(vec![ValueType::Number]))// flex-grow
+        .optional(ValueEntry::new(vec![ValueType::Number]))// flex-shrink
         .build();
 
     r.extend(format2.into_iter());
