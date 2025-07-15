@@ -1095,8 +1095,22 @@ fn create_flex_formats() -> Vec<ValueFormat> {
         .optional(ValueEntry::new(vec![ValueType::Number])) // flex-shrink
         .build();
 
+    let format4 = FlexibleFormatBuilder::new()
+        .required(ValueEntry::new(vec![
+            ValueType::Length,
+            ValueType::Keyword("auto"),
+        ])) // flex-basis
+        .build();
+
+    let format5 = FlexibleFormatBuilder::new()
+        .required(ValueEntry::new(vec![ValueType::Number])) // flex-grow
+        .optional(ValueEntry::new(vec![ValueType::Number])) // flex-shrink
+        .build();
+
     r.extend(format2.into_iter());
     r.extend(format3.into_iter());
+    r.extend(format4.into_iter());
+    r.extend(format5.into_iter());
     r
 }
 
