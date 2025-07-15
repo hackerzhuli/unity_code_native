@@ -138,7 +138,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{CSS_URL}/background-position"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::new(create_formats_for_background_position()),
+            value_spec: ValueSpec::new_with_multiple(create_formats_for_background_position(), true),
         },
         PropertyInfo {
             name: "background-position-x",
@@ -149,7 +149,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{CSS_URL}/background-position-x"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::new(create_formats_for_background_position_x()),
+            value_spec: ValueSpec::new_with_multiple(create_formats_for_background_position_x(), true),
         },
         PropertyInfo {
             name: "background-position-y",
@@ -160,7 +160,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{CSS_URL}/background-position-y"),
             inherited: false,
             animatable: PropertyAnimation::Discrete,
-            value_spec: ValueSpec::new(create_formats_for_background_position_y()),
+            value_spec: ValueSpec::new_with_multiple(create_formats_for_background_position_y(), true),
         },
         PropertyInfo {
             name: "background-repeat",
@@ -376,8 +376,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Mouse cursor to display when the mouse pointer is over an element.",
             examples_unity: None,
             examples_mozilla: None,
-            format: 
-                "[ [ <resource> | <url> ] [ <integer> <integer>]? , ] [ arrow | text | resize-vertical | resize-horizontal | link | slide-arrow | resize-up-right | resize-up-left | move-arrow | rotate-arrow | scale-arrow | arrow-plus | arrow-minus | pan | orbit | zoom | fps | split-resize-up-down | split-resize-left-right ]",
+            format: "[ [ <resource> | <url> ] [ <integer> <integer>]? , ] [ arrow | text | resize-vertical | resize-horizontal | link | slide-arrow | resize-up-right | resize-up-left | move-arrow | rotate-arrow | scale-arrow | arrow-plus | arrow-minus | pan | orbit | zoom | fps | split-resize-up-down | split-resize-left-right ]",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#cursor"),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -838,7 +837,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::new(FlexibleFormatBuilder::new().required(ValueEntry::new(vec![ValueType::PropertyName])).range(ValueEntry::new(vec![ValueType::Time]), 1, 2).optional(ValueEntry::keywords(&TIMING_FUN)).build()),
+            value_spec: ValueSpec::new_with_multiple(FlexibleFormatBuilder::new().required(ValueEntry::new(vec![ValueType::PropertyName])).range(ValueEntry::new(vec![ValueType::Time]), 1, 2).optional(ValueEntry::keywords(&TIMING_FUN)).build(), true),
         },
         PropertyInfo {
             name: "transition-delay",
@@ -849,7 +848,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::single(ValueType::Time),
+            value_spec: ValueSpec::new_with_multiple(vec![ValueFormat::single(ValueType::Time)], true),
         },
         PropertyInfo {
             name: "transition-duration",
@@ -860,7 +859,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::single(ValueType::Time),
+            value_spec: ValueSpec::new_with_multiple(vec![ValueFormat::single(ValueType::Time)], true),
         },
         PropertyInfo {
             name: "transition-property",
@@ -871,25 +870,24 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::one_of(vec![
+            value_spec: ValueSpec::new_with_multiple(vec![ValueFormat::one_of(vec![
                 ValueType::PropertyName,
                 ValueType::Keyword("none"),
                 ValueType::Keyword("all"),
                 ValueType::Keyword("initial"),
                 ValueType::Keyword("ignored"),
-            ]),
+            ])], true),
         },
         PropertyInfo {
             name: "transition-timing-function",
             description: "Determines how intermediate values are calculated for properties modified by a transition effect.",
             examples_unity: Some("transition-timing-function: ease-in-out-sine;\ntransition-timing-function: linear;\ntransition-timing-function: ease-in, ease-out-circ, ease-in-out-cubic;\ntransition-timing-function: initial;\ntransition-timing-function: ease-in-sine, ease-out-elastic;\ntransition-timing-function: linear, ease-in;"),
             examples_mozilla: None,
-            format: 
-                "<easing-function>#", // This format doesn't exist in official Unity docs but it is shown in Unity's USS warnings
+            format: "<easing-function>#", // This format doesn't exist in official Unity docs but it is shown in Unity's USS warnings
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
-            value_spec: ValueSpec::keywords(&TIMING_FUN),
+            value_spec: ValueSpec::new_with_multiple(vec![ValueFormat::keywords(&TIMING_FUN)], true),
         },
         PropertyInfo {
             name: "translate",
@@ -1061,8 +1059,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Horizontal and vertical text alignment in the element's box.",
             examples_unity: None,
             examples_mozilla: None,
-            format: 
-                "upper-left | middle-left | lower-left | upper-center | middle-center | lower-center | upper-right | middle-right | lower-right",
+            format: "upper-left | middle-left | lower-left | upper-center | middle-center | lower-center | upper-right | middle-right | lower-right",
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Discrete,

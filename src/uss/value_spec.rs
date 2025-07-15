@@ -248,7 +248,10 @@ impl ValueFormat {
 #[derive(Debug, Clone)]
 pub struct ValueSpec {
     /// All possible value formats for this property
-    pub formats: Vec<ValueFormat>
+    pub formats: Vec<ValueFormat>,
+    /// Whether this property allows multiple comma-separated values
+    /// (denoted by '#' in CSS format strings)
+    pub allows_multiple_values: bool,
 }
 
 impl ValueSpec {
@@ -256,6 +259,7 @@ impl ValueSpec {
     pub fn single(value_type: ValueType) -> Self {
         Self {
             formats: vec![ValueFormat::single(value_type)],
+            allows_multiple_values: false,
         }
     }
 
@@ -280,13 +284,17 @@ impl ValueSpec {
             });
         }
         
-        Self { formats }
+        Self { 
+            formats,
+            allows_multiple_values: false,
+        }
     }
 
     /// Create a ValueSpec that accepts one of multiple value types
     pub fn one_of(value_types: Vec<ValueType>) -> Self {
         Self {
             formats: vec![ValueFormat::one_of(value_types)],
+            allows_multiple_values: false,
         }
     }
 
@@ -294,6 +302,7 @@ impl ValueSpec {
     pub fn keywords(keywords: &[&'static str]) -> Self {
         Self {
             formats: vec![ValueFormat::keywords(keywords)],
+            allows_multiple_values: false,
         }
     }
 
@@ -301,12 +310,24 @@ impl ValueSpec {
     pub fn sequence(value_types: Vec<ValueType>) -> Self {
         Self {
             formats: vec![ValueFormat::sequence(value_types)],
+            allows_multiple_values: false,
         }
     }
 
     /// Create a ValueSpec with multiple possible formats
     pub fn new(formats: Vec<ValueFormat>) -> Self {
-        Self { formats }
+        Self { 
+            formats,
+            allows_multiple_values: false,
+        }
+    }
+    
+    /// Create a ValueSpec with multiple possible formats that allows multiple values
+    pub fn new_with_multiple(formats: Vec<ValueFormat>, allows_multiple_values: bool) -> Self {
+        Self { 
+            formats,
+            allows_multiple_values,
+        }
     }
     
     pub(crate) fn is_keyword_only(&self) -> bool {
