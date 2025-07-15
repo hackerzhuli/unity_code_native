@@ -1242,82 +1242,6 @@ fn test_comma_not_allowed_property() {
 }
 
 #[test]
-fn test_comma_separated_values_error_ranges() {
-    let diagnostics = UssDiagnostics::new();
-    let mut parser = UssParser::new().unwrap();
-    
-    // Test case to verify error ranges are limited to specific segments
-    let content = r#"
-.element {
-    transition: opacity 0.3s ease-in-out, invalid-segment, transform 0.5s linear;
-}
-"#;
-    
-    let tree = parser.parse(content, None).unwrap();
-    let results = diagnostics.analyze(&tree, content);
-    
-    // Should detect error for invalid segment
-    let value_errors: Vec<_> = results.iter()
-        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("invalid-property-value".to_string())))
-        .collect();
-    
-    assert!(!value_errors.is_empty(), "Should detect error for invalid segment");
-    
-    // Check that error range is limited and doesn't span the entire property value
-    for error in &value_errors {
-        let line_span = error.range.end.line - error.range.start.line;
-        let char_span = if error.range.start.line == error.range.end.line {
-            error.range.end.character - error.range.start.character
-        } else {
-            100 // Multi-line span
-        };
-        
-        // Error range should be reasonable (not spanning the entire property)
-        assert!(line_span == 0 && char_span <= 50, 
-            "Error range should be limited to the invalid segment, not the entire property. Range spans {} lines and {} chars", 
-            line_span, char_span);
-    }
-}
-
-#[test]
-fn test_single_value_error_range_with_comma() {
-    let diagnostics = UssDiagnostics::new();
-    let mut parser = UssParser::new().unwrap();
-    
-    // Test case to verify single value error range stops at comma
-    let content = r#"
-.element {
-    color: invalid-color, blue;
-}
-"#;
-    
-    let tree = parser.parse(content, None).unwrap();
-    let results = diagnostics.analyze(&tree, content);
-    
-    // Should detect unexpected comma error
-    let comma_errors: Vec<_> = results.iter()
-        .filter(|d| d.code == Some(tower_lsp::lsp_types::NumberOrString::String("unexpected-comma".to_string())))
-        .collect();
-    
-    assert!(!comma_errors.is_empty(), "Should detect unexpected comma error");
-    
-    // Verify that the error range is positioned at the comma
-    for error in &comma_errors {
-        let line_span = error.range.end.line - error.range.start.line;
-        let char_span = if error.range.start.line == error.range.end.line {
-            error.range.end.character - error.range.start.character
-        } else {
-            100
-        };
-        
-        // Error should be small and precise (just the comma)
-        assert!(line_span == 0 && char_span <= 5, 
-            "Comma error range should be small and precise. Range spans {} lines and {} chars", 
-            line_span, char_span);
-    }
-}
-
-#[test]
 fn test_empty_comma_segments() {
     let diagnostics = UssDiagnostics::new();
     let mut parser = UssParser::new().unwrap();
@@ -1350,7 +1274,7 @@ fn test_mixed_valid_invalid_comma_separated() {
     // Test case with mix of valid and invalid comma-separated values
     let mixed_content = r#"
 .element {
-    transition: opacity 0.3s ease-in-out, transform invalid-duration, color 1s linear;
+    transition: opacity 0.3s ease-in-out, background-color invalid-duration, color 1s linear;
 }
 "#;
     

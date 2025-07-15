@@ -1214,10 +1214,13 @@ fn create_rotate_formats() -> Vec<ValueFormat> {
     // none | [ x | y | z | <number>{3} ] && <angle> | <angle>
     let mut r = vec![ValueFormat::keywords(&vec!["none"]), ValueFormat::single(ValueType::Angle)];
     let entry_named_axis = ValueEntry::keywords(&vec!["x", "y", "z"]);
-    let format_angle_axis_named = FlexibleFormatBuilder::any_order().required(entry_named_axis).required(ValueEntry::options(vec![ValueType::Angle])).build();
-    let format_angle_axis = FlexibleFormatBuilder::any_order().range(ValueEntry::options(vec![ValueType::Number]), 3, 3).required(ValueEntry::options(vec![ValueType::Angle])).build();
+    let entry_angle = ValueEntry::options(vec![ValueType::Angle]);
+    let format_angle_axis_named = FlexibleFormatBuilder::any_order().required(entry_named_axis).required(entry_angle.clone()).build();
+    let format_angle_axis = FlexibleFormatBuilder::new().range(ValueEntry::options(vec![ValueType::Number]), 3, 3).required(entry_angle.clone()).build();
+    let format_angle_axis2 = FlexibleFormatBuilder::new().required(entry_angle).range(ValueEntry::options(vec![ValueType::Number]), 3, 3).build();
     r.extend(format_angle_axis_named);
     r.extend(format_angle_axis);
+    r.extend(format_angle_axis2);
     r
 }
 

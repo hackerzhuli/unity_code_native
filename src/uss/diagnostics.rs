@@ -501,13 +501,13 @@ impl UssDiagnostics {
                 let mut uss_values = Vec::new();
                 let mut parsing_failed = false;
                 let mut value_nodes = Vec::new(); // Keep track of nodes for error reporting
-                let mut comma_positions = Vec::new(); // Track comma positions for range calculation
+                let mut has_commas = false; // Track if there are any commas
 
-                // Collect value nodes and comma positions (everything after the colon, skipping semicolons)
+                // Collect value nodes and check for commas (everything after the colon, skipping semicolons)
                 for i in 2..node.child_count() {
                     if let Some(child) = node.child(i) {
                         if child.kind() == NODE_COMMA {
-                            comma_positions.push(child.start_byte());
+                            has_commas = true;
                         } else if child.kind() != NODE_SEMICOLON && !child.kind().is_empty() {
                             value_nodes.push(child);
                         }
@@ -591,7 +591,6 @@ impl UssDiagnostics {
                         self.validate_comma_separated_values(
                             &uss_values,
                             &value_nodes,
-                            &comma_positions,
                             property_name,
                             &property_info.value_spec,
                             content,
@@ -601,26 +600,32 @@ impl UssDiagnostics {
                         );
                     } else {
                         // Check for unexpected commas in properties that don't support multiple values
-                        if !comma_positions.is_empty() {
-                            // Report error at the first comma
-                            let comma_pos = byte_to_position(comma_positions[0], content);
-                            diagnostics.push(Diagnostic {
-                                range: Range {
-                                    start: comma_pos,
-                                    end: comma_pos,
-                                },
-                                severity: Some(DiagnosticSeverity::ERROR),
-                                code: Some(NumberOrString::String(
-                                    "unexpected-comma".to_string(),
-                                )),
-                                source: Some("uss".to_string()),
-                                message: format!(
-                                    "Property '{}' does not support multiple comma-separated values",
-                                    property_name
-                                ),
-                                ..Default::default()
-                            });
-                            return; // Don't validate values after comma
+                        if has_commas {
+                            // Find the first comma node to report error at its position
+                            for i in 2..node.child_count() {
+                                if let Some(child) = node.child(i) {
+                                    if child.kind() == NODE_COMMA {
+                                        let comma_pos = byte_to_position(child.start_byte(), content);
+                                        diagnostics.push(Diagnostic {
+                                            range: Range {
+                                                start: comma_pos,
+                                                end: comma_pos,
+                                            },
+                                            severity: Some(DiagnosticSeverity::ERROR),
+                                            code: Some(NumberOrString::String(
+                                                "unexpected-comma".to_string(),
+                                            )),
+                                            source: Some("uss".to_string()),
+                                            message: format!(
+                                                "Property '{}' does not support multiple comma-separated values",
+                                                property_name
+                                            ),
+                                            ..Default::default()
+                                        });
+                                        return; // Don't validate values after comma
+                                    }
+                                }
+                            }
                         }
 
                         // Validate single value (no commas)
@@ -641,12 +646,25 @@ impl UssDiagnostics {
         }
     }
 
-    /// Validate comma-separated values for properties that support multiple values
+    /// Validate comma-separated values for properties that support multiple values.
+    /// 
+    /// This method splits the values into segments based on comma positions and validates
+    /// each segment independently using the same validation logic as single values.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `uss_values` - Array of parsed USS values to validate (includes all values in the property)
+    /// * `value_nodes` - Corresponding tree-sitter nodes for each USS value (used for range calculation)
+    /// * `property_name` - Name of the CSS/USS property being validated (e.g., "margin", "border-color")
+    /// * `value_spec` - Specification defining valid formats for this property type
+    /// * `content` - Full source text content (needed for byte-to-position conversion)
+    /// * `node` - Tree-sitter node representing the entire property declaration
+    /// * `diagnostics` - Mutable vector to append any validation errors or warnings
+    /// * `variable_resolver` - Optional resolver for CSS custom properties/variables
     fn validate_comma_separated_values(
         &self,
         uss_values: &[UssValue],
         value_nodes: &[Node],
-        comma_positions: &[usize],
         property_name: &str,
         value_spec: &ValueSpec,
         content: &str,
@@ -654,32 +672,8 @@ impl UssDiagnostics {
         diagnostics: &mut Vec<Diagnostic>,
         variable_resolver: Option<&VariableResolver>,
     ) {
-        // Split values by comma positions
-        let mut value_segments = Vec::new();
-        let mut current_start = 0;
-        
-        for &comma_pos in comma_positions {
-            // Find the index where to split based on comma position
-            let mut split_index = current_start;
-            for (i, &value_node) in value_nodes[current_start..].iter().enumerate() {
-                if value_node.end_byte() <= comma_pos {
-                    split_index = current_start + i + 1;
-                } else {
-                    break;
-                }
-            }
-            
-            // Add segment before comma
-            if split_index > current_start {
-                value_segments.push((current_start, split_index));
-            }
-            current_start = split_index;
-        }
-        
-        // Add the last segment after the final comma
-        if current_start < value_nodes.len() {
-            value_segments.push((current_start, value_nodes.len()));
-        }
+        // Create value index ranges for each comma-separated segment
+        let value_segments = self.create_value_segments(node);
         
         // Validate each segment using the same logic as single values
         for (start_idx, end_idx) in value_segments {
@@ -704,7 +698,65 @@ impl UssDiagnostics {
         }
     }
     
-    /// Validate a single value (no commas) with proper range calculation
+    /// Create value index ranges for comma-separated segments.
+    /// 
+    /// This helper method analyzes the property declaration CST to identify comma positions
+    /// and creates index ranges that can be used to slice the value arrays into segments.
+    /// Each segment represents a group of values separated by commas.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `declaration_node` - Tree-sitter node for the entire property declaration
+    /// 
+    /// # Returns
+    /// 
+    /// A vector of (start_index, end_index) pairs representing value array slices for each segment.
+    /// Each pair defines a range that can be used with `&values[start..end]` to get segment values.
+    fn create_value_segments(&self, declaration_node: Node) -> Vec<(usize, usize)> {
+        let mut segments = Vec::new();
+        let mut current_start = 0;
+        
+        // Walk through the declaration node to find commas and create segments
+        let mut value_index = 0;
+        
+        for i in 2..declaration_node.child_count() {
+            if let Some(child) = declaration_node.child(i) {
+                if child.kind() == NODE_COMMA {
+                    // Found a comma, close current segment
+                    if value_index > current_start {
+                        segments.push((current_start, value_index));
+                    }
+                    current_start = value_index;
+                } else if child.kind() != NODE_SEMICOLON && !child.kind().is_empty() {
+                    // This is a value node, increment the index
+                    value_index += 1;
+                }
+            }
+        }
+        
+        // Add the final segment
+        if value_index > current_start {
+            segments.push((current_start, value_index));
+        }
+        
+        segments
+    }
+    
+    /// Validate a single value or value segment (no commas) with proper range calculation.
+    /// 
+    /// This method performs the core validation logic for USS property values, checking
+    /// if the provided values match any of the expected formats defined in the value specification.
+    /// 
+    /// # Parameters
+    /// 
+    /// * `uss_values` - Array of parsed USS values to validate (a single segment, no comma)
+    /// * `value_nodes` - Corresponding tree-sitter nodes for each USS value (used for precise error ranges)
+    /// * `property_name` - Name of the CSS/USS property being validated (used in error messages)
+    /// * `value_spec` - Specification containing all valid format patterns for this property
+    /// * `content` - Full source text content (required for converting byte positions to line/column)
+    /// * `node` - Tree-sitter node representing the property declaration (fallback for range calculation)
+    /// * `diagnostics` - Mutable vector where validation errors and warnings are appended
+    /// * `variable_resolver` - Optional resolver for evaluating CSS custom variables, allows providing additional diagnostics
     fn validate_single_value(
         &self,
         uss_values: &[UssValue],
