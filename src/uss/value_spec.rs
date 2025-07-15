@@ -8,7 +8,7 @@ use crate::uss::value::UssValue;
 use crate::uss::constants::*;
 
 /// Basic value type that a property accepts
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ValueType {
     /// Length values (px, %)
     /// 
@@ -33,30 +33,32 @@ pub enum ValueType {
 }
 
 /// one value entry of property
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ValueEntry {
     /// All valid value types for this entry
-    pub types: Vec<ValueType>
+    pub options: Vec<ValueType>
 }
+
+
 
 impl ValueEntry {
     pub fn new(types: Vec<ValueType>) -> Self {
         Self {
-            types,
+            options: types,
         }
     }
 
     fn is_keyword_only(&self) -> bool {
-        return self.types.iter().all(|vt| matches!(vt, ValueType::Keyword(_)));
+        return self.options.iter().all(|vt| matches!(vt, ValueType::Keyword(_)));
     }
     
     fn is_color_only(&self) -> bool {
-        return self.types.iter().all(|vt| matches!(vt, ValueType::Color) || matches!(vt, ValueType::Keyword("initial")));
+        return self.options.iter().all(|vt| matches!(vt, ValueType::Color) || matches!(vt, ValueType::Keyword("initial")));
     }
 }
 
 /// Specific value format with exact type and count requirements
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ValueFormat {
     /// this format should have these entries in this order
     pub entries: Vec<ValueEntry>,
@@ -67,7 +69,7 @@ impl ValueFormat {
     pub fn single(value_type: ValueType) -> Self {
         Self {
             entries: vec![ValueEntry {
-                types: vec![value_type],
+                options: vec![value_type],
             }],
         }
     }
@@ -76,7 +78,7 @@ impl ValueFormat {
     pub fn one_of(value_types: Vec<ValueType>) -> Self {
         Self {
             entries: vec![ValueEntry {
-                types: value_types,
+                options: value_types,
             }],
         }
     }
@@ -85,7 +87,7 @@ impl ValueFormat {
     pub fn keywords(keywords: &[&'static str]) -> Self {
         Self {
             entries: vec![ValueEntry {
-                types: keywords.iter().map(|&k| ValueType::Keyword(k)).collect(),
+                options: keywords.iter().map(|&k| ValueType::Keyword(k)).collect(),
             }],
         }
     }
@@ -94,7 +96,7 @@ impl ValueFormat {
     pub fn sequence(value_types: Vec<ValueType>) -> Self {
         Self {
             entries: value_types.into_iter().map(|vt| ValueEntry {
-                types: vec![vt],
+                options: vec![vt],
             }).collect(),
         }
     }
@@ -174,7 +176,7 @@ impl ValueFormat {
 
     /// Check if a UssValue matches any of the types in a ValueEntry
     fn is_value_valid(&self, value: &UssValue, entry: &ValueEntry, definitions: &UssDefinitions) -> bool {
-        for value_type in &entry.types {
+        for value_type in &entry.options {
             if self.is_value_of_type(value, *value_type, definitions) {
                 return true;
             }
@@ -260,7 +262,7 @@ impl ValueSpec {
             let mut entries = Vec::new();
             for _i in 0..count {
                 entries.push(ValueEntry {
-                    types: vec![value_type],
+                    options: vec![value_type],
                 });
             }
             formats.push(ValueFormat { 

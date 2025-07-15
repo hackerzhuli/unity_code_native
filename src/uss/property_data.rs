@@ -82,11 +82,26 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: false,
             animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Length] }] }, // single value
+                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Length] }] }, // single value
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Length] },
-                    ValueEntry { types: vec![ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom"), ValueType::Length] }
+                    ValueEntry { options: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Length] },
+                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom"), ValueType::Length] }
                 ] }, // two values
+                ValueFormat::sequence(vec![ValueType::Keyword("center"), ValueType::Keyword("center")]), // center + center
+                ValueFormat { entries: vec![
+                    ValueEntry { options: vec![ValueType::Keyword("center")] },
+                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("bottom")] },
+                ] }, // center + vertical keyword
+                ValueFormat { entries: vec![
+                    ValueEntry { options: vec![ValueType::Keyword("center")] },
+                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("bottom")] },
+                    ValueEntry { options: vec![ValueType::Length] }
+                ] }, // center + vertical keyword + length
+                ValueFormat { entries: vec![
+                    ValueEntry { options: vec![ValueType::Keyword("center")] },
+                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("bottom")] },
+                    ValueEntry { options: vec![ValueType::Length] }
+                ] }, // horizontal keyword + vertical keyword + length
             ]),
         },
         PropertyInfo {
@@ -115,11 +130,11 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: false,
             animatable: PropertyAnimation::Discrete,
             value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("repeat-x"), ValueType::Keyword("repeat-y")] }] }, // single special keywords
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] }] }, // single value
+                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("repeat-x"), ValueType::Keyword("repeat-y")] }] }, // single special keywords
+                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] }] }, // single value
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] },
-                    ValueEntry { types: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] }
+                    ValueEntry { options: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] },
+                    ValueEntry { options: vec![ValueType::Keyword("repeat"), ValueType::Keyword("space"), ValueType::Keyword("round"), ValueType::Keyword("no-repeat")] }
                 ] }, // two values
             ]),
         },
@@ -131,11 +146,11 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: false,
             animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("cover"), ValueType::Keyword("contain")] }] }, // cover, contain
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }] }, // single length or auto
+                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("cover"), ValueType::Keyword("contain")] }] }, // cover, contain
+                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }] }, // single length or auto
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }
                 ] }, // width height (both can be length or auto)
             ]),
         },
@@ -439,21 +454,21 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: false,
             animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }] }, // single value
+                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }] }, // single value
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }
                 ] }, // two values
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }
                 ] }, // three values
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] },
-                    ValueEntry { types: vec![ValueType::Length, ValueType::Keyword("auto")] }
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] },
+                    ValueEntry { options: vec![ValueType::Length, ValueType::Keyword("auto")] }
                 ] }, // four values
             ]),
         },
@@ -627,12 +642,12 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             inherited: false,
             animatable: PropertyAnimation::Animatable,
             value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Number] }] },
+                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Number] }] },
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::Number] },
-                    ValueEntry { types: vec![ValueType::Number] }
+                    ValueEntry { options: vec![ValueType::Number] },
+                    ValueEntry { options: vec![ValueType::Number] }
                 ] },
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("none")] }] }
+                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("none")] }] }
             ]),
         },
         PropertyInfo {
@@ -687,21 +702,21 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             animatable: PropertyAnimation::None,
             value_spec: ValueSpec::multiple_formats(vec![
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::PropertyName] },
-                    ValueEntry { types: vec![ValueType::Time] },
-                    ValueEntry { types: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")] },
-                    ValueEntry { types: vec![ValueType::Time] }
+                    ValueEntry { options: vec![ValueType::PropertyName] },
+                    ValueEntry { options: vec![ValueType::Time] },
+                    ValueEntry { options: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")] },
+                    ValueEntry { options: vec![ValueType::Time] }
                 ] },
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::PropertyName] },
-                    ValueEntry { types: vec![ValueType::Time] },
-                    ValueEntry { types: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")] }
+                    ValueEntry { options: vec![ValueType::PropertyName] },
+                    ValueEntry { options: vec![ValueType::Time] },
+                    ValueEntry { options: vec![ValueType::Keyword("ease"), ValueType::Keyword("linear"), ValueType::Keyword("ease-in"), ValueType::Keyword("ease-out"), ValueType::Keyword("ease-in-out")] }
                 ] },
                 ValueFormat { entries: vec![
-                    ValueEntry { types: vec![ValueType::PropertyName] },
-                    ValueEntry { types: vec![ValueType::Time] }
+                    ValueEntry { options: vec![ValueType::PropertyName] },
+                    ValueEntry { options: vec![ValueType::Time] }
                 ] },
-                ValueFormat { entries: vec![ValueEntry { types: vec![ValueType::Keyword("all"), ValueType::Keyword("none")] }] }
+                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("all"), ValueType::Keyword("none")] }] }
             ]),
         },
         PropertyInfo {
@@ -975,8 +990,8 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             // For single format and entry properties, add 'initial' to the entry
             if let Some(format) = prop.value_spec.formats.get_mut(0) {
                 if let Some(entry) = format.entries.get_mut(0) {
-                    if !entry.types.contains(&ValueType::Keyword("initial")) {
-                        entry.types.push(ValueType::Keyword("initial"));
+                    if !entry.options.contains(&ValueType::Keyword("initial")) {
+                        entry.options.push(ValueType::Keyword("initial"));
                     }
                 }
             }
@@ -984,7 +999,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             // For other properties, add a separate format that accepts only 'initial'
             let initial_format = ValueFormat {
                 entries: vec![ValueEntry {
-                    types: vec![ValueType::Keyword("initial")],
+                    options: vec![ValueType::Keyword("initial")],
                 }],
             };
             prop.value_spec.formats.push(initial_format);

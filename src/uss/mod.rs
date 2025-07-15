@@ -26,6 +26,7 @@ pub mod constants;
 pub mod import_node;
 pub mod function_node;
 pub mod url_function_node;
+pub mod flexible_format;
 
 #[cfg(test)]
 mod diagnostics_tests;
@@ -56,3 +57,6 @@ mod completion_tests;
 
 #[cfg(test)]
 mod definitions_tests;
+
+#[cfg(test)]
+mod flexible_format_tests;

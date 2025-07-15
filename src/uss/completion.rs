@@ -326,7 +326,7 @@ impl UssCompletionProvider {
                 && property_info.value_spec.formats[0].entries.len() > 0
             {
                 if property_info.value_spec.is_keyword_only() {
-                    for t in property_info.value_spec.formats[0].entries[0].types.iter() {
+                    for t in property_info.value_spec.formats[0].entries[0].options.iter() {
                         if let ValueType::Keyword(keyword) = t {
                             valid_keywords.push(*keyword);
                         }
