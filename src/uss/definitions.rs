@@ -28,9 +28,9 @@ pub struct PropertyInfo {
     /// Must contain the string from Unity docs official property reference table
     /// This is because we have automatic tests that will verify this contains what the official table say
     pub description: &'static str, 
-    /// Examples markdown from Unity docs
+    /// Examples from Unity docs
     pub examples_unity: Option<&'static str>,
-    /// Examples markdown from Mozilla docs
+    /// Examples from Mozilla docs
     pub examples_mozilla: Option<&'static str>,
     /// Official format specification from Unity or Mozzila docs
     /// 
