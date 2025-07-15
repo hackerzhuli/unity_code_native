@@ -27,7 +27,11 @@ pub struct PropertyInfo {
     /// Property description, as a markdown string
     /// Must contain the string from Unity docs official property reference table
     /// This is because we have automatic tests that will verify this contains what the official table say
-    pub description: &'static str,
+    pub description: &'static str, 
+    /// Examples markdown from Unity docs
+    pub examples_unity: Option<&'static str>,
+    /// Examples markdown from Mozilla docs
+    pub examples_mozilla: Option<&'static str>,
     /// Official format specification from Unity documentation or Mozzila
     /// For formats from Unity docs, we want to be the same as offcial docs, don't try to fix them, EVEN IF THEY ARE WRONG
     /// Because we have automatic tests that will verify this matches what official docs say
