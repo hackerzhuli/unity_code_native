@@ -423,7 +423,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
         PropertyInfo {
             name: "font-size",
             description: "Font size to draw the element's text, specified in point size. Actually, the format is `<length>`.",
-            format: "<length>", // this is wrong, actual format is `<length>`, but we will keep it the same as offcial docs
+            format: "<number>", // this is wrong, actual format is `<length>`, but we will keep it the same as offcial docs
             documentation_url: format!("{SUPPORTED_PROPERTIES_URL}#unity-text"),
             inherited: true,
             animatable: PropertyAnimation::Animatable,
