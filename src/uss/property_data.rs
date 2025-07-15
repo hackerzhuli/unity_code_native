@@ -4,6 +4,7 @@
 //! This module is separated from definitions.rs to improve maintainability.
 
 use crate::uss::definitions::{PropertyInfo, PropertyAnimation};
+use crate::uss::flexible_format::FlexibleFormatBuilder;
 use crate::uss::value_spec::{ValueType, ValueSpec, ValueFormat, ValueEntry};
 use std::collections::HashMap;
 
@@ -81,28 +82,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             documentation_url: format!("{css_url}/background-position"),
             inherited: false,
             animatable: PropertyAnimation::Animatable,
-            value_spec: ValueSpec::multiple_formats(vec![
-                ValueFormat { entries: vec![ValueEntry { options: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Length] }] }, // single value
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Length] },
-                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom"), ValueType::Length] }
-                ] }, // two values
-                ValueFormat::sequence(vec![ValueType::Keyword("center"), ValueType::Keyword("center")]), // center + center
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Keyword("center")] },
-                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("bottom")] },
-                ] }, // center + vertical keyword
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Keyword("center")] },
-                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("bottom")] },
-                    ValueEntry { options: vec![ValueType::Length] }
-                ] }, // center + vertical keyword + length
-                ValueFormat { entries: vec![
-                    ValueEntry { options: vec![ValueType::Keyword("center")] },
-                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("bottom")] },
-                    ValueEntry { options: vec![ValueType::Length] }
-                ] }, // horizontal keyword + vertical keyword + length
-            ]),
+            value_spec: ValueSpec::multiple_formats(create_formats_for_background_position()),
         },
         PropertyInfo {
             name: "background-position-x",
@@ -1013,4 +993,21 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
     }
     
     properties
+}
+
+fn create_formats_for_background_position() -> Vec<ValueFormat> {
+    // format
+    // [ left | center | right | top | bottom | <length> ]  |  [ left | center | right | <length> ] [ top | center | bottom | <length> ]  |  [ center | [ left | right ] <length>? ] && [ center | [ top | bottom ] <length>? ]
+    let mut result = vec![
+                ValueFormat::one_of(vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Keyword("top"), ValueType::Keyword("bottom"), ValueType::Length]), // single value
+                ValueFormat { entries: vec![
+                    ValueEntry { options: vec![ValueType::Keyword("left"), ValueType::Keyword("center"), ValueType::Keyword("right"), ValueType::Length] },
+                    ValueEntry { options: vec![ValueType::Keyword("top"), ValueType::Keyword("center"), ValueType::Keyword("bottom"), ValueType::Length] }
+                ] }
+                , ValueFormat::sequence(vec![ValueType::Keyword("center"), ValueType::Keyword("center")])]; // center center
+    let format2 = FlexibleFormatBuilder::any_order().required(ValueEntry::new(vec![ValueType::Keyword("center")])).required(ValueEntry::new(vec![ValueType::Keyword("top"), ValueType::Keyword("bottom")])).optional(ValueEntry::new(vec![ValueType::Length])).build();
+    let format3 = FlexibleFormatBuilder::any_order().required(ValueEntry::new(vec![ValueType::Keyword("center")])).required(ValueEntry::new(vec![ValueType::Keyword("left"), ValueType::Keyword("right")])).optional(ValueEntry::new(vec![ValueType::Length])).build();
+    result.extend(format2.into_iter());
+    result.extend(format3.into_iter());
+    result
 }

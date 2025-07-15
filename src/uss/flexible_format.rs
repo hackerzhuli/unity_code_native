@@ -2,6 +2,7 @@
 //!
 //! This module provides utilities for creating flexible CSS value format specifications
 //! that can handle optional entries and different orderings.
+//! So we don't have to enumerate all cases manually, just let the builder build cases when the format is more complex.
 
 use crate::uss::value_spec::{ValueEntry, ValueFormat};
 
