@@ -835,7 +835,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Shorthand for transition-delay, transition-duration, transition-property, transition-timing-function",
             examples_unity: Some("transition: width 2s ease-out;\ntransition: margin-right 4s, color 1s;"),
             examples_mozilla: None,
-            format: "<property> <duration> <timing-function>? <delay>?",
+            format: "[<property> <duration> <timing-function>? <delay>?]#", // Can't find a definition, so this is my best guess according to Unity docs
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -846,7 +846,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Duration to wait before starting a property's transition effect when its value changes.",
             examples_unity: Some("transition-delay: 0s;\ntransition-delay: 300ms;\ntransition-delay: 2s, 650ms, 2.75s;\ntransition-delay: initial;\ntransition-delay: 0s, 600ms;\ntransition-delay: 0s, 1s;\ntransition-delay: 1s, 2s, 3s, 4s, 5s, 6s, 7s;"),
             examples_mozilla: None,
-            format: "<time>",
+            format: "<time>#", // This format doesn't exist in official Unity docs but it is shown in Unity's USS warnings
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -857,7 +857,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Time a transition animation should take to complete.",
             examples_unity: Some("transition-duration: 2s;\ntransition-duration: 800ms;\ntransition-duration: 3s, 1500ms, 1.75s;\ntransition-duration: initial;\ntransition-duration: 1s, 2s, 3s;\ntransition-duration: 4s, 3s;\ntransition-duration: 500ms, 1s;\ntransition-duration: 1s, 2s;"),
             examples_mozilla: None,
-            format: "<time>",
+            format: "<time>#", // This format doesn't exist in official Unity docs but it is shown in Unity's USS warnings
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
@@ -868,13 +868,16 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             description: "Properties to which a transition effect should be applied.",
             examples_unity: Some("transition-property: color, rotate;\ntransition-property: left;\ntransition-property: scale;\ntransition-property: translate, all, rotate;\ntransition-property: initial;\ntransition-property: none;\ntransition-property: scale, all, rotate;\ntransition-property: scale, transform-origin;\ntransition-property: all, translate;\ntransition-property: scale, rotate, translate;"),
             examples_mozilla: None,
-            format: "<property> | none",
+            format: "[all | none | initial | ignored | <property>]#", // Can't find a definition, so this is my best guess according to Unity docs
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
             value_spec: ValueSpec::one_of(vec![
                 ValueType::PropertyName,
                 ValueType::Keyword("none"),
+                ValueType::Keyword("all"),
+                ValueType::Keyword("initial"),
+                ValueType::Keyword("ignored"),
             ]),
         },
         PropertyInfo {
@@ -883,7 +886,7 @@ pub fn create_standard_properties() -> HashMap<&'static str, PropertyInfo> {
             examples_unity: Some("transition-timing-function: ease-in-out-sine;\ntransition-timing-function: linear;\ntransition-timing-function: ease-in, ease-out-circ, ease-in-out-cubic;\ntransition-timing-function: initial;\ntransition-timing-function: ease-in-sine, ease-out-elastic;\ntransition-timing-function: linear, ease-in;"),
             examples_mozilla: None,
             format: 
-                "ease | ease-in | ease-out | ease-in-out | linear | ease-in-sine | ease-out-sine | ease-in-out-sine | ease-in-cubic | ease-out-cubic | ease-in-out-cubic | ease-in-circ | ease-out-circ | ease-in-out-circ | ease-in-elastic | ease-out-elastic | ease-in-out-elastic | ease-in-back | ease-out-back | ease-in-out-back | ease-in-bounce | ease-out-bounce | ease-in-out-bounce",
+                "<easing-function>#", // This format doesn't exist in official Unity docs but it is shown in Unity's USS warnings
             documentation_url: TRANSITIONS_URL.to_string(),
             inherited: false,
             animatable: PropertyAnimation::None,
