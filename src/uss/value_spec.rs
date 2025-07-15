@@ -199,7 +199,8 @@ impl ValueFormat {
                   // Check if this numeric value matches the expected type based on unit
                   match value_type {
                       ValueType::LengthOrPercentage => unit_str == UNIT_PX || unit_str == UNIT_PERCENT,
-                       ValueType::Time => unit_str == UNIT_S || unit_str == UNIT_MS,
+                      ValueType::Length => unit_str == UNIT_PX, // Length only accepts px units, no percentage
+                      ValueType::Time => unit_str == UNIT_S || unit_str == UNIT_MS,
                       ValueType::Angle => matches!(unit_str.as_str(), UNIT_DEG | UNIT_RAD | UNIT_GRAD | UNIT_TURN),
                       ValueType::Number => false, // Numbers with units don't match Number type
                       ValueType::Integer => false, // Integers with units don't match Integer type
@@ -212,6 +213,7 @@ impl ValueFormat {
                      ValueType::Integer => !has_fractional, // Integers cannot have fractional parts
                      ValueType::Number => true, // Numbers can be fractional or not
                      ValueType::LengthOrPercentage => *value == 0.0, // Length can only be unitless if it's exactly 0
+                     ValueType::Length => *value == 0.0, // Length can only be unitless if it's exactly 0
                      _ => false,
                  }
              },

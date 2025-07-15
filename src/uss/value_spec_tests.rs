@@ -50,6 +50,82 @@ fn test_length_format() {
 }
 
 #[test]
+fn test_length_vs_length_or_percentage() {
+    let length_format = ValueFormat::single(ValueType::Length);
+    let length_or_percentage_format = ValueFormat::single(ValueType::LengthOrPercentage);
+    let definitions = UssDefinitions::new();
+    
+    // Both should accept px units
+    let px_value = vec![UssValue::Numeric { 
+        value: 100.0, 
+        unit: Some(UNIT_PX.to_string()), 
+        has_fractional: false 
+    }];
+    assert!(length_format.is_match(&px_value, &definitions));
+    assert!(length_or_percentage_format.is_match(&px_value, &definitions));
+    
+    // Only LengthOrPercentage should accept percentage units
+    let percent_value = vec![UssValue::Numeric { 
+        value: 50.0, 
+        unit: Some(UNIT_PERCENT.to_string()), 
+        has_fractional: false 
+    }];
+    assert!(!length_format.is_match(&percent_value, &definitions)); // Length rejects %
+    assert!(length_or_percentage_format.is_match(&percent_value, &definitions)); // LengthOrPercentage accepts %
+    
+    // Both should accept unitless 0
+    let zero_value = vec![UssValue::Numeric { 
+        value: 0.0, 
+        unit: None, 
+        has_fractional: false 
+    }];
+    assert!(length_format.is_match(&zero_value, &definitions));
+    assert!(length_or_percentage_format.is_match(&zero_value, &definitions));
+}
+
+#[test]
+fn test_length_only_format() {
+    let length_format = ValueFormat::single(ValueType::Length);
+    let definitions = UssDefinitions::new();
+    
+    // Valid length with px unit
+    let values = vec![UssValue::Numeric { 
+        value: 100.0, 
+        unit: Some(UNIT_PX.to_string()), 
+        has_fractional: false 
+    }];
+    assert!(length_format.is_match(&values, &definitions));
+    
+    // Valid unitless 0
+    let values = vec![UssValue::Numeric { 
+        value: 0.0, 
+        unit: None, 
+        has_fractional: false 
+    }];
+    assert!(length_format.is_match(&values, &definitions));
+    
+    // Invalid - percentage unit should not match Length (only LengthOrPercentage)
+    let values = vec![UssValue::Numeric { 
+        value: 50.0, 
+        unit: Some(UNIT_PERCENT.to_string()), 
+        has_fractional: false 
+    }];
+    assert!(!length_format.is_match(&values, &definitions));
+    
+    // Invalid - unitless non-zero value should not match Length
+    let values = vec![UssValue::Numeric { 
+        value: 10.0, 
+        unit: None, 
+        has_fractional: false 
+    }];
+    assert!(!length_format.is_match(&values, &definitions));
+    
+    // Invalid - wrong type
+    let values = vec![UssValue::String("not-a-length".to_string())];
+    assert!(!length_format.is_match(&values, &definitions));
+}
+
+#[test]
 fn test_keyword_format() {
     let keyword_format = ValueFormat::single(ValueType::Keyword("block"));
     let definitions = UssDefinitions::new();
