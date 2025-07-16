@@ -18,6 +18,7 @@ TODO list:
 - [x] Check our value spec against the format string and find problems with our value spec, make sure our value spec is solid
 - [ ] `transform` seems to be a special property for `transition-property` because Unity doesn't actually have this property but allow to use it in `transition-property` value, is this true? we need to confirm.
 - [ ] We need to have a complete list of keywords(not including color keywords), though some may not contain documentation.
+- [ ] Add a simple refactor feature (ie. code action) that is renaming id selectors and class selectors in a document.
 
 TODO for consideration:
 - [ ] (We should do this later, it is complex because it involves Unity Editor) Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy
