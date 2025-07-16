@@ -454,4 +454,162 @@ mod tests {
         assert_eq!(actual_range.start, Position { line: 1, character: 0 });
         assert_eq!(actual_range.end, Position { line: 1, character: 29 });
     }
+
+    #[test]
+    fn test_find_actual_format_range_start_middle_extract_complete_rules() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = "/* comment */ .class1 { color: red; }\n.class2 { background: blue; }\n.class3 { margin: 10px; }";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range starting in the middle of first line but covering complete rules after
+        let requested_range = Range {
+            start: Position { line: 0, character: 5 }, // Middle of comment
+            end: Position { line: 2, character: 25 },
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        // Should return None because the range starts in the middle of a comment
+        // According to the documentation, we only format complete top-level nodes
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_find_actual_format_range_middle_of_first_rule_extract_others() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = ".class1 {\n  color: red;\n  background: blue;\n}\n.class2 { margin: 10px; }\n.class3 { padding: 5px; }";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range starting in the middle of first rule's declaration block
+        let requested_range = Range {
+            start: Position { line: 1, character: 5 }, // Middle of "color: red;"
+            end: Position { line: 5, character: 25 },
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_some());
+        
+        let actual_range = result.unwrap();
+        // Should extract the two complete rules that are fully contained
+        assert_eq!(actual_range.start, Position { line: 4, character: 0 });
+        assert_eq!(actual_range.end, Position { line: 5, character: 25 });
+    }
+
+    #[test]
+    fn test_find_actual_format_range_end_middle_extract_complete_rules() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = ".class1 { color: red; }\n.class2 { background: blue; }\n.class3 {\n  margin: 10px;\n  padding: 5px;\n}";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range ending in the middle of last rule's declaration block
+        let requested_range = Range {
+            start: Position { line: 0, character: 0 },
+            end: Position { line: 4, character: 10 }, // Middle of "padding: 5px;"
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_some());
+        
+        let actual_range = result.unwrap();
+        // Should extract the two complete rules that are fully contained
+        assert_eq!(actual_range.start, Position { line: 0, character: 0 });
+        assert_eq!(actual_range.end, Position { line: 1, character: 29 });
+    }
+
+    #[test]
+    fn test_find_actual_format_range_middle_selector_extract_inner_rules() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = ".very-long-class-name { color: red; }\n.class2 { background: blue; }\n.class3 { margin: 10px; }\n.another-long-name { padding: 5px; }";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range starting in the middle of first selector and ending in middle of last
+        let requested_range = Range {
+            start: Position { line: 0, character: 10 }, // Middle of first selector
+            end: Position { line: 3, character: 15 },   // Middle of last selector
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_some());
+        
+        let actual_range = result.unwrap();
+        // Should extract the two complete middle rules
+        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
+        assert_eq!(actual_range.end, Position { line: 2, character: 25 });
+    }
+
+    #[test]
+    fn test_find_actual_format_range_across_multiple_rules_partial() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = ".class1 { color: red; }\n.class2 { background: blue; }\n.class3 { margin: 10px; }";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range that starts in middle of first rule and ends in middle of last rule
+        let requested_range = Range {
+            start: Position { line: 0, character: 10 }, // Middle of first rule
+            end: Position { line: 2, character: 15 },   // Middle of last rule
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        // Should only include the complete middle rule
+        assert!(result.is_some());
+        
+        let actual_range = result.unwrap();
+        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
+        assert_eq!(actual_range.end, Position { line: 1, character: 29 });
+    }
+
+    #[test]
+    fn test_find_actual_format_range_multiline_rule_with_complete_rules_inside() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = ".outer {\n  color: red;\n}\n.class1 { background: blue; }\n.class2 { margin: 10px; }\n.final {\n  padding: 5px;\n}";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range starting in the middle of first multiline rule and ending in middle of last
+        let requested_range = Range {
+            start: Position { line: 1, character: 5 }, // Middle of first rule's content
+            end: Position { line: 6, character: 10 },  // Middle of last rule's content
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_some());
+        
+        let actual_range = result.unwrap();
+        // Should extract the two complete rules in the middle
+        assert_eq!(actual_range.start, Position { line: 3, character: 0 });
+        assert_eq!(actual_range.end, Position { line: 4, character: 25 });
+    }
+
+    #[test]
+    fn test_find_actual_format_range_complex_selection_with_comments() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = "/* start comment */\n.class1 { color: red; }\n.class2 { background: blue; }\n/* middle comment */\n.class3 { margin: 10px; }\n/* end comment */";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range starting in middle of comment and ending in middle of another comment
+        let requested_range = Range {
+            start: Position { line: 0, character: 8 },  // Middle of start comment
+            end: Position { line: 5, character: 8 },    // Middle of end comment
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_some());
+        
+        let actual_range = result.unwrap();
+        // Should extract all the complete CSS rules, excluding partial comments
+        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
+        assert_eq!(actual_range.end, Position { line: 4, character: 25 });
+    }
 }

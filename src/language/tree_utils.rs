@@ -56,7 +56,7 @@ pub fn find_node_by_type<'a>(node: Node<'a>, target_type: &str) -> Option<Node<'
     None
 }
 
-/// Converts LSP position to byte offset
+/// Converts LSP position to byte offset(note, the byte offset can equal the length of the string, meaning the end of the string, but there is nothing in this index)
 pub fn position_to_byte_offset(source: &str, position: Position) -> Option<usize> {
     let mut line = 0;
     let mut col = 0;
@@ -72,6 +72,11 @@ pub fn position_to_byte_offset(source: &str, position: Position) -> Option<usize
         } else {
             col += 1;
         }
+    }
+    
+    // Handle end-of-content positions
+    if line == position.line as usize && col == position.character as usize {
+        return Some(source.len());
     }
     
     None
