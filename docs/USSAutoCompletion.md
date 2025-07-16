@@ -3,9 +3,25 @@
 ## Properties
 After user typed `:` for a valid property, we give a list of most likely values for that property for user to select.
 
-If user selected any item, then we should also remember to automatically insert a space before and a semicolon after;
+If user selected any item, then we should also remember to automatically insert a space before and a `;` after(not for properties that support mulitple values, ie. comma seperated values, we don't add a `;` after).
 
 Note that as user is typing after `:`, eg. typing `color:r` then we are going to look at what is our best guess of what is next and try to give a list of most likely values for that property.
+
+We have special auto completion logic for color properties and `transition-property`(see below).
+
+If the property is not these, then we will use a general logic, which is, find all single keywords that will work for this property, and show them. If no single keyword would work, we should not show any completion item.
+
+### Color Properties
+For color properties we should complete with color keywords along with other single keywords that will work for the property.
+
+### transition-property
+For `transition-property`, we should complete with all propeties that are animatable(including discrete), and also all single keywords that will work for the property.
+
+### Single Keywords
+What does it mean, when we say single keyword that will work (for a property)? Meaning that if the property only have one value that is that keyword, it is valid. eg. `flex-direction: row;`, just a single keyword, and this is valid.
+
+### Comma seperated values
+For properties that can have multiple values(ie. comma seperated values), then after each comma, the completion logic is the same as if we are after the first colon. Trigger the completion at the comma and then narrow down the list as user key typing.
 
 ## Selectors
 Id selectors and class selectors, after user had typed the `#`  for id and `.` for class selector, we need to display a list of id or class selectors according to what is present in the same source file. And narrow down the list as user type.
@@ -18,7 +34,6 @@ Elements are defined in xsd files and we should read these and get all element n
 
 ## url
 See the [dedicated doc](./UrlCompletion.md)
-
 
 ## At rule or import statement
 Since USS only have one at rule that is import, we should provide auto completion right when user typed `@`, and after that if user input still matches `@import`, after cursor leave `@import`, eg, user typed a space after that, no auto completion is provided.

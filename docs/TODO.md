@@ -16,12 +16,15 @@ TODO list:
 - [x] Verify property names(not custom variables) are case sensitive or not in uss and ajust our code accordingly
 - [x] Add support for diagnostics for comma seperated values(eg. transitions), for now we just treat any property can be comma seperated, keep it simple. In the future we might be more specific.
 - [x] Check our value spec against the format string and find problems with our value spec, make sure our value spec is solid
-- [ ] `transform` seems to be a special property for `transition-property` because Unity doesn't actually have this property but allow to use it in `transition-property` value, is this true? we need to confirm.
+- [x] ~~`transform` seems to be a special property for `transition-property` because Unity doesn't actually have this property but allow to use it in `transition-property` value, is this true? we need to confirm.~~
 - [ ] We need to have a complete list of keywords(not including color keywords), though some may not contain documentation.
 - [ ] Add a simple refactor feature (ie. code action) that is renaming id selectors and class selectors in a document.
+- [ ] Property value auto completion: we should always provide auto completion for property value if a property can be a single value of keywords(unless it is a color property or other properties that have an dedicated completion logic), we only show the keywords.
+- [ ] Dedicated autocompletion for `transition-property`, completion with animatable properties.
+- [ ] For properties that supports multiple values, we should trigger completion after comma just like after colon, a new value, same completion logic.
+- [ ] Bug: Auto completion for property name doesn't work if we are typing before another valid property in a block. 
 
 TODO for consideration:
 - [ ] (We should do this later, it is complex because it involves Unity Editor) Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy
 - [ ] (Not needed now because it usually doesn't happen in practice)Add additional validation for url in uss that includes guid, if file path exists but guid (the query parater in url) doesn't match, show an warning, though this should be rare in practice
-- [ ] Property value auto completion: we should always provide auto completion for property value if a property can be a single value of keywords(unless it is a color property, which has dedicated completion logic), we only show the keywords.
 - [ ] Url auto completion should not show an item that is the file itself, importing/reference self makes no sence, and this can cause other problems 
