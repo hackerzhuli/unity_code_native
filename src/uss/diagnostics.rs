@@ -487,7 +487,7 @@ impl UssDiagnostics {
                     if let Some(child) = node.child(i) {
                         if child.kind() == NODE_COMMA {
                             has_commas = true;
-                        } else if child.kind() != NODE_SEMICOLON && !child.kind().is_empty() {
+                        } else if child.kind() != NODE_SEMICOLON && child.kind() != NODE_COMMENT && !child.kind().is_empty() {
                             value_nodes.push(child);
                         }
                     }

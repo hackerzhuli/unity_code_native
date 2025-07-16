@@ -1,7 +1,4 @@
 //! Tests for USS diagnostics functionality
-
-use crate::language::tree_printer::print_tree_to_stdout;
-
 use super::diagnostics::*;
 use super::parser::UssParser;
 use crate::uss::constants::*;
@@ -373,61 +370,6 @@ fn test_valid_named_colors() {
 }
 
 #[test]
-fn debug_function_structure() {
-    let mut parser = UssParser::new().unwrap();
-    
-    // Test rgb function structure in a declaration context
-    let content = "Button { color: rgb(255, 128, 0); }";
-    println!("=== Testing: {} ===", content);
-    if let Some(tree) = parser.parse(content, None) {
-        print_tree_to_stdout(tree.root_node(), content);
-        
-        // Find the call_expression node and examine its arguments
-        let root = tree.root_node();
-        let mut cursor = root.walk();
-        
-        fn find_call_expression<'a>(cursor: &mut tree_sitter::TreeCursor<'a>) -> Option<tree_sitter::Node<'a>> {
-            if cursor.node().kind() == NODE_CALL_EXPRESSION {
-                return Some(cursor.node());
-            }
-            
-            if cursor.goto_first_child() {
-                loop {
-                    if let Some(result) = find_call_expression(cursor) {
-                        return Some(result);
-                    }
-                    if !cursor.goto_next_sibling() {
-                        break;
-                    }
-                }
-                cursor.goto_parent();
-            }
-            None
-        }
-        
-        if let Some(call_node) = find_call_expression(&mut cursor) {
-            if let Some(args_node) = call_node.child(1) {
-                println!("Arguments node kind: {}", args_node.kind());
-                println!("Arguments node child count: {}", args_node.child_count());
-                
-                let non_comma_children: Vec<_> = (0..args_node.child_count())
-                    .filter_map(|i| args_node.child(i))
-                    .filter(|child| child.kind() != NODE_COMMA)
-                    .collect();
-                
-                println!("Non-comma children count: {}", non_comma_children.len());
-                for (i, child) in non_comma_children.iter().enumerate() {
-                    println!("  Child {}: kind='{}', text='{:?}'", i, child.kind(), child.utf8_text(content.as_bytes()));
-                }
-            }
-        }
-    }
-    
-    // This test is just for debugging - always pass
-    assert!(true);
-}
-
-#[test]
 fn test_valid_hex_color() {
     let diagnostics = UssDiagnostics::new();
     let mut parser = UssParser::new().unwrap();
@@ -487,8 +429,6 @@ fn test_invalid_hex_color_invalid_chars() {
     let content = "Button { border-right-color: #ffaapp; }";
     
     let tree = parser.parse(content, None).unwrap();
-
-    print_tree_to_stdout(tree.root_node(), content);
     
     let results = diagnostics.analyze(&tree, content);
     
@@ -523,6 +463,48 @@ fn test_valid_resource_function() {
     
     // Should not have any errors for valid resource function
     assert!(results.is_empty(), "Valid resource() function should not produce any errors. Found: {:?}", 
+        results.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn test_comments_in_declaration() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with comment after colon
+    let content_after_colon = r#"Button { 
+    color: /* comment */ red;
+}"#;
+    
+    let tree = parser.parse(content_after_colon, None).unwrap();
+    let results = diagnostics.analyze(&tree, content_after_colon);
+    
+    // Should not have any errors for valid declaration with comment
+    assert!(results.is_empty(), "Valid declaration with comment after colon should not produce any errors. Found: {:?}", 
+        results.iter().map(|e| &e.message).collect::<Vec<_>>());
+    
+    // Test case with comment between values
+    let content_between_values = r#"Button { 
+    margin: 10px /* comment */ 20px;
+}"#;
+    
+    let tree = parser.parse(content_between_values, None).unwrap();
+    let results = diagnostics.analyze(&tree, content_between_values);
+    
+    // Should not have any errors for valid declaration with comment between values
+    assert!(results.is_empty(), "Valid declaration with comment between values should not produce any errors. Found: {:?}", 
+        results.iter().map(|e| &e.message).collect::<Vec<_>>());
+    
+    // Test case with comment before semicolon
+    let content_before_semicolon = r#"Button { 
+    color: red /* comment */;
+}"#;
+    
+    let tree = parser.parse(content_before_semicolon, None).unwrap();
+    let results = diagnostics.analyze(&tree, content_before_semicolon);
+    
+    // Should not have any errors for valid declaration with comment before semicolon
+    assert!(results.is_empty(), "Valid declaration with comment before semicolon should not produce any errors. Found: {:?}", 
         results.iter().map(|e| &e.message).collect::<Vec<_>>());
 }
 
