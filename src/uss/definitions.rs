@@ -46,23 +46,25 @@ impl KeywordInfo {
         let mut content = format!("### Keyword `{}`\n", self.name);
         
         // Use property-specific documentation if available and requested
+        let mut is_property_doc = false;
         if let Some(prop_name) = property_name {
             if let Some(property_doc) = self.docs_for_property.get(prop_name) {
                 content.push_str(property_doc);
-                content.push_str(&format!("\n\n*Used with property: `{}`*", prop_name));
-                return content;
+                is_property_doc = true;
             }
         }
         
-        // Use default documentation
-        content.push_str(self.doc);
+        if !is_property_doc{
+            // Use default documentation
+            content.push_str(self.doc);
+        }
         
         // Add list of properties that use this keyword
         if !self.used_by_properties.is_empty() {
             content.push_str("\n\n**Used by properties:**\n");
             
             // Show first max_count properties, then "..." if there are more
-            let max_count = 10;
+            let max_count = 5;
             let display_count = std::cmp::min(self.used_by_properties.len(), max_count);
             for property in &self.used_by_properties[..display_count] {
                 content.push_str(&format!("- `{}`\n", property));

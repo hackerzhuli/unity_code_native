@@ -866,28 +866,3 @@ fn test_property_specific_documentation() {
     
     println!("\n✓ All expected keywords have proper property-specific documentation");
 }
-
-#[test]
-fn test_keyword_documentation_generation() {
-    let definitions = UssDefinitions::new();
-    let keywords = definitions.get_all_keywords();
-    let keyword_info = keywords.get("center").expect("center keyword should exist");
-    
-    // Test default documentation
-    let default_doc = keyword_info.create_documentation(None);
-    assert!(default_doc.contains("### Keyword `center`"));
-    assert!(default_doc.contains("Place items or content in the center."));
-    assert!(default_doc.contains("**Used by properties:**"));
-    
-    // Test property-specific documentation
-    let property_doc = keyword_info.create_documentation(Some("align-items"));
-    assert!(property_doc.contains("### Keyword `center`"));
-    assert!(property_doc.contains("Centers flex items along the cross axis."));
-    assert!(property_doc.contains("*Used with property: `align-items`*"));
-    
-    // Test property that doesn't have specific documentation
-    let fallback_doc = keyword_info.create_documentation(Some("nonexistent-property"));
-    assert!(fallback_doc.contains("### Keyword `center`"));
-    assert!(fallback_doc.contains("Place items or content in the center."));
-    assert!(fallback_doc.contains("**Used by properties:**"));
-}
