@@ -6,6 +6,9 @@
 use malva::{config::FormatOptions, format_text, Syntax};
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
+use crate::language::tree_utils::{byte_to_position, position_to_byte_offset, node_to_range};
+use crate::uss::parser::UssParser;
+use crate::uss::constants::NODE_ERROR;
 
 /// USS Formatter that handles formatting requests
 pub struct UssFormatter {
@@ -141,8 +144,11 @@ impl UssFormatter {
         let first_node = valid_nodes.first().unwrap();
         let last_node = valid_nodes.last().unwrap();
         
-        let range_start_pos = self.offset_to_position(content, first_node.start_byte())?;
-        let range_end_pos = self.offset_to_position(content, last_node.end_byte())?;
+        let first_range = node_to_range(*first_node, content);
+        let last_range = node_to_range(*last_node, content);
+        
+        let range_start_pos = first_range.start;
+        let range_end_pos = last_range.end;
         
         // Check if the range starts/ends cleanly (not in the middle of lines with other content)
         let start_line_idx = range_start_pos.line as usize;
@@ -174,7 +180,7 @@ impl UssFormatter {
 
     /// Check if a node or any of its descendants contains error nodes
     fn has_error_nodes(&self, node: Node) -> bool {
-        if node.is_error() || node.kind() == "ERROR" {
+        if node.is_error() || node.is_missing() || node.kind() == NODE_ERROR {
             return true;
         }
         
@@ -204,7 +210,7 @@ impl UssFormatter {
         
         if node_start < end_byte && node_end > start_byte {
             // Node overlaps with our range
-            if node.is_error() || node.kind() == "ERROR" {
+            if node.is_error() || node.is_missing() || node.kind() == NODE_ERROR {
                 return true;
             }
         }
@@ -234,28 +240,8 @@ impl UssFormatter {
 
     /// Convert LSP position to byte offset
     fn position_to_offset(&self, content: &str, position: Position) -> Result<usize, String> {
-        let lines: Vec<&str> = content.lines().collect();
-        
-        if position.line as usize >= lines.len() {
-            return Err(format!("Line {} is out of bounds", position.line));
-        }
-        
-        let mut offset = 0;
-        
-        // Add bytes for all previous lines (including newline characters)
-        for i in 0..position.line as usize {
-            offset += lines[i].len() + 1; // +1 for newline character
-        }
-        
-        // Add bytes for characters in the current line
-        let current_line = lines[position.line as usize];
-        if position.character as usize > current_line.len() {
-            return Err(format!("Character {} is out of bounds for line {}", position.character, position.line));
-        }
-        
-        offset += position.character as usize;
-        
-        Ok(offset)
+        position_to_byte_offset(content, position)
+            .ok_or_else(|| format!("Invalid position: line {}, character {}", position.line, position.character))
     }
 
     /// Convert byte offset to LSP position
@@ -263,31 +249,7 @@ impl UssFormatter {
         if offset > content.len() {
             return Err(format!("Offset {} is out of bounds", offset));
         }
-        
-        let mut current_offset = 0;
-        let mut line = 0;
-        
-        for line_content in content.lines() {
-            let line_end = current_offset + line_content.len();
-            
-            if offset <= line_end {
-                // The offset is within this line
-                let character = offset - current_offset;
-                return Ok(Position {
-                    line: line as u32,
-                    character: character as u32,
-                });
-            }
-            
-            current_offset = line_end + 1; // +1 for newline character
-            line += 1;
-        }
-        
-        // If we reach here, the offset is at the very end of the file
-        Ok(Position {
-            line: line as u32,
-            character: 0,
-        })
+        Ok(byte_to_position(offset, content))
     }
 
     /// Get the end position of the document
@@ -313,13 +275,9 @@ impl Default for UssFormatter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tree_sitter::{Parser, Language};
 
-    fn create_parser() -> Parser {
-        let mut parser = Parser::new();
-        let language = tree_sitter_css::language();
-        parser.set_language(language).expect("Error loading CSS language");
-        parser
+    fn create_parser() -> UssParser {
+        UssParser::new().expect("Error creating USS parser")
     }
 
     #[test]
