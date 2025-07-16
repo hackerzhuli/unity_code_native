@@ -64,13 +64,14 @@ impl KeywordInfo {
             
             content.push_str("\n\n**Used by properties:**\n");
             
-            // Show first 10 properties, then "..." if there are more
-            let display_count = std::cmp::min(properties.len(), 10);
+            // Show first max_count properties, then "..." if there are more
+            let max_count = 5;
+            let display_count = std::cmp::min(properties.len(), max_count);
             for property in &properties[..display_count] {
                 content.push_str(&format!("- `{}`\n", property));
             }
             
-            if properties.len() > 10 {
+            if properties.len() > max_count {
                 content.push_str("- ...\n");
             }
         }

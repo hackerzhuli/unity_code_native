@@ -94,7 +94,7 @@ impl UssCompletionProvider {
         if let Some(current_node) = context.current_node {
             match context.t {
                 CompletionType::PropertyValue { property_name } => {
-                    self.complete_property_value(&property_name, current_node, content)
+                    self.complete_property_value(&property_name, current_node, content, unity_version.as_str())
                 }
                 CompletionType::Property => self.complete_property_names(
                     context.current_node,
@@ -344,6 +344,7 @@ impl UssCompletionProvider {
         property_name: &str,
         current_node: Node,
         content: &str,
+        unity_version: &str,
     ) -> Vec<CompletionItem> {
         // Implement simple auto-completion logic:
         // 1. If current node is colon, show all common values
@@ -416,19 +417,34 @@ impl UssCompletionProvider {
                 }
 
                 // Check if this value is a keyword and get its documentation
-                let documentation = self.definitions.get_keyword_info(value)
-                    .map(|keyword_info| {
-                        let doc_content = keyword_info.create_documentation(Some(property_name));
-                        Documentation::MarkupContent(MarkupContent {
-                            kind: MarkupKind::Markdown,
-                            value: doc_content,
+                // Special case: for transition-property, treat values as property names first
+                let mut documentation = if property_name == "transition-property" {
+                    self.definitions.get_property_info(value)
+                        .map(|property_info| {
+                            let doc_content = property_info.create_documentation(value, unity_version);
+                            Documentation::MarkupContent(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: doc_content,
+                            })
                         })
-                    });
+                }else {
+                    None
+                };
+
+                if documentation.is_none() {
+                    documentation = self.definitions.get_keyword_info(value)
+                        .map(|keyword_info| {
+                            let doc_content = keyword_info.create_documentation(Some(property_name));
+                            Documentation::MarkupContent(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: doc_content,
+                            })
+                        })
+                }
 
                 let item = CompletionItem {
                     label: value.to_string(),
                     kind: Some(CompletionItemKind::VALUE),
-                    detail: Some(format!("Value for {}", property_name)),
                     documentation,
                     insert_text: Some(text),
                     insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
