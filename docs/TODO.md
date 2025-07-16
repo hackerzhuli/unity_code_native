@@ -22,7 +22,8 @@ TODO list:
 - [x] Property value auto completion: we should always provide auto completion for property value if a property can be a single value of keywords(unless it is a color property or other properties that have an dedicated completion logic), we only show the keywords.
 - [x] Dedicated autocompletion for `transition-property`, completion with animatable properties.
 - [x] For properties that supports multiple values, we should trigger completion after comma just like after colon, a new value, same completion logic.
-- [ ] Bug: Auto completion for property names doesn't work if we are typing (at least one character) before another valid property in a block. 
+- [ ] Bug: Auto completion for property names doesn't work if we are typing (at least one character) before another valid property in a block.
+- [ ] We should make sure our list of color and their hex value are identical to what's shown in Unity's offcial docs, add a test for that.
 
 TODO for consideration:
 - [ ] (We should do this later, it is complex because it involves Unity Editor) Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy
