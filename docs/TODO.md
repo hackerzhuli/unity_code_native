@@ -17,7 +17,7 @@ TODO list:
 - [x] Add support for diagnostics for comma seperated values(eg. transitions), for now we just treat any property can be comma seperated, keep it simple. In the future we might be more specific.
 - [x] Check our value spec against the format string and find problems with our value spec, make sure our value spec is solid
 - [x] ~~`transform` seems to be a special property for `transition-property` because Unity doesn't actually have this property but allow to use it in `transition-property` value, is this true? we need to confirm.~~
-- [ ] We need to have a complete list of keywords(not including color keywords), though some may not contain documentation.
+- [x] We need to have a complete list of keywords(not including color keywords), though some may not contain documentation.
 - [ ] Add a simple refactor feature (ie. code action) that is renaming id selectors and class selectors in a document.
 - [x] Property value auto completion: we should always provide auto completion for property value if a property can be a single value of keywords(unless it is a color property or other properties that have an dedicated completion logic), we only show the keywords.
 - [x] Dedicated autocompletion for `transition-property`, completion with animatable properties.
