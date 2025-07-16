@@ -16,7 +16,7 @@ fn create(name: &'static str, doc: &'static str, properties: &[&'static str]) ->
     }
     KeywordInfo {
         name,
-        doc: Some(doc),
+        doc,
         used_by_properties,
         docs_for_property: HashMap::new(),
     }
