@@ -23,12 +23,15 @@ pub struct KeywordInfo {
     /// from what properties are these keywords used by
     /// if a keyword is used by all properties
     pub used_by_properties: HashSet<&'static str>,
+    /// docs when the keyword is used by specific property
+    /// this is used only when a keyword means different thing in different properties
+    pub docs_for_property: HashMap<&'static str, &'static str>,
 }
 
 impl KeywordInfo {
     /// Create a new KeywordInfo
     pub fn new(name: &'static str, doc: &'static str) -> Self {
-        Self { name, doc: Some(doc), used_by_properties: HashSet::new() }
+        Self { name, doc: Some(doc), used_by_properties: HashSet::new(), docs_for_property: HashMap::new() }
     }
 }
 
