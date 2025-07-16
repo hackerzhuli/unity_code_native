@@ -7,7 +7,6 @@ use malva::{config::FormatOptions, format_text, Syntax};
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use crate::language::tree_utils::{byte_to_position, position_to_byte_offset, node_to_range};
-use crate::uss::parser::UssParser;
 use crate::uss::constants::NODE_ERROR;
 
 /// USS Formatter that handles formatting requests
@@ -21,11 +20,6 @@ impl UssFormatter {
         Self {
             format_options: FormatOptions::default(),
         }
-    }
-
-    /// Create a new USS formatter with custom options
-    pub fn new_with_options(format_options: FormatOptions) -> Self {
-        Self { format_options }
     }
 
     /// Format the entire document
@@ -274,6 +268,8 @@ impl Default for UssFormatter {
 
 #[cfg(test)]
 mod tests {
+    use crate::uss::parser::UssParser;
+
     use super::*;
 
     fn create_parser() -> UssParser {

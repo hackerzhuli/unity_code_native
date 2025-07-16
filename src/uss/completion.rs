@@ -144,7 +144,7 @@ impl UssCompletionProvider {
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
                 // Check for incomplete @import statements first
                 if let Some(import_context) =
-                    self.analyze_incomplete_import_context(current_node, content, position)
+                    self.analyze_incomplete_import_context(current_node, content)
                 {
                     return import_context;
                 }
@@ -868,7 +868,6 @@ impl UssCompletionProvider {
         &self,
         current_node: Node<'a>,
         content: &str,
-        position: Position,
     ) -> Option<CompletionContext<'a>> {
         let kind = current_node.kind();
         // First is this node an incomplete import keyword or a complete import keyword

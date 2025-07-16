@@ -68,11 +68,6 @@ impl Color {
         (self.r, self.g, self.b)
     }
 
-    /// Get RGBA components as a tuple
-    pub fn rgba(&self) -> (u8, u8, u8, f32) {
-        (self.r, self.g, self.b, self.a)
-    }
-
     /// Convert to hex string format (#rrggbb)
     pub fn to_hex(&self) -> String {
         format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)

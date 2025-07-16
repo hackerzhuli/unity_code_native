@@ -35,7 +35,6 @@ impl UssDocumentManager {
             UssDocument::new_with_document_version(
                 uri.clone(),
                 content,
-                version,
                 DocumentVersion { major: new_major, minor: version },
                 true
             )
@@ -86,48 +85,12 @@ impl UssDocumentManager {
         self.documents.get_mut(uri)
     }
     
-    /// Get all document URIs
-    pub fn document_uris(&self) -> impl Iterator<Item = &Url> {
-        self.documents.keys()
-    }
-    
-
-    
-    /// Get the document version for a specific document
-    pub fn get_document_version(&self, uri: &Url) -> Option<DocumentVersion> {
-        self.documents.get(uri).map(|doc| doc.document_version())
-    }
-    
     /// Check if a document is currently open in a client
     pub fn is_document_open(&self, uri: &Url) -> bool {
         self.documents
             .get(uri)
             .map(|doc| doc.is_open())
             .unwrap_or(false)
-    }
-    
-    /// Increment filesystem version for a closed document
-    /// This should be called when filesystem changes are detected for documents not open in clients
-    pub fn increment_filesystem_version(&mut self, uri: &Url) {
-        if let Some(document) = self.documents.get_mut(uri) {
-            document.increment_filesystem_version();
-        }
-    }
-    
-    /// Get all open document URIs
-    pub fn open_document_uris(&self) -> impl Iterator<Item = &Url> {
-        self.documents
-            .iter()
-            .filter(|(_, doc)| doc.is_open())
-            .map(|(uri, _)| uri)
-    }
-    
-    /// Get all closed document URIs
-    pub fn closed_document_uris(&self) -> impl Iterator<Item = &Url> {
-        self.documents
-            .iter()
-            .filter(|(_, doc)| !doc.is_open())
-            .map(|(uri, _)| uri)
     }
 }
 

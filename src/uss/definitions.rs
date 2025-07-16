@@ -363,24 +363,9 @@ impl UssDefinitions {
         self.get_keywords().get(keyword_name)
     }
     
-    /// Check if a keyword is valid
-    pub fn is_valid_keyword(&self, keyword_name: &str) -> bool {
-        self.get_keywords().contains_key(keyword_name)
-    }
-
-    /// Get all keywords with their information
-    pub fn get_all_keywords(&self) -> &HashMap<&'static str, KeywordInfo> {
-        self.get_keywords()
-    }
-    
     /// Get pseudo-class information by name
     pub fn get_pseudo_class_info(&self, pseudo_class_name: &str) -> Option<&PseudoClassInfo> {
         self.pseudo_classes.get(pseudo_class_name)
-    }
-    
-    /// Get all pseudo-classes with their information
-    pub fn get_all_pseudo_classes(&self) -> &HashMap<&'static str, PseudoClassInfo> {
-        &self.pseudo_classes
     }
 }
 

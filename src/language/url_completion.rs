@@ -297,7 +297,7 @@ impl UrlCompletionProvider {
                         };
                         Ok(vec![asset_item])
                     }
-                    Err(AssetDatabaseError { message }) => {
+                    Err(AssetDatabaseError { message: _message }) => {
                         // Asset doesn't exist, no query completion
                         Ok(Vec::new())
                     }

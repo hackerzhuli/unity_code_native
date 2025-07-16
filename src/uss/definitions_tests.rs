@@ -206,7 +206,7 @@ fn test_properties_against_source_data() {
                  for node in element.children() {
                      if let Some(text_node) = node.value().as_text() {
                          text.push_str(text_node);
-                     } else if let Some(child_element) = node.value().as_element() {
+                     } else if let Some(_child_element) = node.value().as_element() {
                          let child_ref = scraper::ElementRef::wrap(node).unwrap();
                          collect_text_excluding_tooltips(child_ref, text);
                      }
@@ -349,7 +349,7 @@ fn test_properties_against_markdown_format() {
     let lines: Vec<&str> = md_content.lines().collect();
     let mut in_css_example = false;
     
-    for (i, line) in lines.iter().enumerate() {
+    for (_i, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
         
         // Check if we're entering or leaving a code block

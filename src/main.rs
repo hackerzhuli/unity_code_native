@@ -7,7 +7,8 @@ pub mod uxml_schema_manager;
 mod dir_changed;
 mod uss;
 mod language;
-mod test_utils;
+#[cfg(test)]
+pub mod test_utils;
 
 use std::env;
 use std::path::PathBuf;

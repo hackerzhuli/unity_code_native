@@ -738,7 +738,7 @@ Button {
     let tree = parser.parse(content, None).unwrap();
     // use a more realistic url for the uss file
     let url = Url::parse("project:///Assets/UI/a.uss").unwrap();
-    let (diagnostics_result, url_references) = diagnostics.analyze_with_variables(&tree, content, Some(&url), None);
+    let (_diagnostics_result, url_references) = diagnostics.analyze_with_variables(&tree, content, Some(&url), None);
 
     // Check that we have the expected number of URLs (3: one string import, one url() import, two url() functions)
     // Note: String imports that are valid URLs will be collected

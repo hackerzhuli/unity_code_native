@@ -103,8 +103,6 @@ pub const NODE_COMMENT: &str = "comment";
 pub const NODE_ERROR: &str = "ERROR";
 
 // URI schemes (for validation)
-/// File URI scheme for local file references
-pub const FILE_SCHEME: &str = "file";
 /// Unity project URI scheme for project-relative references
 pub const PROJECT_SCHEME: &str = "project";
 

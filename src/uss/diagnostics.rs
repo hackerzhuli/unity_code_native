@@ -118,27 +118,6 @@ impl UssDiagnostics {
         let root_node = tree.root_node();
         tree_printer::print_tree_to_stdout(root_node, content);
     }
-    
-    /// Recursively walk the syntax tree and validate nodes with variable resolver support
-    fn walk_node_with_variables(
-        &self,
-        node: Node,
-        content: &str,
-        source_url: Option<&Url>,
-        variable_resolver: Option<&VariableResolver>,
-        diagnostics: &mut Vec<Diagnostic>,
-        url_references: &mut Vec<UrlReference>,
-    ) {
-        self.walk_node_with_variables_and_classes(
-            node,
-            content,
-            source_url,
-            variable_resolver,
-            None,
-            diagnostics,
-            url_references,
-        );
-    }
 
     /// Recursively walk the syntax tree and validate nodes with variable resolver and UXML class names support
     fn walk_node_with_variables_and_classes(
@@ -1144,7 +1123,7 @@ impl UssDiagnostics {
                             }
                         }
                     }
-                    UssValue::Url(url) => {}
+                    UssValue::Url(_url) => {}
                     _ => {
                         // Import value is neither a string nor a url function
                         let range = node_to_range(value_node, content);

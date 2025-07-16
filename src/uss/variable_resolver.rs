@@ -21,7 +21,6 @@
 //!   - `Unresolved`: Exists but cannot be resolved due to missing dependencies or circular references
 
 use std::collections::{HashMap, HashSet};
-use tower_lsp::lsp_types::Range;
 use tree_sitter::Node;
 use crate::uss::value::UssValue;
 use crate::uss::constants::*;
@@ -93,11 +92,6 @@ impl VariableResolver {
     /// Get a specific variable by name
     pub fn get_variable(&self, name: &str) -> Option<&VariableStatus> {
         self.variables.get(name)
-    }
-
-    /// Check if variables have been resolved
-    pub fn are_variables_resolved(&self) -> bool {
-        self.resolved
     }
 
     /// Extract variable declarations and their values from a syntax tree in a single pass with source URL

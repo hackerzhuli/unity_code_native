@@ -1,12 +1,11 @@
 //! USS Document
 //!
 //! Represents a single USS document with its content, syntax tree, and version.
-use std::collections::HashMap;
 use tower_lsp::lsp_types::{Position, Range, TextDocumentContentChangeEvent, Url};
 use tree_sitter::{InputEdit, Point, Tree};
 
 use crate::uss::parser::UssParser;
-use crate::uss::variable_resolver::{VariableResolver, VariableStatus};
+use crate::uss::variable_resolver::VariableResolver;
 use crate::language::document::DocumentVersion;
 
 /// Represents a USS document with its content, syntax tree, and version
@@ -44,7 +43,7 @@ impl UssDocument {
     }
     
     /// Create a new USS document with explicit document version
-    pub fn new_with_document_version(uri: Url, content: String, version: i32, document_version: DocumentVersion, is_open: bool) -> Self {
+    pub fn new_with_document_version(uri: Url, content: String, document_version: DocumentVersion, is_open: bool) -> Self {
         let line_starts = Self::calculate_line_starts(&content);
         Self {
             uri,
@@ -232,40 +231,6 @@ impl UssDocument {
         &self.content
     }
     
-
-    
-
-
-    /// Get all variables defined in this document
-    /// 
-    /// **Note**: The variable resolver has limitations:
-    /// - Only resolves variables defined within this document
-    /// - Does not support imported variables from other USS files
-    /// - Variable resolution may be incomplete in complex scenarios
-    pub fn get_variables(&self) -> &HashMap<String, VariableStatus> {
-        self.variable_resolver.get_variables()
-    }
-
-    /// Get a specific variable by name
-    /// 
-    /// **Note**: The variable resolver has limitations:
-    /// - Only resolves variables defined within this document
-    /// - Does not support imported variables from other USS files
-    /// - Variable resolution may be incomplete in complex scenarios
-    pub fn get_variable(&self, name: &str) -> Option<&VariableStatus> {
-        self.variable_resolver.get_variable(name)
-    }
-
-    /// Check if variables have been resolved
-    /// 
-    /// **Note**: The variable resolver has limitations:
-    /// - Only resolves variables defined within this document
-    /// - Does not support imported variables from other USS files
-    /// - Variable resolution may be incomplete in complex scenarios
-    pub fn are_variables_resolved(&self) -> bool {
-        self.variable_resolver.are_variables_resolved()
-    }
-    
     /// Re-extract and resolve variables with a source URL for proper relative URL resolution
     /// This should be called after parsing when the project URL is available
     pub fn extract_variables_with_source_url(&mut self, source_url: Option<&Url>) {
@@ -348,11 +313,6 @@ impl UssDocument {
         if !self.is_open {
             self.document_version.minor += 1;
         }
-    }
-    
-    /// Set the document version explicitly
-    pub fn set_document_version(&mut self, version: DocumentVersion) {
-        self.document_version = version;
     }
 }
 
@@ -496,7 +456,7 @@ mod tests {
         let content = ".test { color: red; }".to_string();
         let version = DocumentVersion { major: 5, minor: 3 };
         
-        let doc = UssDocument::new_with_document_version(uri, content, 1, version, true);
+        let doc = UssDocument::new_with_document_version(uri, content, version, true);
         
         assert_eq!(doc.document_version().major, 5);
         assert_eq!(doc.document_version().minor, 3);

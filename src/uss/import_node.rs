@@ -46,7 +46,7 @@ impl<'a> ImportNode<'a> {
 
         // Import statement structure: import_statement -> @import + (string_value | call_expression) + semicolon
         // Find the value child that contains the import path (either string or url() function)
-        let mut import_value_node = None;
+        let import_value_node;
 
         // first node must be @import, second node is url function or a string, third node must be ; to end the statement, and nothing after that
         // the tree says it is a import statement, so we assume tree sitter already checked so no need to check that

@@ -1,19 +1,7 @@
 use tower_lsp::lsp_types::{CompletionItemKind, Position};
-use tree_sitter::Node;
 use crate::language::tree_printer::print_tree;
 use crate::test_utils::get_project_root;
 use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
-
-// Helper function to print tree structure for debugging
-fn print_tree_recursive(node: Node, content: &str, depth: usize) {
-    let indent = "  ".repeat(depth);
-    let text = node.utf8_text(content.as_bytes()).unwrap_or("<invalid>");
-    println!("{}{}[{}]: '{}'", indent, node.kind(), node.id(), text);
-
-    for child in node.children(&mut node.walk()) {
-        print_tree_recursive(child, content, depth + 1);
-    }
-}
 
 #[test]
 fn test_completion_provider_creation() {
@@ -379,7 +367,7 @@ fn test_property_value_simple_completion_after_colon() {
 
     // Test case: cursor right after colon
     let content = ".some { \n    color: \n}";
-    let length = content.len();
+    let _length = content.len();
     let tree = parser.parse(content, None).unwrap();
 
     // Position right at the colon (line 1, character 9 - at the ':')
@@ -474,7 +462,7 @@ fn test_property_value_completion_after_typing_keyword() {
 
     // Test case: cursor right after ro
     let content = ".some { \n    flex-direction: ro \n}";
-    let length = content.len();
+    let _length = content.len();
     let tree = parser.parse(content, None).unwrap();
 
     // Position right after ro

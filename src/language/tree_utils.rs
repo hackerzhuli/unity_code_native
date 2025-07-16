@@ -113,7 +113,7 @@ pub fn find_node_of_type_at_position<'a>(
     // Walk up the tree to find a node of one of the target types
     loop {
         let current_kind = current.kind();
-        let current_text = current.utf8_text(source.as_bytes()).unwrap();
+        let _current_text = current.utf8_text(source.as_bytes()).unwrap();
         if target_type == current_kind {
             return Some(current);
         }
