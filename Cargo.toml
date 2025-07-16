@@ -17,6 +17,7 @@ tokio = { version = "1.0", features = ["macros", "rt", "net", "io-util", "io-std
 tower-lsp = "0.20"
 tree-sitter = "0.20"
 tree-sitter-css = "0.20"
+malva = "0.8"
 log = { version = "0.4", features = ["std"] }
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
@@ -30,6 +31,10 @@ notify = "6.1"
 [dev-dependencies]
 tempfile = "3.0"
 scraper = "0.20"
+
+[[example]]
+name = "tree_dumper"
+path = "examples/tree_dumper.rs"
 
 # development release build for fast builds during iterative development
 [profile.release-fast]

@@ -16,6 +16,7 @@ use crate::uss::completion::UssCompletionProvider;
 use crate::uss::constants::*;
 use crate::uss::diagnostics::UssDiagnostics;
 use crate::uss::document_manager::UssDocumentManager;
+use crate::uss::formatter::UssFormatter;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::hover::UssHoverProvider;
 use crate::uxml_schema_manager::UxmlSchemaManager;
@@ -39,6 +40,7 @@ struct UssServerState {
     hover_provider: UssHoverProvider,
     color_provider: UssColorProvider,
     completion_provider: UssCompletionProvider,
+    formatter: UssFormatter,
     unity_manager: UnityProjectManager,
 }
 
@@ -53,6 +55,7 @@ impl UssLanguageServer {
             hover_provider: UssHoverProvider::new(),
             color_provider: UssColorProvider::new(),
             completion_provider: UssCompletionProvider::new_with_project_root(&project_path),
+            formatter: UssFormatter::new(),
             unity_manager: UnityProjectManager::new(project_path.clone()),
         };
 
@@ -177,6 +180,8 @@ impl LanguageServer for UssLanguageServer {
                     work_done_progress_options: WorkDoneProgressOptions::default(),
                     completion_item: None,
                 }),
+                document_formatting_provider: Some(OneOf::Left(true)),
+                document_range_formatting_provider: Some(OneOf::Left(true)),
                 ..Default::default()
             },
             ..Default::default()
@@ -487,6 +492,84 @@ impl LanguageServer for UssLanguageServer {
         } else {
             Ok(Vec::new())
         }
+    }
+
+    async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
+        let uri = params.text_document.uri;
+
+        let result = if let Ok(state) = self.state.lock() {
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                if let Some(tree) = document.tree() {
+                    match state.formatter.format_document(document.content(), tree) {
+                        Ok(edits) => {
+                            if edits.is_empty() {
+                                log::debug!("No formatting changes needed for {}", uri);
+                                None
+                            } else {
+                                log::info!("Applied {} formatting edits to {}", edits.len(), uri);
+                                Some(edits)
+                            }
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to format document {}: {}", uri, e);
+                            None
+                        }
+                    }
+                } else {
+                    log::warn!("No syntax tree available for formatting: {}", uri);
+                    None
+                }
+            } else {
+                log::warn!("Document not found for formatting: {}", uri);
+                None
+            }
+        } else {
+            log::error!("Failed to acquire state lock for formatting");
+            None
+        };
+
+        Ok(result)
+    }
+
+    async fn range_formatting(
+        &self,
+        params: DocumentRangeFormattingParams,
+    ) -> Result<Option<Vec<TextEdit>>> {
+        let uri = params.text_document.uri;
+        let range = params.range;
+
+        let result = if let Ok(state) = self.state.lock() {
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                if let Some(tree) = document.tree() {
+                    match state.formatter.format_range(document.content(), tree, range) {
+                        Ok(edits) => {
+                            if edits.is_empty() {
+                                log::debug!("No range formatting changes needed for {} at {:?}", uri, range);
+                                None
+                            } else {
+                                log::info!("Applied {} range formatting edits to {} at {:?}", edits.len(), uri, range);
+                                Some(edits)
+                            }
+                        }
+                        Err(e) => {
+                            log::warn!("Failed to format range in document {}: {}", uri, e);
+                            None
+                        }
+                    }
+                } else {
+                    log::warn!("No syntax tree available for range formatting: {}", uri);
+                    None
+                }
+            } else {
+                log::warn!("Document not found for range formatting: {}", uri);
+                None
+            }
+        } else {
+            log::error!("Failed to acquire state lock for range formatting");
+            None
+        };
+
+        Ok(result)
     }
 }
 

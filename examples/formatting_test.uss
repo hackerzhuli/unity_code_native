@@ -1,0 +1,60 @@
+/* Test file for USS formatting capabilities */
+
+/* Unformatted CSS rules with various issues */
+.badly-formatted{background-color:#ff0000;color:white;padding:10px;margin:5px;}
+
+.another-class   {
+    width:100px;
+    height   :   200px   ;
+    border-radius: 5px   ;
+}
+
+/* Nested selectors and complex formatting */
+#main-container > .child-element {
+flex-direction: column;
+align-items:center;
+justify-content:space-between;
+}
+
+/* Variables and functions */
+:root{
+--primary-color:#3498db;
+--secondary-color:rgba(255,0,0,0.5);
+}
+
+.with-variables{
+background-color:var(--primary-color);
+color:var(--secondary-color);
+transform:translateX(10px) rotate(45deg);
+}
+
+/* Import statements */
+@import"common.uss";
+@import url("another-file.uss");
+
+/* Comments and spacing issues */
+.spacing-issues{/*inline comment*/width:50px;/*another comment*/height:50px;}
+
+/* Multi-line declarations */
+.multi-line {
+    background-image: url("very-long-image-path-that-might-need-wrapping.png");
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Unity-specific properties */
+.unity-specific {
+    -unity-font: resource("Fonts/Arial");
+    -unity-background-scale-mode: stretch-to-fill;
+    -unity-text-align: middle-center;
+}
+
+/* Pseudo-classes */
+Button:hover{background-color:#2980b9;}
+Button:active   {   background-color   :   #1f5f8b   ;   }
+
+/* Missing semicolons and other syntax issues */
+.syntax-issues {
+    width: 100px
+    height: 200px;
+    color: red
+}
