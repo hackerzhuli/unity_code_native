@@ -22,7 +22,7 @@ TODO list:
 - [x] Property value auto completion: we should always provide auto completion for property value if a property can be a single value of keywords(unless it is a color property or other properties that have an dedicated completion logic), we only show the keywords.
 - [x] Dedicated autocompletion for `transition-property`, completion with animatable properties.
 - [x] For properties that supports multiple values, we should trigger completion after comma just like after colon, a new value, same completion logic.
-- [ ] Bug: Auto completion for property names doesn't work if we are typing (at least one character) before another valid property in a block.
+- [x] Bug: Auto completion for property names doesn't work if we are typing (at least one character) before another valid property in a block.
 - [ ] We should make sure our list of color and their hex value are identical to what's shown in Unity's offcial docs, add a test for that.
 
 TODO for consideration:
