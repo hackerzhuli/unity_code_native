@@ -19,19 +19,24 @@ pub struct KeywordInfo {
     /// The keyword name
     pub name: &'static str,
     /// Markdown documentation for the keyword (default)
-    pub doc: &'static str,
+    doc: &'static str,
     /// from what properties are these keywords used by
     /// if a keyword is used by all properties
     pub used_by_properties: HashSet<&'static str>,
     /// docs when the keyword is used by specific property, this should override the doc fileld for a specific property
     /// this is used only when a keyword means different thing in different properties
-    pub docs_for_property: HashMap<&'static str, &'static str>,
+    docs_for_property: HashMap<&'static str, &'static str>,
 }
 
 impl KeywordInfo {
     /// Create a new KeywordInfo
     pub fn new(name: &'static str, doc: &'static str) -> Self {
         Self { name, doc, used_by_properties: HashSet::new(), docs_for_property: HashMap::new() }
+    }
+
+    /// Create a new KeywordInfo
+    pub fn new_with_property_docs(name: &'static str, doc: &'static str, used_by_properties: HashSet<&'static str>, docs_for_property: HashMap<&'static str, &'static str>) -> Self {
+        Self { name, doc, used_by_properties, docs_for_property}
     }
 }
 

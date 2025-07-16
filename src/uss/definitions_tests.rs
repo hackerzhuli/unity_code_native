@@ -831,11 +831,7 @@ fn test_property_specific_documentation() {
         ("visible", vec!["overflow", "visibility"]),
         ("hidden", vec!["overflow", "visibility"]),
         ("normal", vec!["white-space", "-unity-font-style"]),
-        ("top", vec!["background-position", "transform-origin"]),
-        ("all", vec!["transition-property"]),
-        ("flex", vec!["display"]),
-        ("text", vec!["cursor"]),
-        ("start", vec!["-unity-text-overflow-position"]),
+        ("top", vec!["background-position", "transform-origin"])
     ];
     
     for (keyword, properties) in test_cases {

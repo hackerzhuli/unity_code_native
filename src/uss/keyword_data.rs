@@ -10,16 +10,7 @@ use crate::uss::value_spec::ValueType;
 
 /// Helper function to create a KeywordInfo with specified properties
 fn create(name: &'static str, doc: &'static str, properties: &[&'static str]) -> KeywordInfo {
-    let mut used_by_properties = HashSet::new();
-    for prop in properties {
-        used_by_properties.insert(*prop);
-    }
-    KeywordInfo {
-        name,
-        doc,
-        used_by_properties,
-        docs_for_property: HashMap::new(),
-    }
+    create_with_property_docs(name, doc, properties, &[])
 }
 
 /// Helper function to create a KeywordInfo with property-specific documentation
@@ -32,12 +23,7 @@ fn create_with_property_docs(name: &'static str, doc: &'static str, properties: 
     for (prop, prop_doc) in property_docs {
         docs_for_property.insert(*prop, *prop_doc);
     }
-    KeywordInfo {
-        name,
-        doc,
-        used_by_properties,
-        docs_for_property,
-    }
+    KeywordInfo::new_with_property_docs(name, doc, used_by_properties, docs_for_property)
 }
 
 /// Create a map of all USS keywords with their documentation
@@ -114,9 +100,7 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     keywords.insert("contain", create("contain", "Scale the image to fit entirely within the container.", &["background-size"]));
     
     // Display keywords
-    keywords.insert("flex", create_with_property_docs("flex", "Layout the element with flexbox model.", &["display"], &[
-        ("display", "Layout the element using the flexbox model.")
-    ]));
+    keywords.insert("flex", create("flex", "Layout the element with flexbox model.", &["display"]));
     
     // Flex direction keywords
     keywords.insert("row", create("row", "The flex container's main axis is horizontal (left to right).", &["flex-direction"]));
@@ -147,9 +131,7 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     keywords.insert("ellipsis", create("ellipsis", "Text is clipped and an ellipsis (...) is displayed.", &["text-overflow"]));
     
     // All keyword with different meanings
-    keywords.insert("all", create_with_property_docs("all", "All properties that can transition will transition.", &["transition-property"], &[
-        ("transition-property", "All properties that can transition will transition.")
-    ]));
+    keywords.insert("all", create("all", "All properties that can transition will transition.", &["transition-property"]));
     
     // Transition timing function keywords
     keywords.insert("ease", create("ease", "Slow start, fast middle, slow end (cubic-bezier(0.25, 0.1, 0.25, 1)).", &["transition-timing-function", "transition"]));
@@ -225,9 +207,7 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     keywords.insert("advanced", create("advanced", "Advanced Text Generator is a text rendering module that employs Harfbuzz, ICU, and FreeType to deliver comprehensive Unicode support and text shaping capabilities. With Advanced Text Generator, you can use a wide array of languages and scripts, such as right-to-left (RTL) languages like Arabic and Hebrew.", &["-unity-text-generator"]));
     
     // Unity text overflow position keywords
-    keywords.insert("start", create_with_property_docs("start", "Text overflow occurs at the start.", &["-unity-text-overflow-position"], &[
-        ("-unity-text-overflow-position", "Text overflow occurs at the start of the text.")
-    ]));
+    keywords.insert("start", create("start", "Text overflow occurs at the start.", &["-unity-text-overflow-position"]));
     keywords.insert("middle", create_with_property_docs("middle", "Text overflow occurs in the middle.", &["-unity-text-overflow-position"], &[
         ("-unity-text-overflow-position", "Text overflow occurs in the middle of the text.")
     ]));
