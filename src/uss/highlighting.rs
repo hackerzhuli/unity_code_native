@@ -191,10 +191,21 @@ impl UssHighlighter {
         let start = node.start_position();
         let end = node.end_position();
         
+        // Calculate proper length for multiline tokens
+        let length = if start.row == end.row {
+            // Single line token - use column difference
+            (end.column - start.column) as u32
+        } else {
+            // Multiline token - calculate actual byte length
+            let start_byte = node.start_byte();
+            let end_byte = node.end_byte();
+            (end_byte - start_byte) as u32
+        };
+        
         tokens.push(RawToken {
             line: start.row as u32,
             start_char: start.column as u32,
-            length: (end.column - start.column) as u32,
+            length,
             token_type,
             modifiers,
         });
@@ -298,5 +309,27 @@ mod tests {
         // Check that we have NUMBER tokens (type 4) for color keywords
         let has_color_tokens = tokens.iter().any(|token| token.token_type == 4);
         assert!(has_color_tokens, "Should highlight color keywords as NUMBER tokens");
+    }
+    
+    #[test]
+    fn test_multiline_comment_highlighting() {
+        let mut parser = UssParser::new().expect("Failed to create parser");
+        let content = "/* This is a single line comment */\n.test {\n    color: red;\n}\n\n/* This is a\n   multiline comment\n   spanning multiple lines */\n.another {\n    background-color: blue;\n}";
+        let tree = parser.parse(content, None).expect("Failed to parse");
+        
+        let highlighter = UssHighlighter::new();
+        let tokens = highlighter.generate_tokens(&tree, content);
+        
+        // Check that we have comment tokens
+        let comment_tokens: Vec<_> = tokens.iter().filter(|token| token.token_type == 6).collect();
+        
+        // Should have exactly 2 comment tokens (single line and multiline)
+        assert_eq!(comment_tokens.len(), 2, "Should have exactly 2 comment tokens");
+        
+        // First comment (single line) should have length 35
+        assert_eq!(comment_tokens[0].length, 35, "Single line comment should have correct length");
+        
+        // Second comment (multiline) should have length 63 (actual byte length)
+        assert_eq!(comment_tokens[1].length, 63, "Multiline comment should have correct byte length");
     }
 }
