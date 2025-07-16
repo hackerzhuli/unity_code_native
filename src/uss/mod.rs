@@ -54,7 +54,4 @@ mod import_node_tests;
 mod function_node_tests;
 
 #[cfg(test)]
-mod definitions_tests;
-
-#[cfg(test)]
 mod flexible_format_tests;

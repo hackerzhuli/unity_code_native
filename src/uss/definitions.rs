@@ -425,3 +425,7 @@ impl Default for UssDefinitions {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[path ="definitions_tests.rs"]
+mod definitions_tests;
