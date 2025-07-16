@@ -2,7 +2,7 @@
 //!
 //! Represents a single USS document with its content, syntax tree, and version.
 use std::collections::HashMap;
-use tower_lsp::lsp_types::{Diagnostic, Position, Range, TextDocumentContentChangeEvent, Url};
+use tower_lsp::lsp_types::{Position, Range, TextDocumentContentChangeEvent, Url};
 use tree_sitter::{InputEdit, Point, Tree};
 
 use crate::uss::parser::UssParser;

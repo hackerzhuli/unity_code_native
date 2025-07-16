@@ -8,7 +8,7 @@ use tree_sitter::Node;
 use crate::language::asset_url::validate_url;
 use crate::language::tree_utils::node_to_range;
 use crate::uss::function_node::FunctionNode;
-use crate::uss::uss_utils::{convert_uss_string, UssStringError};
+use crate::uss::uss_utils::convert_uss_string;
 use crate::uss::constants::{NODE_STRING_VALUE, NODE_PLAIN_VALUE};
 
 /// Represents a URL found in USS code along with its location range

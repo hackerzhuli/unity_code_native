@@ -3,11 +3,7 @@
 //! Since USS syntax is nearly identical to CSS, we can use the existing
 //! tree-sitter-css grammar directly.
 
-use tree_sitter::{Language, Parser, Tree};
-use std::sync::OnceLock;
-
-use crate::uss::uss_utils::convert_uss_string;
-use crate::uss::constants::*;
+use tree_sitter::{Parser, Tree};
 
 /// USS parser wrapper around tree-sitter-css
 pub struct UssParser {
@@ -38,6 +34,8 @@ impl Default for UssParser {
 
 #[cfg(test)]
 mod tests {
+    use crate::uss::constants::*;
+
     use super::*;
     
     #[test]

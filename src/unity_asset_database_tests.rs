@@ -1,5 +1,4 @@
 use std::path::Path;
-use std::path::PathBuf;
 use url::Url;
 use crate::unity_asset_database::UnityAssetDatabase;
 use crate::test_utils::get_project_root;

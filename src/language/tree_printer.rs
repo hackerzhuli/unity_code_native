@@ -90,7 +90,7 @@ mod tests {
     use crate::uss::constants::NODE_STYLESHEET;
 
     use super::*;
-    use tree_sitter::{Language, Parser};
+    use tree_sitter::Parser;
 
     #[test]
     fn test_tree_printing() {

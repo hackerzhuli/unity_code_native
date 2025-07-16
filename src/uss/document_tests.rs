@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
 
-    use tower_lsp::lsp_types::{Diagnostic, DiagnosticSeverity, Position, Range, TextDocumentContentChangeEvent, Url};
+    use tower_lsp::lsp_types::{Position, Range, TextDocumentContentChangeEvent, Url};
 
     use crate::uss::{document::UssDocument, document_manager::UssDocumentManager};
 
