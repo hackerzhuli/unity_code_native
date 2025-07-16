@@ -4,7 +4,7 @@
 //! This module provides structured information about each keyword value
 //! that can be used in USS properties.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use crate::uss::definitions::{KeywordInfo, PropertyInfo};
 use crate::uss::value_spec::ValueType;
 
@@ -15,10 +15,7 @@ fn create(name: &'static str, doc: &'static str, properties: &[&'static str]) ->
 
 /// Helper function to create a KeywordInfo with property-specific documentation
 fn create_with_property_docs(name: &'static str, doc: &'static str, properties: &[&'static str], property_docs: &[(&'static str, &'static str)]) -> KeywordInfo {
-    let mut used_by_properties = HashSet::new();
-    for prop in properties {
-        used_by_properties.insert(*prop);
-    }
+    let used_by_properties = properties.to_vec();
     let mut docs_for_property = HashMap::new();
     for (prop, prop_doc) in property_docs {
         docs_for_property.insert(*prop, *prop_doc);

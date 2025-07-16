@@ -22,7 +22,7 @@ pub struct KeywordInfo {
     doc: &'static str,
     /// from what properties are these keywords used by
     /// if a keyword is used by all properties
-    pub used_by_properties: HashSet<&'static str>,
+    pub used_by_properties: Vec<&'static str>,
     /// docs when the keyword is used by specific property, this should override the doc fileld for a specific property
     /// this is used only when a keyword means different thing in different properties
     docs_for_property: HashMap<&'static str, &'static str>,
@@ -31,11 +31,11 @@ pub struct KeywordInfo {
 impl KeywordInfo {
     /// Create a new KeywordInfo
     pub fn new(name: &'static str, doc: &'static str) -> Self {
-        Self { name, doc, used_by_properties: HashSet::new(), docs_for_property: HashMap::new() }
+        Self { name, doc, used_by_properties: Vec::new(), docs_for_property: HashMap::new() }
     }
 
     /// Create a new KeywordInfo
-    pub fn new_with_property_docs(name: &'static str, doc: &'static str, used_by_properties: HashSet<&'static str>, docs_for_property: HashMap<&'static str, &'static str>) -> Self {
+    pub fn new_with_property_docs(name: &'static str, doc: &'static str, used_by_properties: Vec<&'static str>, docs_for_property: HashMap<&'static str, &'static str>) -> Self {
         Self { name, doc, used_by_properties, docs_for_property}
     }
 
@@ -59,19 +59,16 @@ impl KeywordInfo {
         
         // Add list of properties that use this keyword
         if !self.used_by_properties.is_empty() {
-            let mut properties: Vec<&str> = self.used_by_properties.iter().copied().collect();
-            properties.sort();
-            
             content.push_str("\n\n**Used by properties:**\n");
             
             // Show first max_count properties, then "..." if there are more
-            let max_count = 5;
-            let display_count = std::cmp::min(properties.len(), max_count);
-            for property in &properties[..display_count] {
+            let max_count = 10;
+            let display_count = std::cmp::min(self.used_by_properties.len(), max_count);
+            for property in &self.used_by_properties[..display_count] {
                 content.push_str(&format!("- `{}`\n", property));
             }
             
-            if properties.len() > max_count {
+            if self.used_by_properties.len() > max_count {
                 content.push_str("- ...\n");
             }
         }
