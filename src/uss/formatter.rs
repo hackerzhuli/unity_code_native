@@ -327,4 +327,124 @@ mod tests {
         let position = formatter.offset_to_position(content, 8).unwrap();
         assert_eq!(position, Position { line: 1, character: 2 });
     }
+
+    #[test]
+    fn test_find_actual_format_range_complete_rules() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = ".class1 { color: red; }\n.class2 { background: blue; }";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range that covers both complete rules
+        let requested_range = Range {
+            start: Position { line: 0, character: 0 },
+            end: Position { line: 1, character: 29 },
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_some());
+        
+        let actual_range = result.unwrap();
+        assert_eq!(actual_range.start, Position { line: 0, character: 0 });
+        assert_eq!(actual_range.end, Position { line: 1, character: 29 });
+    }
+
+    #[test]
+    fn test_find_actual_format_range_partial_rule_rejection() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = ".class1 { color: red; }\n.class2 { background: blue; }";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range that only partially covers the first rule
+        let requested_range = Range {
+            start: Position { line: 0, character: 5 }, // Starts in middle of first rule
+            end: Position { line: 0, character: 23 },
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_none()); // Should reject partial rule coverage
+    }
+
+    #[test]
+    fn test_find_actual_format_range_mixed_content_line() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = "/* comment */ .class1 { color: red; } /* another comment */";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range that includes the rule but has other content on same line
+        let requested_range = Range {
+            start: Position { line: 0, character: 14 }, // Start at .class1
+            end: Position { line: 0, character: 37 },   // End after closing brace
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_none()); // Should reject due to mixed content on line
+    }
+
+    #[test]
+    fn test_find_actual_format_range_clean_line_boundaries() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = "\n.class1 {\n  color: red;\n}\n\n.class2 {\n  background: blue;\n}\n";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range for first rule with clean line boundaries
+        let requested_range = Range {
+            start: Position { line: 1, character: 0 },
+            end: Position { line: 3, character: 1 },
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_some());
+        
+        let actual_range = result.unwrap();
+        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
+        assert_eq!(actual_range.end, Position { line: 3, character: 1 });
+    }
+
+    #[test]
+    fn test_find_actual_format_range_empty_selection() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = ".class1 { color: red; }\n.class2 { background: blue; }";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range that doesn't contain any complete rules
+        let requested_range = Range {
+            start: Position { line: 0, character: 23 }, // Between rules
+            end: Position { line: 1, character: 0 },
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_none()); // Should return None for empty selection
+    }
+
+    #[test]
+    fn test_find_actual_format_range_single_rule_subset() {
+        let formatter = UssFormatter::new();
+        let mut parser = create_parser();
+        
+        let content = ".class1 { color: red; }\n.class2 { background: blue; }\n.class3 { margin: 10px; }";
+        let tree = parser.parse(content, None).unwrap();
+        
+        // Request range that covers only the middle rule completely
+        let requested_range = Range {
+            start: Position { line: 1, character: 0 },
+            end: Position { line: 1, character: 29 },
+        };
+        
+        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
+        assert!(result.is_some());
+        
+        let actual_range = result.unwrap();
+        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
+        assert_eq!(actual_range.end, Position { line: 1, character: 29 });
+    }
 }
