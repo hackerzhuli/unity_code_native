@@ -3,9 +3,11 @@
 ## Properties
 After user typed `:` for a valid property, we give a list of most likely values for that property for user to select.
 
-If user selected any item, then we should also remember to automatically insert a space before and a `;` after(not for properties that support mulitple values, ie. comma seperated values, we don't add a `;` after).
+If user selected any item, then we should also remember to automatically insert a space before(if there are no space yet after the colon) and a `;` after(not for properties that support mulitple values, ie. comma seperated values, we don't add a `;` after).
 
 Note that as user is typing after `:`, eg. typing `color:r` then we are going to look at what is our best guess of what is next and try to give a list of most likely values for that property.
+
+Note that we have a limitation, if user just typed whitespaces after the colon and nothing else, we can't provide auto completion for that property. Only user just typed the colon or after user type some character that is not whitespace after colon.
 
 We have special auto completion logic for color properties and `transition-property`(see below).
 

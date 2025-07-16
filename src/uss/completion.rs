@@ -267,6 +267,16 @@ impl UssCompletionProvider {
             return self.get_all_common_values_for_property(property_name);
         }
 
+        // Check if we're in an empty important node right after a colon
+        if current_node.kind() == "important" {
+            if let Some(prev_sibling) = current_node.prev_sibling() {
+                if prev_sibling.kind() == NODE_COLON {
+                    // We're right after the colon in an empty important node
+                    return self.get_all_common_values_for_property(property_name);
+                }
+            }
+        }
+
         // check if we are the first value node(ie. the previous node is colon and the node before that is property name)
         let mut is_first_value_node = false;
         if let Some(prev_sibling) = current_node.prev_sibling() {
@@ -320,6 +330,11 @@ impl UssCompletionProvider {
     fn get_keywords_for_keyword_based_property(&self, property_name: &str) -> Vec<&str> {
         let mut valid_keywords: Vec<&str> = Vec::new();
 
+        // Special handling for transition-property
+        if property_name == "transition-property" {
+            return self.get_transition_property_values();
+        }
+
         // Check if this is a keyword-only property
         if let Some(property_info) = self.definitions.get_property_info(property_name) {
             if property_info.value_spec.formats.len() > 0
@@ -345,6 +360,33 @@ impl UssCompletionProvider {
             }
         }
         valid_keywords
+    }
+
+    /// Get valid values for transition-property (animatable properties + keywords)
+    fn get_transition_property_values(&self) -> Vec<&str> {
+        let mut values = Vec::new();
+        
+        // Add keywords first
+        values.extend_from_slice(&["all", "none", "initial", "ignored"]);
+        
+        // Add all animatable properties (both Animatable and Discrete)
+        for (property_name, property_info) in self.definitions.get_all_properties() {
+            match property_info.animatable {
+                crate::uss::definitions::PropertyAnimation::Animatable | 
+                crate::uss::definitions::PropertyAnimation::Discrete => {
+                    values.push(property_name);
+                }
+                _ => {}
+            }
+        }
+        
+        // Add special transform property (Unity allows this in transition-property even though it's not a real property)
+        values.push("transform");
+        
+        // Debug: print the values for transition-property
+        println!("transition-property values: {:?}", values);
+        
+        values
     }
 
     /// Get all common values for a property (used when partial_value is empty)
@@ -1161,3 +1203,13 @@ impl UssCompletionProvider {
         }
     }
 }
+
+
+
+#[cfg(test)]
+#[path ="completion_tests.rs"]
+mod completion_tests;
+
+#[cfg(test)]
+#[path ="completion_tests_declaration.rs"]
+mod completion_tests_declaration;
