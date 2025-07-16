@@ -695,3 +695,125 @@ fn test_color_keywords_against_source_data() {
     );
     println!("Colors tested from HTML: {}", tested_colors);
 }
+
+#[test]
+fn test_keyword_completeness() {
+    let definitions = UssDefinitions::new();
+    
+    // Step 1: Extract all keywords from all property ValueSpecs
+    let mut keywords_from_value_specs = std::collections::HashSet::new();
+    
+    for (property_name, property_info) in definitions.get_all_properties() {
+        for format in &property_info.value_spec.formats {
+            for entry in &format.entries {
+                for option in &entry.options {
+                    if let crate::uss::value_spec::ValueType::Keyword(keyword) = option {
+                        keywords_from_value_specs.insert(*keyword);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Step 2: Get all keywords from keyword info
+    let keywords_from_info: std::collections::HashSet<&str> = definitions.get_all_keywords().keys().copied().collect();
+    
+    // Step 3: Find missing keywords (in ValueSpec but not in keyword info)
+    let missing_keywords: Vec<&str> = keywords_from_value_specs
+        .difference(&keywords_from_info)
+        .copied()
+        .collect();
+    
+    // Step 4: Find orphaned keywords (in keyword info but not in any ValueSpec)
+    let orphaned_keywords: Vec<&str> = keywords_from_info
+        .difference(&keywords_from_value_specs)
+        .copied()
+        .collect();
+    
+    // Step 5: Validate used_by_properties field for each keyword
+    let mut property_association_errors = Vec::new();
+    
+    for (keyword, keyword_info) in definitions.get_all_keywords() {
+        // Find all properties that actually use this keyword
+        let mut actual_properties = std::collections::HashSet::new();
+        
+        for (property_name, property_info) in definitions.get_all_properties() {
+            for format in &property_info.value_spec.formats {
+                for entry in &format.entries {
+                    for option in &entry.options {
+                        if let crate::uss::value_spec::ValueType::Keyword(kw) = option {
+                             if *kw == *keyword {
+                                 actual_properties.insert(*property_name);
+                             }
+                         }
+                    }
+                }
+            }
+        }
+        
+        // Compare with the used_by_properties field
+        let recorded_properties: std::collections::HashSet<&str> = keyword_info.used_by_properties.iter().copied().collect();
+        
+        if actual_properties != recorded_properties {
+            let missing_in_record: Vec<&str> = actual_properties.difference(&recorded_properties).copied().collect();
+            let extra_in_record: Vec<&str> = recorded_properties.difference(&actual_properties).copied().collect();
+            
+            let mut error_parts = Vec::new();
+            if !missing_in_record.is_empty() {
+                error_parts.push(format!("missing: [{}]", missing_in_record.join(", ")));
+            }
+            if !extra_in_record.is_empty() {
+                error_parts.push(format!("extra: [{}]", extra_in_record.join(", ")));
+            }
+            
+            property_association_errors.push(format!(
+                "  - '{}': {}",
+                keyword,
+                error_parts.join(", ")
+            ));
+        }
+    }
+    
+    // Step 6: Report results
+    let mut error_messages = Vec::new();
+    
+    if !missing_keywords.is_empty() {
+        let mut sorted_missing = missing_keywords;
+        sorted_missing.sort();
+        error_messages.push(format!(
+            "Missing keyword info for {} keywords used in ValueSpecs:\n{}",
+            sorted_missing.len(),
+            sorted_missing.iter().map(|k| format!("  - {}", k)).collect::<Vec<_>>().join("\n")
+        ));
+    }
+    
+    if !orphaned_keywords.is_empty() {
+        let mut sorted_orphaned = orphaned_keywords;
+        sorted_orphaned.sort();
+        error_messages.push(format!(
+            "Orphaned keyword info for {} keywords not used in any ValueSpec:\n{}",
+            sorted_orphaned.len(),
+            sorted_orphaned.iter().map(|k| format!("  - {}", k)).collect::<Vec<_>>().join("\n")
+        ));
+    }
+    
+    if !property_association_errors.is_empty() {
+        property_association_errors.sort();
+        error_messages.push(format!(
+            "Incorrect property associations for {} keywords:\n{}",
+            property_association_errors.len(),
+            property_association_errors.join("\n")
+        ));
+    }
+    
+    // Print summary
+    println!("Keywords found in ValueSpecs: {}", keywords_from_value_specs.len());
+    println!("Keywords with info: {}", keywords_from_info.len());
+    
+    if !error_messages.is_empty() {
+        panic!("Keyword completeness validation failed:\n\n{}", error_messages.join("\n\n"));
+    }
+    
+    println!("✓ All keywords have complete coverage between ValueSpecs and keyword info");
+    println!("✓ All keyword property associations are correctly populated");
+}

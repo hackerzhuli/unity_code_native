@@ -7,11 +7,30 @@
 use crate::uss::color::Color;
 use crate::uss::color_keywords::create_color_keywords;
 use crate::uss::constants::*;
-use crate::uss::keyword_data::{create_keyword_info, KeywordInfo};
+use crate::uss::keyword_data::create_keyword_info;
 use crate::uss::property_data::create_standard_properties;
 use crate::uss::value_spec::{ValueSpec, ValueType};
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
+
+/// Information about a USS keyword
+#[derive(Debug, Clone)]
+pub struct KeywordInfo {
+    /// The keyword name
+    pub name: &'static str,
+    /// Markdown documentation for the keyword
+    pub doc: Option<&'static str>,
+    /// from what properties are these keywords used by
+    /// if a keyword is used by all properties
+    pub used_by_properties: HashSet<&'static str>,
+}
+
+impl KeywordInfo {
+    /// Create a new KeywordInfo
+    pub fn new(name: &'static str, doc: &'static str) -> Self {
+        Self { name, doc: Some(doc), used_by_properties: HashSet::new() }
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PropertyAnimation {
@@ -277,7 +296,9 @@ impl UssDefinitions {
 
     /// Get keywords (lazy-loaded)
     fn get_keywords(&self) -> &HashMap<&'static str, KeywordInfo> {
-        self.keywords.get_or_init(|| create_keyword_info())
+        self.keywords.get_or_init(|| {
+            create_keyword_info()
+        })
     }
 
     /// Check if a property name is valid, ie, an existing property or a custom property (USS variable)
@@ -364,6 +385,11 @@ impl UssDefinitions {
     /// Get keyword information by name
     pub fn get_keyword_info(&self, keyword_name: &str) -> Option<&KeywordInfo> {
         self.get_keywords().get(keyword_name)
+    }
+
+    /// Get all keywords with their information
+    pub fn get_all_keywords(&self) -> &HashMap<&'static str, KeywordInfo> {
+        self.get_keywords()
     }
 
     /// Get pseudo-class information by name
