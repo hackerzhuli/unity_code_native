@@ -127,8 +127,36 @@ impl PropertyInfo {
         let mut content = format!("### Property {}\n", property_name);
         content.push_str(&format!("{}", self.description));
 
+        // Add property characteristics
+        let mut characteristics = Vec::new();
+        
+        // Always show inheritance status
+        if self.inherited {
+            characteristics.push("Inherited");
+        } else {
+            characteristics.push("Not inherited");
+        }
+        
+        // Always show animation status
+        match self.animatable {
+            PropertyAnimation::None => {
+                characteristics.push("Not animatable");
+            }
+            PropertyAnimation::Animatable => {
+                characteristics.push("Animatable");
+            }
+            PropertyAnimation::Discrete => {
+                characteristics.push("Discrete animatable");
+            }
+        }
+
+        content.push_str(&format!("\n\n*{}*", characteristics.join(", ")));
+
         // Add format specification
         content.push_str(&format!("\n\n**Format:** `{}`", self.format));
+
+        // Add documentation link
+        content.push_str(&format!("\n\n[📖 Documentation]({})", doc_url));
 
         // Add Unity examples if available
         if let Some(unity_examples) = self.examples_unity {
@@ -143,28 +171,6 @@ impl PropertyInfo {
             content.push_str("\n```");
             content.push_str("\n\nNote: since these examples are from Mozilla docs, some of them may not work in Unity Engine.");
         }
-
-        // Add property characteristics
-        let mut characteristics = Vec::new();
-        if self.inherited {
-            characteristics.push("Inherited");
-        }
-        match self.animatable {
-            PropertyAnimation::None => {}
-            PropertyAnimation::Animatable => {
-                characteristics.push("Animatable");
-            }
-            PropertyAnimation::Discrete => {
-                characteristics.push("Discrete animatable");
-            }
-        }
-
-        if !characteristics.is_empty() {
-            content.push_str(&format!("\n\n*{}*", characteristics.join(", ")));
-        }
-
-        // Add documentation link
-        content.push_str(&format!("\n\n[📖 Documentation]({})", doc_url));
 
         content
     }
