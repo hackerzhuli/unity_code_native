@@ -14,7 +14,6 @@ use crate::language::tree_utils::{
 use crate::language::url_completion::UrlCompletionProvider;
 use crate::uss::constants::*;
 use crate::uss::definitions::UssDefinitions;
-use crate::uss::value_spec::ValueType;
 
 /// USS completion provider
 pub struct UssCompletionProvider {
@@ -97,12 +96,16 @@ impl UssCompletionProvider {
                 CompletionType::PropertyValue { property_name } => {
                     self.complete_property_value(&property_name, current_node, content)
                 }
-                CompletionType::Property => {
-                    self.complete_property_names(context.current_node, content, unity_version.as_str())
-                }
-                CompletionType::PseudoClass => {
-                    self.complete_pseudo_classes_with_filter(current_node, content, unity_version.as_str())
-                }
+                CompletionType::Property => self.complete_property_names(
+                    context.current_node,
+                    content,
+                    unity_version.as_str(),
+                ),
+                CompletionType::PseudoClass => self.complete_pseudo_classes_with_filter(
+                    current_node,
+                    content,
+                    unity_version.as_str(),
+                ),
                 CompletionType::ClassSelector => {
                     self.complete_class_selectors(tree, content, current_node)
                 }
@@ -116,7 +119,9 @@ impl UssCompletionProvider {
                     url_string,
                     cursor_position,
                 } => self.complete_url_function(&url_string, cursor_position, source_url),
-                CompletionType::ImportStatement => self.complete_import_statement(current_node, content),
+                CompletionType::ImportStatement => {
+                    self.complete_import_statement(current_node, content)
+                }
                 _ => Vec::new(),
             }
         } else {
@@ -186,30 +191,38 @@ impl UssCompletionProvider {
                     let current_node_kind = current_node.kind();
                     let parent_node_kind = match current_node.parent() {
                         None => "",
-                        Some(p) => p.kind()
+                        Some(p) => p.kind(),
                     };
-                    if current_node_kind == NODE_ATTRIBUTE_NAME && parent_node_kind == NODE_ERROR
-                    {
+                    if current_node_kind == NODE_ATTRIBUTE_NAME && parent_node_kind == NODE_ERROR {
                         return CompletionContext {
                             t: CompletionType::Property,
                             current_node: Some(current_node),
                         };
-                    }
-                    else if current_node_kind == NODE_COMMA && parent_node_kind == NODE_ERROR{
+                    } else if current_node_kind == NODE_COMMA && parent_node_kind == NODE_ERROR {
                         // user just typed a comma after a comma seperated list (without semicolon yet)
                         if let Some(parent) = current_node.parent() {
-                            if let Some(parent_prev) = parent.prev_sibling(){
+                            if let Some(parent_prev) = parent.prev_sibling() {
                                 if parent_prev.kind() == NODE_DECLARATION {
-                                    if let Some(dec_last_node) = parent_prev.child(parent_prev.child_count() - 1){
-                                        if dec_last_node.kind() != NODE_SEMICOLON{
-                                            if let Some(property_name_node) = parent_prev.child(0){
-                                                if let Ok(property_name) = property_name_node.utf8_text(content.as_bytes())
+                                    if let Some(dec_last_node) =
+                                        parent_prev.child(parent_prev.child_count() - 1)
+                                    {
+                                        if dec_last_node.kind() != NODE_SEMICOLON {
+                                            if let Some(property_name_node) = parent_prev.child(0) {
+                                                if let Ok(property_name) =
+                                                    property_name_node.utf8_text(content.as_bytes())
                                                 {
-                                                    if let Some(property_info) = self.definitions.get_property_info(property_name) {
-                                                        if property_info.value_spec.allows_multiple_values{
+                                                    if let Some(property_info) = self
+                                                        .definitions
+                                                        .get_property_info(property_name)
+                                                    {
+                                                        if property_info
+                                                            .value_spec
+                                                            .allows_multiple_values
+                                                        {
                                                             return CompletionContext {
                                                                 t: CompletionType::PropertyValue {
-                                                                    property_name:property_name.to_string()
+                                                                    property_name: property_name
+                                                                        .to_string(),
                                                                 },
                                                                 current_node: Some(current_node),
                                                             };
@@ -222,6 +235,48 @@ impl UssCompletionProvider {
                                 }
                             }
                         }
+                    }
+                    else if current_node_kind == NODE_TAG_NAME && parent_node_kind == NODE_DESCENDANT_SELECTOR {
+                        // Tag name inside of block, is actually user typing another property name before another property
+                        // uss doesn't support nested rules, we're in a block, so it can't be a selector
+                        // tree sitter css parser thinks it is a selector, but it's not
+                        let parent = current_node.parent().unwrap();
+                        if parent.child_count() == 2 {
+                            if let Some(next_sib) = current_node.next_sibling() {
+                                if next_sib.kind() == NODE_TAG_NAME{
+                                    if let Some(parent_next_sib) = parent.next_sibling(){
+                                        if parent_next_sib.kind() == NODE_COLON {
+                                            // now we know user is typing a property name
+                                            return CompletionContext{
+                                                t: CompletionType::Property,
+                                                current_node: Some(current_node)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // another case is parent's next node becomes an error node with a tag name child and a colon after that
+                        // similar, rarer, but does happen
+                        if let Some(next_sib) = current_node.next_sibling() {
+                            if next_sib.kind() == NODE_ERROR{
+                                if let Some(next_sib_child) = next_sib.child(0) {
+                                    if next_sib_child.kind() == NODE_TAG_NAME {
+                                        if let Some(next_sib_second_child) = next_sib.child(1){
+                                            if next_sib_second_child.kind() == NODE_COLON{
+                                                // now we know user is typing a property name
+                                                return CompletionContext{
+                                                    t: CompletionType::Property,
+                                                    current_node: Some(current_node)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                     }
                 }
             }
@@ -311,7 +366,7 @@ impl UssCompletionProvider {
                             is_first_value_node = true;
                         }
                     }
-                }else if prev_sibling.kind() == NODE_COMMA{
+                } else if prev_sibling.kind() == NODE_COMMA {
                     is_first_value_node = true;
                 }
             }
@@ -322,14 +377,16 @@ impl UssCompletionProvider {
         }
 
         let property_info_option = self.definitions.get_property_info(property_name);
-        if property_info_option.is_none(){
+        if property_info_option.is_none() {
             return Vec::new();
         }
 
         let property_info = property_info_option.unwrap();
 
         // keywords that we want to filter against
-        let valid_values = self.definitions.get_simple_completions_for_property(property_name);
+        let valid_values = self
+            .definitions
+            .get_simple_completions_for_property(property_name);
 
         if valid_values.is_empty() {
             return Vec::new();
@@ -337,13 +394,21 @@ impl UssCompletionProvider {
 
         // try to find what still matches and return that
         let mut items = Vec::new();
-        let partial_value = if is_colon_or_comma {""} else{current_node.utf8_text(content.as_bytes()).unwrap_or("")};
+        let partial_value = if is_colon_or_comma {
+            ""
+        } else {
+            current_node.utf8_text(content.as_bytes()).unwrap_or("")
+        };
         let partial_lower = partial_value.to_lowercase();
 
         for value in valid_values {
             if partial_lower.is_empty() || value.starts_with(&partial_lower) {
                 // add one space if user just typed colon or comma
-                let mut text = if is_colon_or_comma {format!(" {}", value)} else {format!("{}", value)};
+                let mut text = if is_colon_or_comma {
+                    format!(" {}", value)
+                } else {
+                    format!("{}", value)
+                };
 
                 // add a semicolon for a value that doesn't have multiple values(ie. comma separated values)
                 if !property_info.value_spec.allows_multiple_values {
@@ -370,7 +435,7 @@ impl UssCompletionProvider {
         &self,
         current_node: Option<tree_sitter::Node>,
         content: &str,
-        unity_version:&str,
+        unity_version: &str,
     ) -> Vec<CompletionItem> {
         let partial_text = if let Some(node) = current_node {
             node.utf8_text(content.as_bytes())
@@ -386,15 +451,14 @@ impl UssCompletionProvider {
         }
 
         self.definitions
-            .get_all_properties().keys()
+            .get_all_properties()
+            .keys()
             .filter(|name| name.starts_with(&partial_text))
             .map(|name| {
                 let property_info = self.definitions.get_property_info(name);
                 let documentation = property_info
                     .as_ref()
-                    .map(|info| {
-                        info.create_documentation(name, unity_version)
-                    });
+                    .map(|info| info.create_documentation(name, unity_version));
 
                 CompletionItem {
                     label: name.to_string(),
@@ -407,7 +471,7 @@ impl UssCompletionProvider {
                     }),
                     // no colon because if user type the colon
                     // that will trigger next round of auto completion for value, which is prefered
-                    insert_text: Some(format!("{}", name)), 
+                    insert_text: Some(format!("{}", name)),
                     ..Default::default()
                 }
             })
@@ -440,7 +504,7 @@ impl UssCompletionProvider {
         &self,
         current_node: Node,
         content: &str,
-        unity_version:&str,
+        unity_version: &str,
     ) -> Vec<CompletionItem> {
         let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
 
@@ -458,13 +522,14 @@ impl UssCompletionProvider {
         let mut items = Vec::new();
 
         for &pseudo_class in &self.definitions.valid_pseudo_classes {
-
             // Filter based on partial text
-            if partial_text.is_empty() || (pseudo_class.starts_with(&partial_text) && pseudo_class != partial_text) {
+            if partial_text.is_empty()
+                || (pseudo_class.starts_with(&partial_text) && pseudo_class != partial_text)
+            {
                 if let Some(info) = self.definitions.get_pseudo_class_info(pseudo_class) {
                     // Create documentation with description and link
                     let documentation_value = info.create_documentation(&unity_version);
-                    
+
                     items.push(CompletionItem {
                         label: pseudo_class.to_string(),
                         kind: Some(CompletionItemKind::KEYWORD),
@@ -861,7 +926,7 @@ impl UssCompletionProvider {
             // first check if we are at the top level, eg, not inside of any blocks
             if get_node_depth(current_node) == 2 {
                 // this node should be inside of an error node(for just @ or @import) or an at rule(for incomplete import keyword, eg. @i)
-                if let Some(parent) = current_node.parent(){
+                if let Some(parent) = current_node.parent() {
                     let parent_kind = parent.kind();
                     if parent_kind == NODE_ERROR || parent_kind == NODE_AT_RULE {
                         let text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
@@ -1004,13 +1069,19 @@ impl UssCompletionProvider {
     }
 
     /// Complete import statement structure with specific range
-    fn complete_import_statement<'a>(&self, current_node: Node<'a>, content: &str) -> Vec<CompletionItem> {
+    fn complete_import_statement<'a>(
+        &self,
+        current_node: Node<'a>,
+        content: &str,
+    ) -> Vec<CompletionItem> {
         let text_edit_range = node_to_range(current_node, content);
         let mut items = Vec::new();
 
         // Determine if we should use text_edit (when we have a valid range) or insert_text
-        let use_text_edit = text_edit_range.start.line != 0 || text_edit_range.start.character != 0 || 
-                           text_edit_range.end.line != 0 || text_edit_range.end.character != 0;
+        let use_text_edit = text_edit_range.start.line != 0
+            || text_edit_range.start.character != 0
+            || text_edit_range.end.line != 0
+            || text_edit_range.end.character != 0;
 
         // Provide @import completion with project scheme (recommended)
         let mut item1 = CompletionItem {
@@ -1026,7 +1097,7 @@ impl UssCompletionProvider {
             })),
             ..Default::default()
         };
-        
+
         if use_text_edit {
             item1.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
                 range: text_edit_range,
@@ -1051,7 +1122,7 @@ impl UssCompletionProvider {
             })),
             ..Default::default()
         };
-        
+
         if use_text_edit {
             item2.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
                 range: text_edit_range,
@@ -1076,7 +1147,7 @@ impl UssCompletionProvider {
             })),
             ..Default::default()
         };
-        
+
         if use_text_edit {
             item3.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
                 range: text_edit_range,
@@ -1147,12 +1218,10 @@ impl UssCompletionProvider {
     }
 }
 
-
-
 #[cfg(test)]
-#[path ="completion_tests.rs"]
+#[path = "completion_tests.rs"]
 mod completion_tests;
 
 #[cfg(test)]
-#[path ="completion_tests_declaration.rs"]
+#[path = "completion_tests_declaration.rs"]
 mod completion_tests_declaration;

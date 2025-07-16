@@ -51,6 +51,8 @@ pub const NODE_ARGUMENTS: &str = "arguments";
 // Selector types
 /// USS class selector (e.g., `.my-class`)
 pub const NODE_CLASS_SELECTOR: &str = "class_selector";
+/// Descendant selector, eg. `.a .b c`
+pub const NODE_DESCENDANT_SELECTOR:&str= "descendant_selector";
 /// Name part of a class selector or a pseudo class selector (e.g., `my-class` in `.my-class` or `hover` in `.my-class:hover`)
 pub const NODE_CLASS_NAME: &str = "class_name";
 /// USS ID selector (e.g., `#my-id`)
