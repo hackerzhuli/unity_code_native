@@ -38,6 +38,45 @@ impl KeywordInfo {
     pub fn new_with_property_docs(name: &'static str, doc: &'static str, used_by_properties: HashSet<&'static str>, docs_for_property: HashMap<&'static str, &'static str>) -> Self {
         Self { name, doc, used_by_properties, docs_for_property}
     }
+
+    /// Create markdown documentation for the keyword
+    /// If `property_name` is provided and property-specific documentation exists, returns that.
+    /// Otherwise returns the default documentation.
+    pub fn create_documentation(&self, property_name: Option<&str>) -> String {
+        let mut content = format!("### Keyword `{}`\n", self.name);
+        
+        // Use property-specific documentation if available and requested
+        if let Some(prop_name) = property_name {
+            if let Some(property_doc) = self.docs_for_property.get(prop_name) {
+                content.push_str(property_doc);
+                content.push_str(&format!("\n\n*Used with property: `{}`*", prop_name));
+                return content;
+            }
+        }
+        
+        // Use default documentation
+        content.push_str(self.doc);
+        
+        // Add list of properties that use this keyword
+        if !self.used_by_properties.is_empty() {
+            let mut properties: Vec<&str> = self.used_by_properties.iter().copied().collect();
+            properties.sort();
+            
+            content.push_str("\n\n**Used by properties:**\n");
+            
+            // Show first 10 properties, then "..." if there are more
+            let display_count = std::cmp::min(properties.len(), 10);
+            for property in &properties[..display_count] {
+                content.push_str(&format!("- `{}`\n", property));
+            }
+            
+            if properties.len() > 10 {
+                content.push_str("- ...\n");
+            }
+        }
+        
+        content
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
