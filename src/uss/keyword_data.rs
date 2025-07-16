@@ -22,6 +22,24 @@ fn create(name: &'static str, doc: &'static str, properties: &[&'static str]) ->
     }
 }
 
+/// Helper function to create a KeywordInfo with property-specific documentation
+fn create_with_property_docs(name: &'static str, doc: &'static str, properties: &[&'static str], property_docs: &[(&'static str, &'static str)]) -> KeywordInfo {
+    let mut used_by_properties = HashSet::new();
+    for prop in properties {
+        used_by_properties.insert(*prop);
+    }
+    let mut docs_for_property = HashMap::new();
+    for (prop, prop_doc) in property_docs {
+        docs_for_property.insert(*prop, *prop_doc);
+    }
+    KeywordInfo {
+        name,
+        doc,
+        used_by_properties,
+        docs_for_property,
+    }
+}
+
 /// Create a map of all USS keywords with their documentation
 pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     let mut keywords = HashMap::new();
@@ -29,13 +47,41 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     // Flexbox alignment keywords
     keywords.insert("flex-start", create("flex-start", "Place items at the start of the direction.", &["justify-content", "align-items", "align-content", "align-self"]));
     keywords.insert("flex-end", create("flex-end", "Place items at the end of the direction.", &["justify-content", "align-items", "align-content", "align-self"]));
-    keywords.insert("center", create("center", "Place items or content in the center.", &["justify-content", "align-items", "align-content", "align-self", "background-position", "background-position-x", "background-position-y", "transform-origin"]));
+    keywords.insert("center", create_with_property_docs("center", "Place items or content in the center.", &["justify-content", "align-items", "align-content", "align-self", "background-position", "background-position-x", "background-position-y", "transform-origin"], &[
+        ("justify-content", "Centers flex items along the main axis."),
+        ("align-items", "Centers flex items along the cross axis."),
+        ("align-content", "Centers flex lines when there's extra space in the cross axis."),
+        ("align-self", "Centers this flex item along the cross axis."),
+        ("background-position", "Centers the background image both horizontally and vertically."),
+        ("background-position-x", "Centers the background image horizontally."),
+        ("background-position-y", "Centers the background image vertically."),
+        ("transform-origin", "Sets the transform origin to the center of the element.")
+    ]));
     keywords.insert("space-between", create("space-between", "Items are evenly distributed with the first item at the start and the last item at the end of the direction.", &["justify-content"]));
     keywords.insert("space-around", create("space-around", "Items are evenly distributed with equal space around them.", &["justify-content"]));
     keywords.insert("stretch", create("stretch", "Items are stretched to fill the container.", &["align-items", "align-content", "align-self"]));
     
     // Auto keyword
-    keywords.insert("auto", create("auto", "Unity Engine calculates the value automatically.", &["width", "height", "min-width", "min-height", "flex-basis", "margin", "margin-top", "margin-right", "margin-bottom", "margin-left", "top", "right", "bottom", "left", "align-self", "align-items", "background-size", "flex"]));
+    keywords.insert("auto", create_with_property_docs("auto", "Unity Engine calculates the value automatically.", &["width", "height", "min-width", "min-height", "flex-basis", "margin", "margin-top", "margin-right", "margin-bottom", "margin-left", "top", "right", "bottom", "left", "align-self", "align-items", "background-size", "flex"], &[
+        ("width", "Automatically calculates the width based on content and constraints."),
+        ("height", "Automatically calculates the height based on content and constraints."),
+        ("min-width", "No minimum width constraint."),
+        ("min-height", "No minimum height constraint."),
+        ("flex-basis", "Uses the element's main size property (width or height) as the flex basis."),
+        ("margin", "Automatically distributes available space as margin."),
+        ("margin-top", "Automatically calculates top margin."),
+        ("margin-right", "Automatically calculates right margin."),
+        ("margin-bottom", "Automatically calculates bottom margin."),
+        ("margin-left", "Automatically calculates left margin."),
+        ("top", "Automatically positions the element from the top."),
+        ("right", "Automatically positions the element from the right."),
+        ("bottom", "Automatically positions the element from the bottom."),
+        ("left", "Automatically positions the element from the left."),
+        ("align-self", "Uses the parent's align-items value."),
+        ("align-items", "Uses the default alignment for the flex container."),
+        ("background-size", "Uses the intrinsic size of the background image."),
+        ("flex", "Equivalent to flex: 1 1 auto, making the item flexible.")
+    ]));
     
     // Initial keyword
     keywords.insert("initial", create("initial", "Sets the property to its initial value.", &[
@@ -43,7 +89,17 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     ]));
     
     // None keyword
-    keywords.insert("none", create("none", "No value is applied.", &["background-image", "transition-property", "scale", "rotate", "max-height", "display", "flex", "max-width", "translate"]));
+    keywords.insert("none", create_with_property_docs("none", "No value is applied.", &["background-image", "transition-property", "scale", "rotate", "max-height", "display", "flex", "max-width", "translate"], &[
+        ("background-image", "No background image is displayed."),
+        ("transition-property", "No properties will be transitioned."),
+        ("scale", "No scaling transformation is applied."),
+        ("rotate", "No rotation transformation is applied."),
+        ("max-height", "No maximum height constraint."),
+        ("display", "The element is not displayed (hidden)."),
+        ("flex", "Equivalent to flex: 0 0 auto, making the item inflexible."),
+        ("max-width", "No maximum width constraint."),
+        ("translate", "No translation transformation is applied.")
+    ]));
     
     // Background repeat keywords
     keywords.insert("repeat", create("repeat", "The background image is repeated both horizontally and vertically.", &["background-repeat"]));
@@ -58,7 +114,9 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     keywords.insert("contain", create("contain", "Scale the image to fit entirely within the container.", &["background-size"]));
     
     // Display keywords
-    keywords.insert("flex", create("flex", "Layout the element with flexbox model.", &["display"]));
+    keywords.insert("flex", create_with_property_docs("flex", "Layout the element with flexbox model.", &["display"], &[
+        ("display", "Layout the element using the flexbox model.")
+    ]));
     
     // Flex direction keywords
     keywords.insert("row", create("row", "The flex container's main axis is horizontal (left to right).", &["flex-direction"]));
@@ -71,8 +129,14 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     keywords.insert("wrap-reverse", create("wrap-reverse", "Flex items wrap onto multiple lines from bottom to top.", &["flex-wrap"]));
     
     // Overflow keywords
-    keywords.insert("visible", create("visible", "Content is not clipped and may be rendered outside the element's box.", &["overflow", "visibility"]));
-    keywords.insert("hidden", create("hidden", "Content is clipped and no scrollbars are provided.", &["overflow", "visibility"]));
+    keywords.insert("visible", create_with_property_docs("visible", "Content is not clipped and may be rendered outside the element's box.", &["overflow", "visibility"], &[
+        ("overflow", "Content is not clipped and may overflow the element's bounds."),
+        ("visibility", "The element is visible and takes up space in the layout.")
+    ]));
+    keywords.insert("hidden", create_with_property_docs("hidden", "Content is clipped and no scrollbars are provided.", &["overflow", "visibility"], &[
+        ("overflow", "Content that overflows is clipped and hidden."),
+        ("visibility", "The element is invisible but still takes up space in the layout.")
+    ]));
     
     // Position keywords
     keywords.insert("relative", create("relative", "The element is positioned relative to its normal position.", &["position"]));
@@ -82,8 +146,10 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     keywords.insert("clip", create("clip", "Text is clipped at the overflow point.", &["text-overflow"]));
     keywords.insert("ellipsis", create("ellipsis", "Text is clipped and an ellipsis (...) is displayed.", &["text-overflow"]));
     
-    // Transition property keywords
-    keywords.insert("all", create("all", "All properties that can transition will transition.", &["transition-property"]));
+    // All keyword with different meanings
+    keywords.insert("all", create_with_property_docs("all", "All properties that can transition will transition.", &["transition-property"], &[
+        ("transition-property", "All properties that can transition will transition.")
+    ]));
     
     // Transition timing function keywords
     keywords.insert("ease", create("ease", "Slow start, fast middle, slow end (cubic-bezier(0.25, 0.1, 0.25, 1)).", &["transition-timing-function", "transition"]));
@@ -93,8 +159,14 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     keywords.insert("linear", create("linear", "Constant speed (cubic-bezier(0, 0, 1, 1)).", &["transition-timing-function", "transition"]));
     
     // White space keywords
-    keywords.insert("normal", create("normal", "Sequences of whitespace are collapsed. Newlines are treated as whitespace.", &["white-space", "-unity-font-style"]));
-    keywords.insert("nowrap", create("nowrap", "Flex items are laid out in a single line.", &["flex-wrap", "white-space"]));
+    keywords.insert("normal", create_with_property_docs("normal", "Sequences of whitespace are collapsed. Newlines are treated as whitespace.", &["white-space", "-unity-font-style"], &[
+        ("white-space", "Sequences of whitespace are collapsed and newlines are treated as whitespace."),
+        ("-unity-font-style", "Normal font weight and style (not bold or italic).")
+    ]));
+    keywords.insert("nowrap", create_with_property_docs("nowrap", "Flex items are laid out in a single line.", &["flex-wrap", "white-space"], &[
+        ("flex-wrap", "Flex items are laid out in a single line and do not wrap."),
+        ("white-space", "Text does not wrap to new lines.")
+    ]));
     
     // Cursor keywords
     keywords.insert("arrow", create("arrow", "Default arrow cursor.", &["cursor"]));
@@ -153,15 +225,37 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     keywords.insert("advanced", create("advanced", "Advanced Text Generator is a text rendering module that employs Harfbuzz, ICU, and FreeType to deliver comprehensive Unicode support and text shaping capabilities. With Advanced Text Generator, you can use a wide array of languages and scripts, such as right-to-left (RTL) languages like Arabic and Hebrew.", &["-unity-text-generator"]));
     
     // Unity text overflow position keywords
-    keywords.insert("start", create("start", "Text overflow occurs at the start.", &["-unity-text-overflow-position"]));
-    keywords.insert("middle", create("middle", "Text overflow occurs in the middle.", &["-unity-text-overflow-position"]));
-    keywords.insert("end", create("end", "Text overflow occurs at the end.", &["-unity-text-overflow-position"]));
+    keywords.insert("start", create_with_property_docs("start", "Text overflow occurs at the start.", &["-unity-text-overflow-position"], &[
+        ("-unity-text-overflow-position", "Text overflow occurs at the start of the text.")
+    ]));
+    keywords.insert("middle", create_with_property_docs("middle", "Text overflow occurs in the middle.", &["-unity-text-overflow-position"], &[
+        ("-unity-text-overflow-position", "Text overflow occurs in the middle of the text.")
+    ]));
+    keywords.insert("end", create_with_property_docs("end", "Text overflow occurs at the end.", &["-unity-text-overflow-position"], &[
+        ("-unity-text-overflow-position", "Text overflow occurs at the end of the text.")
+    ]));
     
     // Directional keywords
-    keywords.insert("top", create("top", "Top position or alignment.", &["background-position", "background-position-y", "transform-origin"]));
-    keywords.insert("bottom", create("bottom", "Bottom position or alignment.", &["background-position", "background-position-y", "transform-origin"]));
-    keywords.insert("left", create("left", "Left position or alignment.", &["background-position", "background-position-x", "transform-origin"]));
-    keywords.insert("right", create("right", "Right position or alignment.", &["background-position", "background-position-x", "transform-origin"]));
+    keywords.insert("top", create_with_property_docs("top", "Top position or alignment.", &["background-position", "background-position-y", "transform-origin"], &[
+        ("background-position", "Positions the background image at the top."),
+        ("background-position-y", "Positions the background image at the top vertically."),
+        ("transform-origin", "Sets the transform origin to the top edge of the element.")
+    ]));
+    keywords.insert("bottom", create_with_property_docs("bottom", "Bottom position or alignment.", &["background-position", "background-position-y", "transform-origin"], &[
+        ("background-position", "Positions the background image at the bottom."),
+        ("background-position-y", "Positions the background image at the bottom vertically."),
+        ("transform-origin", "Sets the transform origin to the bottom edge of the element.")
+    ]));
+    keywords.insert("left", create_with_property_docs("left", "Left position or alignment.", &["background-position", "background-position-x", "transform-origin"], &[
+        ("background-position", "Positions the background image at the left."),
+        ("background-position-x", "Positions the background image at the left horizontally."),
+        ("transform-origin", "Sets the transform origin to the left edge of the element.")
+    ]));
+    keywords.insert("right", create_with_property_docs("right", "Right position or alignment.", &["background-position", "background-position-x", "transform-origin"], &[
+        ("background-position", "Positions the background image at the right."),
+        ("background-position-x", "Positions the background image at the right horizontally."),
+        ("transform-origin", "Sets the transform origin to the right edge of the element.")
+    ]));
     
     // Coordinate system keywords
     keywords.insert("x", create("x", "X-axis coordinate or direction.", &["rotate"]));

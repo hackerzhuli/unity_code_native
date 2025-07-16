@@ -817,3 +817,56 @@ fn test_keyword_completeness() {
     println!("✓ All keywords have complete coverage between ValueSpecs and keyword info");
     println!("✓ All keyword property associations are correctly populated");
 }
+
+#[test]
+fn test_property_specific_documentation() {
+    let definitions = UssDefinitions::new();
+    let keywords = definitions.get_all_keywords();
+    
+    // Test keywords that should have property-specific documentation
+    let test_cases = vec![
+        ("center", vec!["justify-content", "align-items", "background-position"]),
+        ("auto", vec!["width", "height", "margin", "align-self"]),
+        ("none", vec!["background-image", "transition-property", "display"]),
+        ("visible", vec!["overflow", "visibility"]),
+        ("hidden", vec!["overflow", "visibility"]),
+        ("normal", vec!["white-space", "-unity-font-style"]),
+        ("top", vec!["background-position", "transform-origin"]),
+        ("all", vec!["transition-property"]),
+        ("flex", vec!["display"]),
+        ("text", vec!["cursor"]),
+        ("start", vec!["-unity-text-overflow-position"]),
+    ];
+    
+    for (keyword, properties) in test_cases {
+        if let Some(keyword_info) = keywords.get(keyword) {
+            // Check if the keyword has property-specific documentation
+            let docs_for_property = &keyword_info.docs_for_property;
+            if !docs_for_property.is_empty() {
+                println!("\nKeyword '{}' has property-specific docs:", keyword);
+                
+                // Verify that all expected properties have documentation
+                for property in &properties {
+                    if let Some(property_doc) = docs_for_property.get(*property) {
+                        println!("  - {}: {}", property, property_doc);
+                    } else {
+                        panic!("Expected property-specific documentation for keyword '{}' and property '{}', but none found", keyword, property);
+                    }
+                }
+                
+                // Verify that the keyword is used by the properties it has docs for
+                for (property, _) in docs_for_property {
+                    if !keyword_info.used_by_properties.contains(property) {
+                        panic!("Keyword '{}' has documentation for property '{}' but is not listed as used by that property", keyword, property);
+                    }
+                }
+            } else {
+                panic!("Expected keyword '{}' to have property-specific documentation, but docs_for_property is empty", keyword);
+            }
+        } else {
+            panic!("Keyword '{}' not found in keyword definitions", keyword);
+        }
+    }
+    
+    println!("\n✓ All expected keywords have proper property-specific documentation");
+}
