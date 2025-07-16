@@ -415,10 +415,21 @@ impl UssCompletionProvider {
                     text.push(';');
                 }
 
+                // Check if this value is a keyword and get its documentation
+                let documentation = self.definitions.get_keyword_info(value)
+                    .map(|keyword_info| {
+                        let doc_content = keyword_info.create_documentation(Some(property_name));
+                        Documentation::MarkupContent(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: doc_content,
+                        })
+                    });
+
                 let item = CompletionItem {
                     label: value.to_string(),
                     kind: Some(CompletionItemKind::VALUE),
                     detail: Some(format!("Value for {}", property_name)),
+                    documentation,
                     insert_text: Some(text),
                     insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
                     ..Default::default()

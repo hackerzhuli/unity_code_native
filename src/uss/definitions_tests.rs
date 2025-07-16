@@ -891,3 +891,36 @@ fn test_keyword_documentation_generation() {
     assert!(fallback_doc.contains("Place items or content in the center."));
     assert!(fallback_doc.contains("**Used by properties:**"));
 }
+
+#[test]
+fn test_keyword_documentation_property_list_truncation() {
+    let definitions = UssDefinitions::new();
+    let keywords = definitions.get_all_keywords();
+    
+    // Find a keyword with more than 10 properties (center has 8, so let's check if any has more)
+    let mut keyword_with_many_properties = None;
+    for (name, info) in keywords.iter() {
+        if info.used_by_properties.len() > 10 {
+            keyword_with_many_properties = Some((name, info));
+            break;
+        }
+    }
+    
+    if let Some((name, keyword_info)) = keyword_with_many_properties {
+        let doc = keyword_info.create_documentation(None);
+        
+        // Should contain "..." when there are more than 10 properties
+        assert!(doc.contains("- ..."), "Documentation for keyword '{}' with {} properties should contain '...' but doesn't. Doc: {}", name, keyword_info.used_by_properties.len(), doc);
+        
+        // Count the number of property lines (excluding the "..." line)
+        let property_lines: Vec<&str> = doc.lines()
+            .filter(|line| line.starts_with("- `") && line.ends_with("`"))
+            .collect();
+        assert_eq!(property_lines.len(), 10, "Should show exactly 10 properties for keyword '{}'", name);
+    } else {
+        // If no keyword has more than 10 properties, test that keywords with <= 10 don't show "..."
+        let center_info = keywords.get("center").expect("center keyword should exist");
+        let doc = center_info.create_documentation(None);
+        assert!(!doc.contains("- ..."), "Documentation for 'center' with {} properties should not contain '...'", center_info.used_by_properties.len());
+    }
+}
