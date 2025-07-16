@@ -183,13 +183,45 @@ impl UssCompletionProvider {
                 {
                     // Check if current node is a property name being typed
                     // Note: incomplete property names are parsed as "attribute_name" in ERROR nodes
-                    if current_node.kind() == NODE_ATTRIBUTE_NAME
-                        && current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR)
+                    let current_node_kind = current_node.kind();
+                    let parent_node_kind = match current_node.parent() {
+                        None => "",
+                        Some(p) => p.kind()
+                    };
+                    if current_node_kind == NODE_ATTRIBUTE_NAME && parent_node_kind == NODE_ERROR
                     {
                         return CompletionContext {
                             t: CompletionType::Property,
                             current_node: Some(current_node),
                         };
+                    }
+                    else if current_node_kind == NODE_COMMA && parent_node_kind == NODE_ERROR{
+                        // user just typed a comma after a comma seperated list (without semicolon yet)
+                        if let Some(parent) = current_node.parent() {
+                            if let Some(parent_prev) = parent.prev_sibling(){
+                                if parent_prev.kind() == NODE_DECLARATION {
+                                    if let Some(dec_last_node) = parent_prev.child(parent_prev.child_count() - 1){
+                                        if dec_last_node.kind() != NODE_SEMICOLON{
+                                            if let Some(property_name_node) = parent_prev.child(0){
+                                                if let Ok(property_name) = property_name_node.utf8_text(content.as_bytes())
+                                                {
+                                                    if let Some(property_info) = self.definitions.get_property_info(property_name) {
+                                                        if property_info.value_spec.allows_multiple_values{
+                                                            return CompletionContext {
+                                                                t: CompletionType::PropertyValue {
+                                                                    property_name:property_name.to_string()
+                                                                },
+                                                                current_node: Some(current_node),
+                                                            };
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -262,29 +294,25 @@ impl UssCompletionProvider {
         // 1. If current node is colon, show all common values
         // 2. If current node is the first value node after property and the property is keyword-only or is color, we try to show a list of keywords that still matches what is already in the node
 
-        if current_node.kind() == NODE_COLON {
+        // value just started, with colon or comma
+        let mut is_colon_or_comma = false;
+        if current_node.kind() == NODE_COLON || current_node.kind() == NODE_COMMA {
             // Right after colon - show all common values
-            return self.get_all_common_values_for_property(property_name);
-        }
-
-        // Check if we're in an empty important node right after a colon
-        if current_node.kind() == "important" {
-            if let Some(prev_sibling) = current_node.prev_sibling() {
-                if prev_sibling.kind() == NODE_COLON {
-                    // We're right after the colon in an empty important node
-                    return self.get_all_common_values_for_property(property_name);
-                }
-            }
+            is_colon_or_comma = true;
         }
 
         // check if we are the first value node(ie. the previous node is colon and the node before that is property name)
-        let mut is_first_value_node = false;
-        if let Some(prev_sibling) = current_node.prev_sibling() {
-            if prev_sibling.kind() == NODE_COLON {
-                if let Some(prev_prev_sibling) = prev_sibling.prev_sibling() {
-                    if prev_prev_sibling.kind() == NODE_PROPERTY_NAME {
-                        is_first_value_node = true;
+        let mut is_first_value_node = is_colon_or_comma;
+        if !is_colon_or_comma {
+            if let Some(prev_sibling) = current_node.prev_sibling() {
+                if prev_sibling.kind() == NODE_COLON {
+                    if let Some(prev_prev_sibling) = prev_sibling.prev_sibling() {
+                        if prev_prev_sibling.kind() == NODE_PROPERTY_NAME {
+                            is_first_value_node = true;
+                        }
                     }
+                }else if prev_sibling.kind() == NODE_COMMA{
+                    is_first_value_node = true;
                 }
             }
         }
@@ -293,132 +321,45 @@ impl UssCompletionProvider {
             return Vec::new();
         }
 
-        // keywords that we want to filter against
-        let valid_keywords = self.get_keywords_for_keyword_based_property(property_name);
+        let property_info_option = self.definitions.get_property_info(property_name);
+        if property_info_option.is_none(){
+            return Vec::new();
+        }
 
-        if valid_keywords.is_empty() {
+        let property_info = property_info_option.unwrap();
+
+        // keywords that we want to filter against
+        let valid_values = self.definitions.get_simple_completions_for_property(property_name);
+
+        if valid_values.is_empty() {
             return Vec::new();
         }
 
         // try to find what still matches and return that
         let mut items = Vec::new();
-        let partial_value = current_node.utf8_text(content.as_bytes()).unwrap_or("");
-        if partial_value.is_empty() {
-            return Vec::new();
-        }
-
+        let partial_value = if is_colon_or_comma {""} else{current_node.utf8_text(content.as_bytes()).unwrap_or("")};
         let partial_lower = partial_value.to_lowercase();
 
-        for keyword in valid_keywords {
-            if keyword.starts_with(&partial_lower) {
+        for value in valid_values {
+            if partial_lower.is_empty() || value.starts_with(&partial_lower) {
+                // add one space if user just typed colon or comma
+                let mut text = if is_colon_or_comma {format!(" {}", value)} else {format!("{}", value)};
+
+                // add a semicolon for a value that doesn't have multiple values(ie. comma separated values)
+                if !property_info.value_spec.allows_multiple_values {
+                    text.push(';');
+                }
+
                 let item = CompletionItem {
-                    label: keyword.to_string(),
+                    label: value.to_string(),
                     kind: Some(CompletionItemKind::VALUE),
-                    detail: Some(format!("Keyword value for {}", property_name)),
-                    insert_text: Some(format!("{} ", keyword)), // Add space after value
+                    detail: Some(format!("Value for {}", property_name)),
+                    insert_text: Some(text),
                     insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
                     ..Default::default()
                 };
                 items.push(item);
             }
-        }
-
-        items
-    }
-
-    /// if a property is a single value and keyword only or is a color then get the valid keywords for them
-    fn get_keywords_for_keyword_based_property(&self, property_name: &str) -> Vec<&str> {
-        let mut valid_keywords: Vec<&str> = Vec::new();
-
-        // Special handling for transition-property
-        if property_name == "transition-property" {
-            return self.get_transition_property_values();
-        }
-
-        // Check if this is a keyword-only property
-        if let Some(property_info) = self.definitions.get_property_info(property_name) {
-            if property_info.value_spec.formats.len() > 0
-                && property_info.value_spec.formats[0].entries.len() > 0
-            {
-                if property_info.value_spec.is_keyword_only() {
-                    for t in property_info.value_spec.formats[0].entries[0].options.iter() {
-                        if let ValueType::Keyword(keyword) = t {
-                            valid_keywords.push(*keyword);
-                        }
-                    }
-                }
-
-                // check if it is a color property
-                if property_info.value_spec.is_color_only() {
-                    self.definitions
-                        .valid_color_keywords
-                        .iter()
-                        .for_each(|(keyword, _)| {
-                            valid_keywords.push(*keyword);
-                        });
-                }
-            }
-        }
-        valid_keywords
-    }
-
-    /// Get valid values for transition-property (animatable properties + keywords)
-    fn get_transition_property_values(&self) -> Vec<&str> {
-        let mut values = Vec::new();
-        
-        // Add keywords first
-        values.extend_from_slice(&["all", "none", "initial", "ignored"]);
-        
-        // Add all animatable properties (both Animatable and Discrete)
-        for (property_name, property_info) in self.definitions.get_all_properties() {
-            match property_info.animatable {
-                crate::uss::definitions::PropertyAnimation::Animatable | 
-                crate::uss::definitions::PropertyAnimation::Discrete => {
-                    values.push(property_name);
-                }
-                _ => {}
-            }
-        }
-        
-        // Add special transform property (Unity allows this in transition-property even though it's not a real property)
-        values.push("transform");
-        
-        // Debug: print the values for transition-property
-        println!("transition-property values: {:?}", values);
-        
-        values
-    }
-
-    /// Get all common values for a property (used when partial_value is empty)
-    fn get_all_common_values_for_property(&self, property_name: &str) -> Vec<CompletionItem> {
-        let mut items = Vec::new();
-
-        let mut suggestions: Vec<&str> = Vec::new();
-
-        suggestions.extend_from_slice(
-            self.get_keywords_for_keyword_based_property(property_name)
-                .as_slice(),
-        );
-
-        for suggestion in suggestions {
-            // now all suggestions are keywords so we can get docs from keyword itself
-            let mut doc = None;
-            if let Some(k) = self.definitions.get_keyword_info(suggestion) {
-                doc = Some(Documentation::MarkupContent(MarkupContent {
-                    kind: MarkupKind::Markdown,
-                    value: k.doc.to_string(),
-                }));
-            }
-            let item = CompletionItem {
-                label: suggestion.to_string(),
-                kind: Some(CompletionItemKind::VALUE),
-                detail: Some(format!("Value for {}", property_name)),
-                insert_text: Some(format!(" {};", suggestion)), // add space before and semicolon after to complete it, we only offer complete suggetions after property
-                insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                documentation: doc, // for now we don't have docs for keywords
-                ..Default::default()
-            };
-            items.push(item);
         }
 
         items

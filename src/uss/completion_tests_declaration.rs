@@ -1,5 +1,6 @@
-use tower_lsp::lsp_types::Position;
+use crate::language::tree_printer::print_tree;
 use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
+use tower_lsp::lsp_types::Position;
 
 #[test]
 fn test_property_value_simple_completion_after_colon() {
@@ -17,14 +18,7 @@ fn test_property_value_simple_completion_after_colon() {
         character: 10,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should have completions for color property
     assert!(
@@ -69,14 +63,7 @@ fn test_property_value_completion_after_typing() {
         character: 13,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should have completions for color property
     assert!(
@@ -112,14 +99,7 @@ fn test_property_value_completion_after_typing_keyword() {
         character: 22,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     assert!(
         !completions.is_empty(),
@@ -152,14 +132,7 @@ fn test_property_name_completion() {
         character: 7,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should have completions for properties starting with "col"
     assert!(
@@ -204,14 +177,7 @@ fn test_property_name_completion_empty() {
         character: 4,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should not provide completions when no text has been typed
     // This is the expected behavior - user must type at least one character
@@ -236,14 +202,7 @@ fn test_property_name_completion_partial_match() {
         character: 8,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should have completions for properties starting with "back"
     assert!(
@@ -283,14 +242,7 @@ fn test_property_name_completion_case_insensitive() {
         character: 7,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should have completions for properties starting with "col" (case insensitive)
     assert!(
@@ -317,17 +269,10 @@ fn test_transition_property_completion() {
     // Position right after colon
     let position = Position {
         line: 1,
-        character: 21,
+        character: 24,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should have completions for transition-property
     assert!(
@@ -336,13 +281,13 @@ fn test_transition_property_completion() {
     );
 
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    
+
     // Debug: print all completions
     println!("Completions for transition-property:");
     for completion in &completions {
         println!("  - {}", completion.label);
     }
-    
+
     // Should include animatable properties
     assert!(
         labels.contains(&"opacity".to_string()),
@@ -352,7 +297,7 @@ fn test_transition_property_completion() {
         labels.contains(&"color".to_string()),
         "Should include 'color' animatable property"
     );
-    
+
     // Should include keywords like 'all', 'none'
     assert!(
         labels.contains(&"all".to_string()),
@@ -379,14 +324,7 @@ fn test_transition_property_partial_completion() {
         character: 24,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should have completions starting with "op"
     assert!(
@@ -410,20 +348,15 @@ fn test_comma_separated_values_completion() {
     let content = ".some { \n    transition-property: opacity, \n}";
     let tree = parser.parse(content, None).unwrap();
 
+    print_tree(tree.root_node(), content, 0);
+
     // Position right after comma and space
     let position = Position {
         line: 1,
-        character: 31,
+        character: 33,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should have completions after comma
     assert!(
@@ -435,6 +368,100 @@ fn test_comma_separated_values_completion() {
     assert!(
         labels.contains(&"color".to_string()),
         "Should include 'color' property after comma"
+    );
+}
+
+#[test]
+fn test_comma_separated_values_completion_partial() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: completion after comma in comma-separated values
+    let content = ".some { \n    transition-property: opacity, tr\n}";
+    let tree = parser.parse(content, None).unwrap();
+
+    print_tree(tree.root_node(), content, 0);
+
+    // Position right after comma and space
+    let position = Position {
+        line: 1,
+        character: 36,
+    };
+
+    let completions = provider.complete(&tree, content, position, None, None, None);
+
+    // Should have completions after comma
+    assert!(
+        !completions.is_empty(),
+        "Should have completions"
+    );
+
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(
+        labels.contains(&"translate".to_string()),
+        "Should include 'translate' property"
+    );
+}
+
+#[test]
+fn test_comma_separated_values_completion_with_semicolon() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: completion after comma in comma-separated values
+    let content = ".some { \n    transition-property: opacity,    ;\n}";
+    let tree = parser.parse(content, None).unwrap();
+
+    print_tree(tree.root_node(), content, 0);
+
+    // Position right after comma and space
+    let position = Position {
+        line: 1,
+        character: 33,
+    };
+
+    let completions = provider.complete(&tree, content, position, None, None, None);
+
+    // Should have completions after comma
+    assert!(
+        !completions.is_empty(),
+        "Should have completions after comma"
+    );
+
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(
+        labels.contains(&"color".to_string()),
+        "Should include 'color' property after comma"
+    );
+}
+
+#[test]
+fn test_comma_separated_values_completion_partial_with_semicolon() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: completion after comma in comma-separated values
+    let content = ".some { \n    transition-property: opacity, tr  ;\n}";
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position right after comma and space
+    let position = Position {
+        line: 1,
+        character: 36,
+    };
+
+    let completions = provider.complete(&tree, content, position, None, None, None);
+
+    // Should have completions after comma
+    assert!(
+        !completions.is_empty(),
+        "Should have completions"
+    );
+
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(
+        labels.contains(&"translate".to_string()),
+        "Should include 'translate' property"
     );
 }
 
@@ -453,19 +480,12 @@ fn test_non_keyword_property_no_completion() {
         character: 11,
     };
 
-    let completions = provider.complete(
-        &tree,
-        content,
-        position,
-        None,
-        None,
-        None,
-    );
+    let completions = provider.complete(&tree, content, position, None, None, None);
 
     // Should have limited or no completions for width (mainly length values)
     // Width accepts length/percentage values, not many single keywords
     let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
-    
+
     // Should include 'auto' if it's a valid keyword for width
     if !labels.is_empty() {
         // If there are completions, they should be valid keywords only
@@ -473,7 +493,8 @@ fn test_non_keyword_property_no_completion() {
             // Common keywords that might be valid
             assert!(
                 ["auto", "initial", "inherit", "unset"].contains(&label.as_str()),
-                "Unexpected completion '{}' for width property", label
+                "Unexpected completion '{}' for width property",
+                label
             );
         }
     }
@@ -482,9 +503,9 @@ fn test_non_keyword_property_no_completion() {
 #[test]
 fn test_tree_structure_debugging() {
     use crate::language::tree_printer::print_tree_to_stdout;
-    
+
     let mut parser = UssParser::new().unwrap();
-    
+
     // Test different scenarios to understand tree structure
     let test_cases = vec![
         ".test { color: }",
@@ -493,7 +514,7 @@ fn test_tree_structure_debugging() {
         ".test { transition-property: opacity, }",
         ".test { width: }",
     ];
-    
+
     for (i, content) in test_cases.iter().enumerate() {
         println!("\n=== Test Case {} ===\nContent: {}", i + 1, content);
         let tree = parser.parse(content, None).unwrap();
