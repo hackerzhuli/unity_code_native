@@ -4,6 +4,7 @@ use super::parser::UssParser;
 use crate::uss::constants::*;
 use tower_lsp::lsp_types::NumberOrString;
 use url::Url;
+use crate::language::tree_printer::print_tree;
 
 #[test]
 fn test_import_statement_validation() {
@@ -494,7 +495,7 @@ fn test_comments_in_declaration() {
     // Should not have any errors for valid declaration with comment between values
     assert!(results.is_empty(), "Valid declaration with comment between values should not produce any errors. Found: {:?}", 
         results.iter().map(|e| &e.message).collect::<Vec<_>>());
-    
+
     // Test case with comment before semicolon
     let content_before_semicolon = r#"Button { 
     color: red /* comment */;
@@ -505,6 +506,17 @@ fn test_comments_in_declaration() {
     
     // Should not have any errors for valid declaration with comment before semicolon
     assert!(results.is_empty(), "Valid declaration with comment before semicolon should not produce any errors. Found: {:?}", 
+        results.iter().map(|e| &e.message).collect::<Vec<_>>());
+
+    // Test case with comment before colon
+    let content_before_semicolon = r#"Button { 
+    color/* comment */: red;
+}"#;
+    
+    let tree = parser.parse(content_before_semicolon, None).unwrap();
+    let results = diagnostics.analyze(&tree, content_before_semicolon);
+    
+    assert!(results.is_empty(), "Valid declaration with comment before semicolon should not produce any errors. Found: {:?}",
         results.iter().map(|e| &e.message).collect::<Vec<_>>());
 }
 

@@ -482,8 +482,38 @@ impl UssDiagnostics {
                 let mut value_nodes = Vec::new(); // Keep track of nodes for error reporting
                 let mut has_commas = false; // Track if there are any commas
 
-                // Collect value nodes and check for commas (everything after the colon, skipping semicolons)
-                for i in 2..node.child_count() {
+                // Note that we can't assume where the colon is, there can be comments before the colon
+                // First find the colon
+                let mut colon_index: Option<usize> = None;
+                for i in 1.. node.child_count(){
+                    if let Some(child) = node.child(i) {
+                        if child.kind() == NODE_COLON {
+                            colon_index = Some(i);
+                        } else if child.kind() == NODE_COMMENT {
+                            continue;
+                        }else{
+                            break;
+                        }
+                    }
+                }
+
+                // This may never happen due to how tree sitter css parser works
+                if colon_index.is_none() {
+                    let range = node_to_range(node, content);
+                    diagnostics.push(Diagnostic {
+                        range,
+                        severity: Some(DiagnosticSeverity::ERROR),
+                        code: Some(NumberOrString::String("invalid-declaration".to_string())),
+                        source: Some("uss".to_string()),
+                        message: "Invalid declaration: expecting colon".to_string(),
+                        ..Default::default()
+                    });
+                    return;
+                }
+
+                // Collect value nodes and check for commas (everything after the colon, skipping semicolons/comments)
+                let actual_colon_index = colon_index.unwrap();
+                for i in actual_colon_index + 1..node.child_count() {
                     if let Some(child) = node.child(i) {
                         if child.kind() == NODE_COMMA {
                             has_commas = true;
