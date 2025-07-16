@@ -151,7 +151,7 @@ fn test_property_name_completion() {
     let color_completion = completions.iter().find(|c| c.label == "color").unwrap();
     assert_eq!(
         color_completion.insert_text,
-        Some("color: ".to_string()),
+        Some("color".to_string()),
         "Should include colon and space"
     );
 

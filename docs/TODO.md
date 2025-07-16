@@ -19,10 +19,10 @@ TODO list:
 - [x] ~~`transform` seems to be a special property for `transition-property` because Unity doesn't actually have this property but allow to use it in `transition-property` value, is this true? we need to confirm.~~
 - [ ] We need to have a complete list of keywords(not including color keywords), though some may not contain documentation.
 - [ ] Add a simple refactor feature (ie. code action) that is renaming id selectors and class selectors in a document.
-- [ ] Property value auto completion: we should always provide auto completion for property value if a property can be a single value of keywords(unless it is a color property or other properties that have an dedicated completion logic), we only show the keywords.
-- [ ] Dedicated autocompletion for `transition-property`, completion with animatable properties.
-- [ ] For properties that supports multiple values, we should trigger completion after comma just like after colon, a new value, same completion logic.
-- [ ] Bug: Auto completion for property name doesn't work if we are typing before another valid property in a block. 
+- [x] Property value auto completion: we should always provide auto completion for property value if a property can be a single value of keywords(unless it is a color property or other properties that have an dedicated completion logic), we only show the keywords.
+- [x] Dedicated autocompletion for `transition-property`, completion with animatable properties.
+- [x] For properties that supports multiple values, we should trigger completion after comma just like after colon, a new value, same completion logic.
+- [ ] Bug: Auto completion for property names doesn't work if we are typing (at least one character) before another valid property in a block. 
 
 TODO for consideration:
 - [ ] (We should do this later, it is complex because it involves Unity Editor) Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy

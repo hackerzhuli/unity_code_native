@@ -171,7 +171,8 @@ impl LanguageServer for UssLanguageServer {
                 completion_provider: Some(CompletionOptions {
                     resolve_provider: Some(false),
                     trigger_characters: Some(vec![
-                        ":".to_string(), // for properties and pseudo classes
+                        ":".to_string(), // for property values and pseudo classes
+                        ",".to_string(), // for properties with multiple values(ie. comma seperated values)
                         "/".to_string(), // for url completion
                         "?".to_string(), // for query parameters in url
                         "@".to_string() // for import statement

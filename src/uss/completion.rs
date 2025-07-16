@@ -405,7 +405,9 @@ impl UssCompletionProvider {
                             value: doc,
                         })
                     }),
-                    insert_text: Some(format!("{}: ", name)),
+                    // no colon because if user type the colon
+                    // that will trigger next round of auto completion for value, which is prefered
+                    insert_text: Some(format!("{}", name)), 
                     ..Default::default()
                 }
             })
