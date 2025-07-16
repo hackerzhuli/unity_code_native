@@ -329,6 +329,16 @@ mod tests {
     }
 
     #[test]
+    fn test_string_length_debug() {
+        let content = ".class1 { color: red; }\n.class2 { background: blue; }";
+        let lines: Vec<&str> = content.lines().collect();
+        
+        // Manual count: ".class2 { background: blue; }" = 29 characters
+        assert_eq!(lines[1], ".class2 { background: blue; }");
+        assert_eq!(lines[1].len(), 29);
+    }
+
+    #[test]
     fn test_find_actual_format_range_complete_rules() {
         let formatter = UssFormatter::new();
         let mut parser = create_parser();
@@ -336,7 +346,7 @@ mod tests {
         let content = ".class1 { color: red; }\n.class2 { background: blue; }";
         let tree = parser.parse(content, None).unwrap();
         
-        // Request range that covers both complete rules
+        // The second line ".class2 { background: blue; }" has 29 characters
         let requested_range = Range {
             start: Position { line: 0, character: 0 },
             end: Position { line: 1, character: 29 },
@@ -347,6 +357,7 @@ mod tests {
         
         let actual_range = result.unwrap();
         assert_eq!(actual_range.start, Position { line: 0, character: 0 });
+        // The method returns the actual end position based on the parsed nodes
         assert_eq!(actual_range.end, Position { line: 1, character: 29 });
     }
 
