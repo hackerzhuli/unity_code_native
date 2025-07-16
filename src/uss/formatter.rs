@@ -6,7 +6,7 @@
 use malva::{config::FormatOptions, format_text, Syntax};
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
-use crate::language::tree_utils::{byte_to_position, position_to_byte_offset, node_to_range};
+use crate::language::tree_utils::{byte_to_position, position_to_byte_offset, node_to_range, has_error_nodes};
 use crate::uss::constants::NODE_ERROR;
 
 /// USS Formatter that handles formatting requests
@@ -24,34 +24,13 @@ impl UssFormatter {
 
     /// Format the entire document
     pub fn format_document(&self, content: &str, tree: &Tree) -> Result<Vec<TextEdit>, String> {
-        // Check if there are any error nodes in the entire tree
-        if self.has_error_nodes(tree.root_node()) {
-            log::debug!("Document contains error nodes, skipping formatting");
-            return Ok(Vec::new());
-        }
-
-        // Format the entire content
-        match format_text(content, Syntax::Css, &self.format_options) {
-            Ok(formatted) => {
-                if formatted == content {
-                    // No changes needed
-                    Ok(Vec::new())
-                } else {
-                    // Return a single edit that replaces the entire document
-                    Ok(vec![TextEdit {
-                        range: Range {
-                            start: Position { line: 0, character: 0 },
-                            end: self.get_document_end_position(content),
-                        },
-                        new_text: formatted,
-                    }])
-                }
-            }
-            Err(e) => {
-                log::warn!("Failed to format USS document: {}", e);
-                Err(format!("Formatting failed: {}", e))
-            }
-        }
+        // Use format_range with the full document range
+        let full_range = Range {
+            start: Position { line: 0, character: 0 },
+            end: self.get_document_end_position(content, tree),
+        };
+        
+        self.format_range(content, tree, full_range)
     }
 
     /// Format a specific range in the document
@@ -134,37 +113,63 @@ impl UssFormatter {
             return Ok(None);
         }
 
-        // Get the range from first to last valid node
-        let first_node = valid_nodes.first().unwrap();
-        let last_node = valid_nodes.last().unwrap();
+        // Find the actual first and last nodes that start/end cleanly
+        let mut actual_first_idx = 0;
+        let mut actual_last_idx = valid_nodes.len() - 1;
         
-        let first_range = node_to_range(*first_node, content);
-        let last_range = node_to_range(*last_node, content);
+        // Find first node that starts cleanly (no previous sibling on same line)
+        while actual_first_idx < valid_nodes.len() {
+            let current_node = valid_nodes[actual_first_idx];
+            let current_range = node_to_range(current_node, content);
+            
+            // Check if there's a previous sibling on the same line
+            let mut has_prev_sibling_on_same_line = false;
+            if let Some(prev_sibling) = current_node.prev_sibling() {
+                let prev_range = node_to_range(prev_sibling, content);
+                if prev_range.end.line == current_range.start.line {
+                    has_prev_sibling_on_same_line = true;
+                }
+            }
+            
+            if !has_prev_sibling_on_same_line {
+                break;
+            }
+            actual_first_idx += 1;
+        }
+        
+        // Find last node that ends cleanly (no next sibling on same line)
+        while actual_last_idx > actual_first_idx {
+            let current_node = valid_nodes[actual_last_idx];
+            let current_range = node_to_range(current_node, content);
+            
+            // Check if there's a next sibling on the same line
+            let mut has_next_sibling_on_same_line = false;
+            if let Some(next_sibling) = current_node.next_sibling() {
+                let next_range = node_to_range(next_sibling, content);
+                if next_range.start.line == current_range.end.line {
+                    has_next_sibling_on_same_line = true;
+                }
+            }
+            
+            if !has_next_sibling_on_same_line {
+                break;
+            }
+            actual_last_idx -= 1;
+        }
+        
+        // If we couldn't find any clean nodes, return None
+        if actual_first_idx >= valid_nodes.len() || actual_last_idx < actual_first_idx {
+            return Ok(None);
+        }
+        
+        let first_node = valid_nodes[actual_first_idx];
+        let last_node = valid_nodes[actual_last_idx];
+        
+        let first_range = node_to_range(first_node, content);
+        let last_range = node_to_range(last_node, content);
         
         let range_start_pos = first_range.start;
         let range_end_pos = last_range.end;
-        
-        // Check if the range starts/ends cleanly (not in the middle of lines with other content)
-        let start_line_idx = range_start_pos.line as usize;
-        let end_line_idx = range_end_pos.line as usize;
-        
-        if start_line_idx < lines.len() {
-            let start_line = lines[start_line_idx];
-            let before_start = &start_line[..range_start_pos.character as usize];
-            if !before_start.trim().is_empty() {
-                // There's content before our range on the same line
-                return Ok(None);
-            }
-        }
-        
-        if end_line_idx < lines.len() {
-            let end_line = lines[end_line_idx];
-            let after_end = &end_line[range_end_pos.character as usize..];
-            if !after_end.trim().is_empty() {
-                // There's content after our range on the same line
-                return Ok(None);
-            }
-        }
 
         Ok(Some(Range {
             start: range_start_pos,
@@ -172,48 +177,22 @@ impl UssFormatter {
         }))
     }
 
-    /// Check if a node or any of its descendants contains error nodes
-    fn has_error_nodes(&self, node: Node) -> bool {
-        if node.is_error() || node.is_missing() || node.kind() == NODE_ERROR {
-            return true;
-        }
-        
-        let mut cursor = node.walk();
-        for child in node.children(&mut cursor) {
-            if self.has_error_nodes(child) {
-                return true;
-            }
-        }
-        
-        false
-    }
-
     /// Check if there are error nodes within a specific range
     fn has_error_nodes_in_range(&self, node: Node, range: Range, content: &str) -> bool {
         let start_offset = self.position_to_offset(content, range.start).unwrap_or(0);
         let end_offset = self.position_to_offset(content, range.end).unwrap_or(content.len());
         
-        self.has_error_nodes_in_byte_range(node, start_offset, end_offset)
-    }
-    
-    /// Check if there are error nodes within a byte range
-    fn has_error_nodes_in_byte_range(&self, node: Node, start_byte: usize, end_byte: usize) -> bool {
-        // Check if this node overlaps with our range and is an error
-        let node_start = node.start_byte();
-        let node_end = node.end_byte();
-        
-        if node_start < end_byte && node_end > start_byte {
-            // Node overlaps with our range
-            if node.is_error() || node.is_missing() || node.kind() == NODE_ERROR {
-                return true;
-            }
-        }
-        
-        // Check children
+        // Find top-level nodes that overlap with the range and check each one
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            if self.has_error_nodes_in_byte_range(child, start_byte, end_byte) {
-                return true;
+            let node_start = child.start_byte();
+            let node_end = child.end_byte();
+            
+            // Check if this top-level node overlaps with our range
+            if node_start < end_offset && node_end > start_offset {
+                if has_error_nodes(child) {
+                    return true;
+                }
             }
         }
         
@@ -246,17 +225,11 @@ impl UssFormatter {
         Ok(byte_to_position(offset, content))
     }
 
-    /// Get the end position of the document
-    fn get_document_end_position(&self, content: &str) -> Position {
-        let lines: Vec<&str> = content.lines().collect();
-        if lines.is_empty() {
-            Position { line: 0, character: 0 }
-        } else {
-            Position {
-                line: (lines.len() - 1) as u32,
-                character: lines.last().unwrap().len() as u32,
-            }
-        }
+    /// Get the end position of the document using the tree's end byte position
+    fn get_document_end_position(&self, content: &str, tree: &Tree) -> Position {
+        let root = tree.root_node();
+        let end_byte = root.end_byte();
+        byte_to_position(end_byte, content)
     }
 }
 
@@ -267,349 +240,5 @@ impl Default for UssFormatter {
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::uss::parser::UssParser;
-
-    use super::*;
-
-    fn create_parser() -> UssParser {
-        UssParser::new().expect("Error creating USS parser")
-    }
-
-    #[test]
-    fn test_format_simple_css() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".test{color:red;background:blue;}";
-        let tree = parser.parse(content, None).unwrap();
-        
-        let result = formatter.format_document(content, &tree);
-        assert!(result.is_ok());
-        
-        let edits = result.unwrap();
-        assert!(!edits.is_empty());
-    }
-
-    #[test]
-    fn test_skip_formatting_with_errors() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".test{color:red";
-        let tree = parser.parse(content, None).unwrap();
-        
-        let result = formatter.format_document(content, &tree);
-        assert!(result.is_ok());
-        
-        let edits = result.unwrap();
-        assert!(edits.is_empty()); // Should skip formatting due to errors
-    }
-
-    #[test]
-    fn test_position_to_offset() {
-        let formatter = UssFormatter::new();
-        let content = "line1\nline2\nline3";
-        
-        let offset = formatter.position_to_offset(content, Position { line: 1, character: 2 }).unwrap();
-        assert_eq!(offset, 8); // "line1\nli" = 8 characters
-    }
-
-    #[test]
-    fn test_offset_to_position() {
-        let formatter = UssFormatter::new();
-        let content = "line1\nline2\nline3";
-        
-        let position = formatter.offset_to_position(content, 8).unwrap();
-        assert_eq!(position, Position { line: 1, character: 2 });
-    }
-
-    #[test]
-    fn test_string_length_debug() {
-        let content = ".class1 { color: red; }\n.class2 { background: blue; }";
-        let lines: Vec<&str> = content.lines().collect();
-        
-        // Manual count: ".class2 { background: blue; }" = 29 characters
-        assert_eq!(lines[1], ".class2 { background: blue; }");
-        assert_eq!(lines[1].len(), 29);
-    }
-
-    #[test]
-    fn test_find_actual_format_range_complete_rules() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".class1 { color: red; }\n.class2 { background: blue; }";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // The second line ".class2 { background: blue; }" has 29 characters
-        let requested_range = Range {
-            start: Position { line: 0, character: 0 },
-            end: Position { line: 1, character: 29 },
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_some());
-        
-        let actual_range = result.unwrap();
-        assert_eq!(actual_range.start, Position { line: 0, character: 0 });
-        // The method returns the actual end position based on the parsed nodes
-        assert_eq!(actual_range.end, Position { line: 1, character: 29 });
-    }
-
-    #[test]
-    fn test_find_actual_format_range_partial_rule_rejection() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".class1 { color: red; }\n.class2 { background: blue; }";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range that only partially covers the first rule
-        let requested_range = Range {
-            start: Position { line: 0, character: 5 }, // Starts in middle of first rule
-            end: Position { line: 0, character: 23 },
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_none()); // Should reject partial rule coverage
-    }
-
-    #[test]
-    fn test_find_actual_format_range_mixed_content_line() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = "/* comment */ .class1 { color: red; } /* another comment */";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range that includes the rule but has other content on same line
-        let requested_range = Range {
-            start: Position { line: 0, character: 14 }, // Start at .class1
-            end: Position { line: 0, character: 37 },   // End after closing brace
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_none()); // Should reject due to mixed content on line
-    }
-
-    #[test]
-    fn test_find_actual_format_range_clean_line_boundaries() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = "\n.class1 {\n  color: red;\n}\n\n.class2 {\n  background: blue;\n}\n";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range for first rule with clean line boundaries
-        let requested_range = Range {
-            start: Position { line: 1, character: 0 },
-            end: Position { line: 3, character: 1 },
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_some());
-        
-        let actual_range = result.unwrap();
-        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
-        assert_eq!(actual_range.end, Position { line: 3, character: 1 });
-    }
-
-    #[test]
-    fn test_find_actual_format_range_empty_selection() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".class1 { color: red; }\n.class2 { background: blue; }";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range that doesn't contain any complete rules
-        let requested_range = Range {
-            start: Position { line: 0, character: 23 }, // Between rules
-            end: Position { line: 1, character: 0 },
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_none()); // Should return None for empty selection
-    }
-
-    #[test]
-    fn test_find_actual_format_range_single_rule_subset() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".class1 { color: red; }\n.class2 { background: blue; }\n.class3 { margin: 10px; }";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range that covers only the middle rule completely
-        let requested_range = Range {
-            start: Position { line: 1, character: 0 },
-            end: Position { line: 1, character: 29 },
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_some());
-        
-        let actual_range = result.unwrap();
-        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
-        assert_eq!(actual_range.end, Position { line: 1, character: 29 });
-    }
-
-    #[test]
-    fn test_find_actual_format_range_start_middle_extract_complete_rules() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = "/* comment */ .class1 { color: red; }\n.class2 { background: blue; }\n.class3 { margin: 10px; }";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range starting in the middle of first line but covering complete rules after
-        let requested_range = Range {
-            start: Position { line: 0, character: 5 }, // Middle of comment
-            end: Position { line: 2, character: 25 },
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        // Should return None because the range starts in the middle of a comment
-        // According to the documentation, we only format complete top-level nodes
-        assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_find_actual_format_range_middle_of_first_rule_extract_others() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".class1 {\n  color: red;\n  background: blue;\n}\n.class2 { margin: 10px; }\n.class3 { padding: 5px; }";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range starting in the middle of first rule's declaration block
-        let requested_range = Range {
-            start: Position { line: 1, character: 5 }, // Middle of "color: red;"
-            end: Position { line: 5, character: 25 },
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_some());
-        
-        let actual_range = result.unwrap();
-        // Should extract the two complete rules that are fully contained
-        assert_eq!(actual_range.start, Position { line: 4, character: 0 });
-        assert_eq!(actual_range.end, Position { line: 5, character: 25 });
-    }
-
-    #[test]
-    fn test_find_actual_format_range_end_middle_extract_complete_rules() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".class1 { color: red; }\n.class2 { background: blue; }\n.class3 {\n  margin: 10px;\n  padding: 5px;\n}";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range ending in the middle of last rule's declaration block
-        let requested_range = Range {
-            start: Position { line: 0, character: 0 },
-            end: Position { line: 4, character: 10 }, // Middle of "padding: 5px;"
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_some());
-        
-        let actual_range = result.unwrap();
-        // Should extract the two complete rules that are fully contained
-        assert_eq!(actual_range.start, Position { line: 0, character: 0 });
-        assert_eq!(actual_range.end, Position { line: 1, character: 29 });
-    }
-
-    #[test]
-    fn test_find_actual_format_range_middle_selector_extract_inner_rules() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".very-long-class-name { color: red; }\n.class2 { background: blue; }\n.class3 { margin: 10px; }\n.another-long-name { padding: 5px; }";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range starting in the middle of first selector and ending in middle of last
-        let requested_range = Range {
-            start: Position { line: 0, character: 10 }, // Middle of first selector
-            end: Position { line: 3, character: 15 },   // Middle of last selector
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_some());
-        
-        let actual_range = result.unwrap();
-        // Should extract the two complete middle rules
-        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
-        assert_eq!(actual_range.end, Position { line: 2, character: 25 });
-    }
-
-    #[test]
-    fn test_find_actual_format_range_across_multiple_rules_partial() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".class1 { color: red; }\n.class2 { background: blue; }\n.class3 { margin: 10px; }";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range that starts in middle of first rule and ends in middle of last rule
-        let requested_range = Range {
-            start: Position { line: 0, character: 10 }, // Middle of first rule
-            end: Position { line: 2, character: 15 },   // Middle of last rule
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        // Should only include the complete middle rule
-        assert!(result.is_some());
-        
-        let actual_range = result.unwrap();
-        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
-        assert_eq!(actual_range.end, Position { line: 1, character: 29 });
-    }
-
-    #[test]
-    fn test_find_actual_format_range_multiline_rule_with_complete_rules_inside() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = ".outer {\n  color: red;\n}\n.class1 { background: blue; }\n.class2 { margin: 10px; }\n.final {\n  padding: 5px;\n}";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range starting in the middle of first multiline rule and ending in middle of last
-        let requested_range = Range {
-            start: Position { line: 1, character: 5 }, // Middle of first rule's content
-            end: Position { line: 6, character: 10 },  // Middle of last rule's content
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_some());
-        
-        let actual_range = result.unwrap();
-        // Should extract the two complete rules in the middle
-        assert_eq!(actual_range.start, Position { line: 3, character: 0 });
-        assert_eq!(actual_range.end, Position { line: 4, character: 25 });
-    }
-
-    #[test]
-    fn test_find_actual_format_range_complex_selection_with_comments() {
-        let formatter = UssFormatter::new();
-        let mut parser = create_parser();
-        
-        let content = "/* start comment */\n.class1 { color: red; }\n.class2 { background: blue; }\n/* middle comment */\n.class3 { margin: 10px; }\n/* end comment */";
-        let tree = parser.parse(content, None).unwrap();
-        
-        // Request range starting in middle of comment and ending in middle of another comment
-        let requested_range = Range {
-            start: Position { line: 0, character: 8 },  // Middle of start comment
-            end: Position { line: 5, character: 8 },    // Middle of end comment
-        };
-        
-        let result = formatter.find_actual_format_range(content, &tree, requested_range).unwrap();
-        assert!(result.is_some());
-        
-        let actual_range = result.unwrap();
-        // Should extract all the complete CSS rules, excluding partial comments
-        assert_eq!(actual_range.start, Position { line: 1, character: 0 });
-        assert_eq!(actual_range.end, Position { line: 4, character: 25 });
-    }
-}
+#[path = "formatter_tests.rs"]
+mod tests;

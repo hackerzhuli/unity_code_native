@@ -1,6 +1,8 @@
 use tower_lsp::lsp_types::{Position, Range};
 use tree_sitter::{Node, Point};
 
+use crate::uss::constants::NODE_ERROR;
+
 /// Convert tree-sitter node to LSP range
 pub(crate) fn node_to_range(node: Node, content: &str) -> Range {
     let start_byte = node.start_byte();
@@ -129,4 +131,20 @@ pub fn find_node_of_type_at_position<'a>(
             return None;
         }
     }
+}
+
+/// Check if a node or any of its descendants contains error nodes
+pub fn has_error_nodes(node: Node) -> bool {
+    if node.is_error() || node.is_missing() || node.kind() == NODE_ERROR {
+        return true;
+    }
+    
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if has_error_nodes(child) {
+            return true;
+        }
+    }
+    
+    false
 }
