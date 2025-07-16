@@ -172,9 +172,9 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     keywords.insert("split-resize-left-right", create("split-resize-left-right", "Split resize cursor (left-right).", &["cursor"]));
     
     // Unity-specific background scale mode keywords
-    keywords.insert("stretch-to-fill", create("stretch-to-fill", "Stretch the image to fill the entire element, ignoring aspect ratio.", &["-unity-background-scale-mode"]));
-    keywords.insert("scale-and-crop", create("scale-and-crop", "Scale the image to fill the element while maintaining aspect ratio, cropping if necessary.", &["-unity-background-scale-mode"]));
-    keywords.insert("scale-to-fit", create("scale-to-fit", "Scale the image to fit within the element while maintaining aspect ratio.", &["-unity-background-scale-mode"]));
+    keywords.insert("stretch-to-fill", create("stretch-to-fill", "Stretches the image to fill the entire area of the visual element.", &["-unity-background-scale-mode"]));
+    keywords.insert("scale-and-crop", create("scale-and-crop", "Scales the image to fit the visual element. If the image is larger than the visual element, the image is cropped.", &["-unity-background-scale-mode"]));
+    keywords.insert("scale-to-fit", create("scale-to-fit", "Scales the image to fit the visual element. It's similar to the stretch-to-fill mode, but the aspect ratio of the image is preserved.", &["-unity-background-scale-mode"]));
     
     // Unity text rendering mode keywords
     keywords.insert("legacy", create("legacy", "Use legacy text rendering.", &["-unity-editor-text-rendering-mode"]));
@@ -238,17 +238,17 @@ pub fn create_keyword_info() -> HashMap<&'static str, KeywordInfo> {
     ]));
     
     // Coordinate system keywords
-    keywords.insert("x", create("x", "X-axis coordinate or direction.", &["rotate"]));
-    keywords.insert("y", create("y", "Y-axis coordinate or direction.", &["rotate"]));
-    keywords.insert("z", create("z", "Z-axis coordinate or direction.", &["rotate"]));
-    keywords.insert("x-start", create("x-start", "Start position on the X-axis.", &["background-position-x"]));
-    keywords.insert("x-end", create("x-end", "End position on the X-axis.", &["background-position-x"]));
-    keywords.insert("y-start", create("y-start", "Start position on the Y-axis.", &["background-position-y"]));
-    keywords.insert("y-end", create("y-end", "End position on the Y-axis.", &["background-position-y"]));
+    keywords.insert("x", create("x", "Rotate around the X-axis.", &["rotate"]));
+    keywords.insert("y", create("y", "Rotate around the Y-axis.", &["rotate"]));
+    keywords.insert("z", create("z", "Rotate around the Z-axis.", &["rotate"]));
+    keywords.insert("x-start", create("x-start", "Position the background image at the start of the horizontal axis (left edge).", &["background-position-x"]));
+    keywords.insert("x-end", create("x-end", "Position the background image at the end of the horizontal axis (right edge).", &["background-position-x"]));
+    keywords.insert("y-start", create("y-start", "Position the background image at the start of the vertical axis (top edge).", &["background-position-y"]));
+    keywords.insert("y-end", create("y-end", "Position the background image at the end of the vertical axis (bottom edge).", &["background-position-y"]));
     
     // Unity slice type keywords
-    keywords.insert("sliced", create("sliced", "Use sliced scaling mode for 9-slice sprites.", &["-unity-slice-type"]));
-    keywords.insert("tiled", create("tiled", "Use tiled scaling mode for repeating textures.", &["-unity-slice-type"]));
+    keywords.insert("sliced", create("sliced", "The center of image is scaled instead of tiled.", &["-unity-slice-type"]));
+    keywords.insert("tiled", create("tiled", "The center of image is tiled instead of scaled.", &["-unity-slice-type"]));
     
     // Animation easing keywords
     keywords.insert("ease-in-back", create("ease-in-back", "Ease-in with back overshoot at the beginning.", &["transition-timing-function", "transition"]));
