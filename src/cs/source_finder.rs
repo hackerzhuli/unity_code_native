@@ -8,32 +8,12 @@ use std::path::{Path, PathBuf};
 use anyhow::{Result, Context, anyhow};
 use serde::Deserialize;
 use tokio::fs;
-use super::AssemblyInfo;
+use super::source_assembly::SourceAssembly;
 
-/// Package information from packages-lock.json
-#[derive(Debug, Deserialize)]
-struct PackageLockFile {
-    dependencies: std::collections::HashMap<String, PackageInfo>,
-}
 
-#[derive(Debug, Deserialize)]
-struct PackageInfo {
-    version: String,
-    depth: u32,
-    source: String,
-}
-
-/// Assembly definition file structure
-#[derive(Debug, Deserialize)]
-struct AsmDefFile {
-    name: String,
-    #[serde(default)]
-    #[serde(rename = "rootNamespace")]
-    root_namespace: String,
-}
 
 /// Find user assemblies from .csproj files in the Unity project root
-pub async fn find_user_assemblies(unity_project_root: &Path) -> Result<Vec<AssemblyInfo>> {
+pub async fn find_user_assemblies(unity_project_root: &Path) -> Result<Vec<SourceAssembly>> {
     let mut assemblies = Vec::new();
     
     // Read all .csproj files in the project root
@@ -52,46 +32,64 @@ pub async fn find_user_assemblies(unity_project_root: &Path) -> Result<Vec<Assem
     Ok(assemblies)
 }
 
-/// Find package assemblies from .asmdef files in Library/PackageCache
-pub async fn find_package_assemblies(unity_project_root: &Path) -> Result<Vec<AssemblyInfo>> {
-    let mut assemblies = Vec::new();
+/// Get source files for an assembly on-demand based on its source_location
+pub async fn get_assembly_source_files(assembly: &SourceAssembly, unity_project_root: &Path) -> Result<Vec<PathBuf>> {
+    let source_location = &assembly.source_location;
     
-    // First, read the packages-lock.json to get package information
-    let packages_lock_path = unity_project_root.join("Packages").join("packages-lock.json");
-    if !packages_lock_path.exists() {
-        return Ok(assemblies); // No packages, return empty
-    }
-    
-    let packages_content = fs::read_to_string(&packages_lock_path).await
-        .context("Failed to read packages-lock.json")?;
-    
-    let packages_lock: PackageLockFile = serde_json::from_str(&packages_content)
-        .context("Failed to parse packages-lock.json")?;
-    
-    // Look for packages in Library/PackageCache
-    let package_cache_dir = unity_project_root.join("Library").join("PackageCache");
-    if !package_cache_dir.exists() {
-        return Ok(assemblies); // No package cache, return empty
-    }
-    
-    // Iterate through each package in the cache
-    let mut cache_entries = fs::read_dir(&package_cache_dir).await
-        .context("Failed to read PackageCache directory")?;
-    
-    while let Some(entry) = cache_entries.next_entry().await? {
-        let package_dir = entry.path();
-        if package_dir.is_dir() {
-            if let Ok(package_assemblies) = find_assemblies_in_package(&package_dir, unity_project_root).await {
-                assemblies.extend(package_assemblies);
-            }
+    if let Some(extension) = source_location.extension().and_then(|s| s.to_str()) {
+        match extension {
+            "csproj" => {
+                // Read source files from .csproj file
+                let content = fs::read_to_string(source_location).await
+                    .context("Failed to read .csproj file")?;
+                extract_compile_items(&content, unity_project_root)
+                    .context("Failed to extract compile items from .csproj")
+            },
+            "asmdef" => {
+                // Find .cs files in the directory containing the .asmdef file
+                if let Some(asmdef_dir) = source_location.parent() {
+                    find_cs_files_in_dir(asmdef_dir, unity_project_root).await
+                } else {
+                    Ok(Vec::new())
+                }
+            },
+            _ => Ok(Vec::new()),
         }
+    } else {
+        Ok(Vec::new())
     }
-    
-    Ok(assemblies)
 }
 
+/// Recursively find all .cs files in a directory and return paths relative to Unity project root
+pub fn find_cs_files_in_dir<'a>(dir: &'a Path, unity_project_root: &'a Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<PathBuf>>> + 'a>> {
+    Box::pin(async move {
+        let mut cs_files = Vec::new();
+        
+        let mut entries = fs::read_dir(dir).await
+            .context("Failed to read directory")?;
+        
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("cs") {
+                // Convert to relative path from Unity project root
+                if let Ok(relative_path) = path.strip_prefix(unity_project_root) {
+                    cs_files.push(relative_path.to_path_buf());
+                }
+            } else if path.is_dir() {
+                // Recursively search subdirectories
+                let mut sub_files = find_cs_files_in_dir(&path, unity_project_root).await?;
+                cs_files.append(&mut sub_files);
+            }
+        }
+        
+        Ok(cs_files)
+    })
+}
+
+
+
 /// Parse a .csproj file to extract assembly information
-async fn parse_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Result<AssemblyInfo> {
+async fn parse_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Result<SourceAssembly> {
     let content = fs::read_to_string(csproj_path).await
         .context("Failed to read .csproj file")?;
     
@@ -99,12 +97,8 @@ async fn parse_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Res
     let assembly_name = extract_assembly_name(&content)
         .ok_or_else(|| anyhow!("Could not find AssemblyName in .csproj file"))?;
     
-    let source_files = extract_compile_items(&content, unity_project_root)
-        .context("Failed to extract compile items from .csproj")?;
-    
-    Ok(AssemblyInfo {
+    Ok(SourceAssembly {
         name: assembly_name,
-        source_files,
         is_user_code: true,
         source_location: csproj_path.to_path_buf(),
     })
@@ -151,93 +145,7 @@ fn extract_compile_items(content: &str, unity_project_root: &Path) -> Result<Vec
     Ok(source_files)
 }
 
-/// Find assemblies in a specific package directory
-async fn find_assemblies_in_package(package_dir: &Path, unity_project_root: &Path) -> Result<Vec<AssemblyInfo>> {
-    let mut assemblies = Vec::new();
-    
-    // Recursively search for .asmdef files
-    let asmdef_files = find_asmdef_files(package_dir).await?;
-    
-    for asmdef_path in asmdef_files {
-        if let Ok(assembly_info) = parse_asmdef_file(&asmdef_path, package_dir, unity_project_root).await {
-            assemblies.push(assembly_info);
-        }
-    }
-    
-    Ok(assemblies)
-}
 
-/// Recursively find all .asmdef files in a directory
-fn find_asmdef_files<'a>(dir: &'a Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<PathBuf>>> + 'a>> {
-    Box::pin(async move {
-        let mut asmdef_files = Vec::new();
-        
-        let mut entries = fs::read_dir(dir).await
-            .context("Failed to read directory")?;
-        
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("asmdef") {
-                asmdef_files.push(path);
-            } else if path.is_dir() {
-                // Recursively search subdirectories
-                let mut sub_files = find_asmdef_files(&path).await?;
-                asmdef_files.append(&mut sub_files);
-            }
-        }
-        
-        Ok(asmdef_files)
-    })
-}
-
-/// Parse an .asmdef file to extract assembly information
-async fn parse_asmdef_file(asmdef_path: &Path, package_dir: &Path, unity_project_root: &Path) -> Result<AssemblyInfo> {
-    let content = fs::read_to_string(asmdef_path).await
-        .context("Failed to read .asmdef file")?;
-    
-    let asmdef: AsmDefFile = serde_json::from_str(&content)
-        .context("Failed to parse .asmdef file")?;
-    
-    // Find all .cs files in the same directory as the .asmdef file
-    let asmdef_dir = asmdef_path.parent()
-        .ok_or_else(|| anyhow!("Could not get parent directory of .asmdef file"))?;
-    
-    let source_files = find_cs_files_in_dir(asmdef_dir, unity_project_root).await
-        .context("Failed to find .cs files in .asmdef directory")?;
-    
-    Ok(AssemblyInfo {
-        name: asmdef.name,
-        source_files,
-        is_user_code: false,
-        source_location: asmdef_path.to_path_buf(),
-    })
-}
-
-/// Recursively find all .cs files in a directory and return paths relative to Unity project root
-fn find_cs_files_in_dir<'a>(dir: &'a Path, unity_project_root: &'a Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<PathBuf>>> + 'a>> {
-    Box::pin(async move {
-        let mut cs_files = Vec::new();
-        
-        let mut entries = fs::read_dir(dir).await
-            .context("Failed to read directory")?;
-        
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("cs") {
-                // Convert to relative path from Unity project root
-                if let Ok(relative_path) = path.strip_prefix(unity_project_root) {
-                    cs_files.push(relative_path.to_path_buf());
-                }
-            } else if path.is_dir() {
-                // Recursively search subdirectories
-                let mut sub_files = find_cs_files_in_dir(&path, unity_project_root).await?;
-                cs_files.append(&mut sub_files);
-            }
-        }
-        
-        Ok(cs_files)
-    })
-}
 
 #[cfg(test)]
 mod tests {
@@ -257,21 +165,15 @@ mod tests {
         
         let assembly = assembly_csharp.unwrap();
         assert!(assembly.is_user_code, "Assembly-CSharp should be user code");
-        assert!(!assembly.source_files.is_empty(), "Should have source files");
+        
+        // Test on-demand source file retrieval
+        let source_files = get_assembly_source_files(assembly, &unity_root).await.unwrap();
+        assert!(!source_files.is_empty(), "Should have source files");
         
         println!("Found {} user assemblies", assemblies.len());
     }
 
-    #[tokio::test]
-    async fn test_find_package_assemblies() {
-        let unity_root = get_unity_project_root();
-        let assemblies = find_package_assemblies(&unity_root).await.unwrap();
-        
-        println!("Found {} package assemblies", assemblies.len());
-        for assembly in &assemblies {
-            assert!(!assembly.is_user_code, "Package assemblies should not be user code");
-        }
-    }
+
 
     #[tokio::test]
     async fn test_extract_assembly_name() {

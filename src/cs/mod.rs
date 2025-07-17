@@ -13,19 +13,10 @@ use serde::{Deserialize, Serialize};
 pub mod assembly_finder;
 pub mod source_finder;
 pub mod manager;
+pub mod package_manager;
 
 // Re-export the main manager
 pub use manager::CsDocsManager;
+pub use package_manager::UnityPackageManager;
 
-/// Represents information about a C# assembly and its source files
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AssemblyInfo {
-    /// The name of the assembly (e.g., "Assembly-CSharp")
-    pub name: String,
-    /// List of source file paths relative to Unity project root
-    pub source_files: Vec<PathBuf>,
-    /// Whether this is user code (true) or package code (false)
-    pub is_user_code: bool,
-    /// The location where this assembly info was found (csproj or asmdef path)
-    pub source_location: PathBuf,
-}
+pub mod source_assembly;
