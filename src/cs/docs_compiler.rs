@@ -52,6 +52,14 @@ pub struct DocsCompiler {
     parser: Parser,
 }
 
+impl std::fmt::Debug for DocsCompiler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DocsCompiler")
+            .field("parser", &"<Parser>")
+            .finish()
+    }
+}
+
 impl DocsCompiler {
     /// Create a new documentation compiler
     pub fn new() -> Result<Self> {
