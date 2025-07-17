@@ -30,8 +30,7 @@ async fn test_compile_assembly_csharp() {
     // Find the UnityProject.TestClass type
     let test_type = docs_assembly
         .types
-        .iter()
-        .find(|t| t.name == "UnityProject.TestClass")
+        .get("UnityProject.TestClass")
         .expect("Should find UnityProject.TestClass type");
 
     // Verify TestClass documentation
@@ -50,7 +49,7 @@ async fn test_compile_assembly_csharp() {
     );
 
     // Verify we have the expected public members (should not include private ones)
-    let public_members: Vec<_> = test_type.members.iter().filter(|m| m.is_public).collect();
+    let public_members: Vec<_> = test_type.members.values().filter(|m| m.is_public).collect();
     assert!(
         public_members.len() >= 3,
         "Should have at least 3 public members"
@@ -59,8 +58,7 @@ async fn test_compile_assembly_csharp() {
     // Check for specific public members
     let add_method = test_type
         .members
-        .iter()
-        .find(|m| m.name == "Add(int, int)")
+        .get("Add(int, int)")
         .expect("Should find Add(int, int) method");
     assert!(add_method.is_public, "Add method should be public");
     assert!(
@@ -74,8 +72,7 @@ async fn test_compile_assembly_csharp() {
 
     let public_field = test_type
         .members
-        .iter()
-        .find(|m| m.name == "PublicField")
+        .get("PublicField")
         .expect("Should find PublicField");
     assert!(public_field.is_public, "PublicField should be public");
     assert!(
@@ -85,8 +82,7 @@ async fn test_compile_assembly_csharp() {
 
     let test_property = test_type
         .members
-        .iter()
-        .find(|m| m.name == "TestProperty")
+        .get("TestProperty")
         .expect("Should find TestProperty");
     assert!(test_property.is_public, "TestProperty should be public");
     assert!(
@@ -99,7 +95,7 @@ async fn test_compile_assembly_csharp() {
     // Verify private members are not included for user code (they should be included)
     let private_method = test_type
         .members
-        .iter()
+        .values()
         .find(|m| m.name.contains("ProcessPrivately"));
     assert!(
         private_method.is_some(),
@@ -114,8 +110,7 @@ async fn test_compile_assembly_csharp() {
     // Verify private class is included for user code
     let private_class = docs_assembly
         .types
-        .iter()
-        .find(|t| t.name == "UnityProject.PrivateClass");
+        .get("UnityProject.PrivateClass");
     assert!(
         private_class.is_some(),
         "PrivateClass should be included for user code"
@@ -131,8 +126,7 @@ async fn test_compile_assembly_csharp() {
     // Verify that undocumented members are excluded from the results
     let undocumented_method = test_type
         .members
-        .iter()
-        .find(|m| m.name == "UndocumentedMethod()");
+        .get("UndocumentedMethod()");
     assert!(
         undocumented_method.is_none(),
         "UndocumentedMethod should be excluded (no XML docs)"
@@ -140,7 +134,7 @@ async fn test_compile_assembly_csharp() {
 
     let undocumented_method_with_params = test_type
         .members
-        .iter()
+        .values()
         .find(|m| m.name.contains("UndocumentedMethodWithParams"));
     assert!(
         undocumented_method_with_params.is_none(),
@@ -149,8 +143,7 @@ async fn test_compile_assembly_csharp() {
 
     let undocumented_property = test_type
         .members
-        .iter()
-        .find(|m| m.name == "UndocumentedProperty");
+        .get("UndocumentedProperty");
     assert!(
         undocumented_property.is_none(),
         "UndocumentedProperty should be excluded (no XML docs)"
@@ -158,8 +151,7 @@ async fn test_compile_assembly_csharp() {
 
     let undocumented_field = test_type
         .members
-        .iter()
-        .find(|m| m.name == "UndocumentedField");
+        .get("UndocumentedField");
     assert!(
         undocumented_field.is_none(),
         "UndocumentedField should be excluded (no XML docs)"
@@ -167,7 +159,7 @@ async fn test_compile_assembly_csharp() {
 
     let undocumented_private_method = test_type
         .members
-        .iter()
+        .values()
         .find(|m| m.name.contains("UndocumentedPrivateMethod"));
     assert!(
         undocumented_private_method.is_none(),
@@ -177,7 +169,7 @@ async fn test_compile_assembly_csharp() {
     // Verify that only documented members are included
     let documented_members: Vec<_> = test_type
         .members
-        .iter()
+        .values()
         .filter(|m| !m.xml_doc.trim().is_empty())
         .collect();
     assert_eq!(
@@ -229,8 +221,7 @@ async fn test_partial_class_merging() {
     // Find the UnityProject.PartialTestClass type
     let partial_type = docs_assembly
         .types
-        .iter()
-        .find(|t| t.name == "UnityProject.PartialTestClass")
+        .get("UnityProject.PartialTestClass")
         .expect("Should find UnityProject.PartialTestClass type");
 
     // Verify PartialTestClass documentation
@@ -246,7 +237,7 @@ async fn test_partial_class_merging() {
     // Verify we have members from both partial class files merged together
     let public_members: Vec<_> = partial_type
         .members
-        .iter()
+        .values()
         .filter(|m| m.is_public)
         .collect();
     assert!(
@@ -257,8 +248,7 @@ async fn test_partial_class_merging() {
     // Check for members from the first partial file (PartialTest1.cs)
     let first_part_field = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "FirstPartField")
+        .get("FirstPartField")
         .expect("Should find FirstPartField from first partial file");
     assert!(
         first_part_field.is_public,
@@ -273,8 +263,7 @@ async fn test_partial_class_merging() {
 
     let first_part_method = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "ProcessFromFirstPart(int)")
+        .get("ProcessFromFirstPart(int)")
         .expect("Should find ProcessFromFirstPart method from first partial file");
     assert!(
         first_part_method.is_public,
@@ -290,8 +279,7 @@ async fn test_partial_class_merging() {
     // Check for members from the second partial file (PartialTest2.cs)
     let second_part_field = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "SecondPartField")
+        .get("SecondPartField")
         .expect("Should find SecondPartField from second partial file");
     assert!(
         second_part_field.is_public,
@@ -306,8 +294,7 @@ async fn test_partial_class_merging() {
 
     let combined_property = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "CombinedProperty")
+        .get("CombinedProperty")
         .expect("Should find CombinedProperty from second partial file");
     assert!(
         combined_property.is_public,
@@ -322,8 +309,7 @@ async fn test_partial_class_merging() {
 
     let second_part_method = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "ProcessFromSecondPart(string)")
+        .get("ProcessFromSecondPart(string)")
         .expect("Should find ProcessFromSecondPart method from second partial file");
     assert!(
         second_part_method.is_public,
@@ -338,8 +324,7 @@ async fn test_partial_class_merging() {
 
     let combine_method = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "CombineFromBothParts()")
+        .get("CombineFromBothParts()")
         .expect("Should find CombineFromBothParts method from second partial file");
     assert!(
         combine_method.is_public,
@@ -355,7 +340,7 @@ async fn test_partial_class_merging() {
     // Verify private members from both files are included (for user code)
     let private_members: Vec<_> = partial_type
         .members
-        .iter()
+        .values()
         .filter(|m| !m.is_public)
         .collect();
     assert!(
@@ -366,8 +351,7 @@ async fn test_partial_class_merging() {
     // Check for private members from both files
     let first_private_field = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "firstPrivateField");
+        .get("firstPrivateField");
     assert!(
         first_private_field.is_some(),
         "Should find firstPrivateField from first partial file"
@@ -375,8 +359,7 @@ async fn test_partial_class_merging() {
 
     let second_private_field = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "secondPrivateField");
+        .get("secondPrivateField");
     assert!(
         second_private_field.is_some(),
         "Should find secondPrivateField from second partial file"
@@ -384,7 +367,7 @@ async fn test_partial_class_merging() {
 
     let first_private_method = partial_type
         .members
-        .iter()
+        .values()
         .find(|m| m.name.contains("ProcessPrivatelyFromFirst"));
     assert!(
         first_private_method.is_some(),
@@ -393,7 +376,7 @@ async fn test_partial_class_merging() {
 
     let second_private_method = partial_type
         .members
-        .iter()
+        .values()
         .find(|m| m.name.contains("ProcessPrivatelyFromSecond"));
     assert!(
         second_private_method.is_some(),
@@ -410,7 +393,7 @@ async fn test_partial_class_merging() {
 
     // Print all member names for debugging
     println!("All members:");
-    for member in &partial_type.members {
+    for member in partial_type.members.values() {
         println!(
             "  - {} ({})",
             member.name,
@@ -453,8 +436,7 @@ async fn test_exclude_non_public_types_and_members() {
     // Verify that private types are excluded
     let private_class = docs_assembly
         .types
-        .iter()
-        .find(|t| t.name == "UnityProject.PrivateClass");
+        .get("UnityProject.PrivateClass");
     assert!(
         private_class.is_none(),
         "PrivateClass should be excluded when include_non_public is false"
@@ -463,34 +445,33 @@ async fn test_exclude_non_public_types_and_members() {
     // Find the UnityProject.TestClass type (should still be present as it's public)
     let test_type = docs_assembly
         .types
-        .iter()
-        .find(|t| t.name == "UnityProject.TestClass")
+        .get("UnityProject.TestClass")
         .expect("Should find UnityProject.TestClass type as it's public");
 
     // Verify TestClass is public
     assert!(test_type.is_public, "TestClass should be public");
 
     // Verify that only public members are included
-    let all_members_public = test_type.members.iter().all(|m| m.is_public);
+    let all_members_public = test_type.members.values().all(|m| m.is_public);
     assert!(
         all_members_public,
         "All members should be public when include_non_public is false"
     );
 
     // Check for specific public members that should be present
-    let add_method = test_type.members.iter().find(|m| m.name == "Add(int, int)");
+    let add_method = test_type.members.get("Add(int, int)");
     assert!(
         add_method.is_some(),
         "Add method should be present as it's public"
     );
 
-    let public_field = test_type.members.iter().find(|m| m.name == "PublicField");
+    let public_field = test_type.members.get("PublicField");
     assert!(
         public_field.is_some(),
         "PublicField should be present as it's public"
     );
 
-    let test_property = test_type.members.iter().find(|m| m.name == "TestProperty");
+    let test_property = test_type.members.get("TestProperty");
     assert!(
         test_property.is_some(),
         "TestProperty should be present as it's public"
@@ -499,14 +480,14 @@ async fn test_exclude_non_public_types_and_members() {
     // Verify that private members are excluded
     let private_method = test_type
         .members
-        .iter()
+        .values()
         .find(|m| m.name.contains("ProcessPrivately"));
     assert!(
         private_method.is_none(),
         "Private methods should be excluded when include_non_public is false"
     );
 
-    let private_field = test_type.members.iter().find(|m| m.name == "privateField");
+    let private_field = test_type.members.get("privateField");
     assert!(
         private_field.is_none(),
         "Private fields should be excluded when include_non_public is false"
@@ -515,12 +496,11 @@ async fn test_exclude_non_public_types_and_members() {
     // Test with partial classes - verify only public members are included
     let partial_type = docs_assembly
         .types
-        .iter()
-        .find(|t| t.name == "UnityProject.PartialTestClass")
+        .get("UnityProject.PartialTestClass")
         .expect("Should find UnityProject.PartialTestClass type as it's public");
 
     // Verify all members in partial class are public
-    let all_partial_members_public = partial_type.members.iter().all(|m| m.is_public);
+    let all_partial_members_public = partial_type.members.values().all(|m| m.is_public);
     assert!(
         all_partial_members_public,
         "All partial class members should be public when include_non_public is false"
@@ -529,8 +509,7 @@ async fn test_exclude_non_public_types_and_members() {
     // Verify specific public members from partial classes are present
     let first_part_field = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "FirstPartField");
+        .get("FirstPartField");
     assert!(
         first_part_field.is_some(),
         "FirstPartField should be present as it's public"
@@ -538,8 +517,7 @@ async fn test_exclude_non_public_types_and_members() {
 
     let second_part_field = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "SecondPartField");
+        .get("SecondPartField");
     assert!(
         second_part_field.is_some(),
         "SecondPartField should be present as it's public"
@@ -548,8 +526,7 @@ async fn test_exclude_non_public_types_and_members() {
     // Verify private members from partial classes are excluded
     let first_private_field = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "firstPrivateField");
+        .get("firstPrivateField");
     assert!(
         first_private_field.is_none(),
         "firstPrivateField should be excluded when include_non_public is false"
@@ -557,8 +534,7 @@ async fn test_exclude_non_public_types_and_members() {
 
     let second_private_field = partial_type
         .members
-        .iter()
-        .find(|m| m.name == "secondPrivateField");
+        .get("secondPrivateField");
     assert!(
         second_private_field.is_none(),
         "secondPrivateField should be excluded when include_non_public is false"
@@ -576,7 +552,7 @@ async fn test_exclude_non_public_types_and_members() {
 
     // Print all types to verify only public ones are included
     println!("All types found (should be only public):");
-    for type_doc in &docs_assembly.types {
+    for type_doc in docs_assembly.types.values() {
         println!(
             "  - {} ({})",
             type_doc.name,
@@ -634,8 +610,7 @@ async fn test_compile_unity_mathematics_package() {
     // Look for the Unity.Mathematics.math type
     let math_type = docs_assembly
         .types
-        .iter()
-        .find(|t| t.name == "Unity.Mathematics.math")
+        .get("Unity.Mathematics.math")
         .expect("Should find Unity.Mathematics.math type");
 
     println!(
@@ -663,7 +638,7 @@ async fn test_compile_unity_mathematics_package() {
 
     // Print some sample types for verification
     println!("Sample types found:");
-    for (i, type_doc) in docs_assembly.types.iter().take(5).enumerate() {
+    for (i, type_doc) in docs_assembly.types.values().take(5).enumerate() {
         println!(
             "  {}. {} ({} members)",
             i + 1,
@@ -674,7 +649,7 @@ async fn test_compile_unity_mathematics_package() {
 
     // Print some sample members from the math type
     println!("Sample members from Unity.Mathematics.math:");
-    for (i, member) in math_type.members.iter().take(10).enumerate() {
+    for (i, member) in math_type.members.values().take(10).enumerate() {
         println!(
             "  {}. {} ({})",
             i + 1,

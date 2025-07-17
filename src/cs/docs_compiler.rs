@@ -32,8 +32,8 @@ pub struct TypeDoc {
     pub xml_doc: String,
     /// Whether this type is public
     pub is_public: bool,
-    /// Documentation for all members of this type
-    pub members: Vec<MemberDoc>,
+    /// Documentation for all members of this type (key: member name)
+    pub members: std::collections::HashMap<String, MemberDoc>,
 }
 
 /// Represents the complete documentation assembly
@@ -43,8 +43,8 @@ pub struct DocsAssembly {
     pub assembly_name: String,
     /// Whether this is user code or package code
     pub is_user_code: bool,
-    /// All type documentation in this assembly
-    pub types: Vec<TypeDoc>,
+    /// All type documentation in this assembly (key: fully qualified type name)
+    pub types: std::collections::HashMap<String, TypeDoc>,
 }
 
 /// Documentation compiler for C# assemblies
@@ -93,7 +93,7 @@ impl DocsCompiler {
     }
     
     /// Merge partial classes with the same name
-    fn merge_partial_classes(&self, types: Vec<TypeDoc>) -> Vec<TypeDoc> {
+    fn merge_partial_classes(&self, types: Vec<TypeDoc>) -> std::collections::HashMap<String, TypeDoc> {
         let mut merged_types: std::collections::HashMap<String, TypeDoc> = std::collections::HashMap::new();
         
         for type_doc in types {
@@ -119,7 +119,7 @@ impl DocsCompiler {
             }
         }
         
-        merged_types.into_values().collect()
+        merged_types
     }
     
     /// Extract documentation from a single C# source file
@@ -213,11 +213,11 @@ impl DocsCompiler {
         let xml_doc = self.extract_xml_doc_comment(node, source)?;
         
         // Extract member documentation
-        let mut members = Vec::new();
+        let mut members = std::collections::HashMap::new();
         if let Some(body) = node.child_by_field_name("body") {
             for child in body.children(&mut body.walk()) {
                 if let Some(member_doc) = self.extract_member_doc(child, source, include_non_public)? {
-                    members.push(member_doc);
+                    members.insert(member_doc.name.clone(), member_doc);
                 }
             }
         }

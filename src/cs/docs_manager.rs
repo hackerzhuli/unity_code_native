@@ -236,17 +236,33 @@ impl CsDocsManager {
     /// Find documentation for a specific symbol in a documentation assembly
     fn find_symbol_docs(&self, docs_assembly: &DocsAssembly, symbol_name: &str) -> Option<String> {
         // Try to find as a type first
-        for type_doc in &docs_assembly.types {
-            if type_doc.name == symbol_name {
-                if !type_doc.xml_doc.trim().is_empty() {
-                    return Some(type_doc.xml_doc.clone());
+        if let Some(type_doc) = docs_assembly.types.get(symbol_name) {
+            if !type_doc.xml_doc.trim().is_empty() {
+                return Some(type_doc.xml_doc.clone());
+            }
+        }
+        
+        // Try to find as a member in any type
+        for type_doc in docs_assembly.types.values() {
+            // Try direct member name lookup
+            if let Some(member_doc) = type_doc.members.get(symbol_name) {
+                if !member_doc.xml_doc.trim().is_empty() {
+                    return Some(member_doc.xml_doc.clone());
                 }
             }
             
-            // Try to find as a member of this type
-            for member_doc in &type_doc.members {
-                let full_member_name = format!("{}.{}", type_doc.name, member_doc.name);
-                if full_member_name == symbol_name || member_doc.name == symbol_name {
+            // Try full member name lookup (Type.Member)
+            let full_member_name = format!("{}.{}", type_doc.name, symbol_name);
+            if let Some(member_doc) = type_doc.members.get(&full_member_name) {
+                if !member_doc.xml_doc.trim().is_empty() {
+                    return Some(member_doc.xml_doc.clone());
+                }
+            }
+            
+            // Try to find by checking if symbol_name matches full member name
+            for (member_name, member_doc) in &type_doc.members {
+                let full_member_name = format!("{}.{}", type_doc.name, member_name);
+                if full_member_name == symbol_name {
                     if !member_doc.xml_doc.trim().is_empty() {
                         return Some(member_doc.xml_doc.clone());
                     }
@@ -342,11 +358,11 @@ mod tests {
                     println!("Unity.Mathematics assembly has {} types documented", docs.types.len());
                     
                     // Look for math type specifically
-                    if let Some(math_type) = docs.types.iter().find(|t| t.name.contains("math")) {
+                    if let Some(math_type) = docs.types.values().find(|t| t.name.contains("math")) {
                         println!("Found math type: {} with {} members", math_type.name, math_type.members.len());
                         
                         // Show available asin methods
-                        let asin_methods: Vec<_> = math_type.members.iter()
+                        let asin_methods: Vec<_> = math_type.members.values()
                             .filter(|m| m.name.contains("asin"))
                             .collect();
                         
@@ -364,7 +380,7 @@ mod tests {
         // Also test with a working example from Assembly-CSharp
         println!("\nTesting with Assembly-CSharp for comparison:");
         if let Ok(Some(docs)) = manager.get_docs_for_assembly("Assembly-CSharp").await {
-            if let Some(first_type) = docs.types.first() {
+            if let Some(first_type) = docs.types.values().next() {
                 match manager.get_docs_for_symbol(&first_type.name, Some("Assembly-CSharp"), None).await {
                     Ok(docs) => println!("✓ Successfully retrieved docs for {}: {}", first_type.name, docs.trim()),
                     Err(e) => println!("✗ Failed to get docs for {}: {:?}", first_type.name, e),
