@@ -3,13 +3,24 @@
 //! This module provides the main CsDocsManager that coordinates assembly discovery
 //! and manages the overall C# documentation functionality.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, Context, anyhow};
 use tokio::fs;
 use regex::Regex;
+
+/// Normalize a path for comparison by removing Windows UNC prefix if present
+fn normalize_path_for_comparison(path: &Path) -> PathBuf {
+    let path_str = path.to_string_lossy();
+    if path_str.starts_with("\\\\?\\") {
+        // Remove the UNC prefix \\?\\ 
+        PathBuf::from(&path_str[4..])
+    } else {
+        path.to_path_buf()
+    }
+}
 
 use crate::cs::{
     assembly_manager::AssemblyManager, 
@@ -54,10 +65,12 @@ struct CachedDocsAssembly {
     cached_at: SystemTime,
 }
 
-/// Cache entry for .csproj file information to avoid re-reading unchanged files
+/// Unified cache entry for .csproj file - combines assembly metadata and source files
+/// Since each .csproj file defines exactly one assembly, this makes more sense
 #[derive(Debug, Clone)]
 struct CsprojCacheEntry {
-    assemblies: Vec<SourceAssembly>,
+    assembly: SourceAssembly,
+    source_files: HashSet<PathBuf>,
     last_modified: SystemTime,
 }
 
@@ -90,7 +103,7 @@ pub struct CsDocsManager {
     docs_cache: HashMap<String, CachedDocsAssembly>,
     /// Directory where JSON documentation files are stored
     docs_assemblies_dir: PathBuf,
-    /// Cache for .csproj file parsing to avoid re-reading unchanged files
+    /// Unified cache for .csproj files - includes assembly metadata and source files
     csproj_cache: HashMap<PathBuf, CsprojCacheEntry>,
 }
 
@@ -159,21 +172,21 @@ impl CsDocsManager {
         // Ensure assemblies are discovered
         self.discover_assemblies().await?;
         
-        // Only check user code assemblies for source file paths
-        for (assembly_name, assembly) in &self.assemblies {
-            if assembly.is_user_code {
-                let source_files = get_assembly_source_files(assembly, &self.unity_project_root).await?;
-                for source_file in source_files {
-                    let full_source_path = self.unity_project_root.join(&source_file);
-                    if full_source_path == source_file_path {
-                        return Ok(Some(assembly_name.clone()));
-                    }
-                }
+        let normalized_search = normalize_path_for_comparison(source_file_path);
+        
+        // Check cached .csproj files for the source file
+        for (csproj_path, cache_entry) in &self.csproj_cache {
+            // O(1) lookup in HashSet instead of O(n) iteration
+            if cache_entry.source_files.contains(&normalized_search) {
+                log::info!("Found source file {} in assembly {}", source_file_path.to_string_lossy(), cache_entry.assembly.name);
+                return Ok(Some(cache_entry.assembly.name.clone()));
             }
         }
         
         Ok(None)
     }
+    
+
     
     /// Get documentation for a specific assembly, using cache when possible
     async fn get_docs_for_assembly(&mut self, assembly_name: &str) -> Result<Option<DocsAssembly>> {
@@ -536,35 +549,37 @@ impl CsDocsManager {
                     false
                 };
                 
-                let assemblies = if use_cache {
-                     // Use cached data
-                     self.csproj_cache.get(&path).unwrap().assemblies.clone()
-                 } else {
-                     // Parse this specific .csproj file
-                     match parse_single_csproj_file(&path, &self.unity_project_root).await {
-                         Ok(assembly) => {
-                             let file_assemblies = vec![assembly];
-                             
-                             // Update cache
-                             self.csproj_cache.insert(path.clone(), CsprojCacheEntry {
-                                 assemblies: file_assemblies.clone(),
-                                 last_modified,
-                             });
-                             
-                             file_assemblies
-                         }
-                         Err(_) => {
-                             // Cache empty result for failed parsing
-                             self.csproj_cache.insert(path.clone(), CsprojCacheEntry {
-                                 assemblies: Vec::new(),
-                                 last_modified,
-                             });
-                             Vec::new()
-                         }
-                     }
-                 };
-                
-                all_assemblies.extend(assemblies);
+                if use_cache {
+                    // Use cached data
+                    if let Some(cached_entry) = self.csproj_cache.get(&path) {
+                        all_assemblies.push(cached_entry.assembly.clone());
+                    }
+                } else {
+                    // Parse this specific .csproj file and get source files
+                    match parse_single_csproj_file(&path, &self.unity_project_root).await {
+                        Ok(assembly) => {
+                            // Get source files for this assembly
+                            let source_files = get_assembly_source_files(&assembly, &self.unity_project_root).await
+                                .unwrap_or_default();
+                            let normalized_files: HashSet<PathBuf> = source_files
+                                .into_iter()
+                                .map(|path| normalize_path_for_comparison(&path))
+                                .collect();
+                            
+                            // Update unified cache with both assembly and source files
+                            self.csproj_cache.insert(path.clone(), CsprojCacheEntry {
+                                assembly: assembly.clone(),
+                                source_files: normalized_files,
+                                last_modified,
+                            });
+                            
+                            all_assemblies.push(assembly);
+                        }
+                        Err(_) => {
+                            // Skip failed parsing - don't cache anything
+                        }
+                    }
+                }
             }
         }
         
@@ -697,6 +712,65 @@ mod tests {
             },
             _ => println!("One or both calls failed"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_unified_csproj_cache() {
+        let unity_root = get_unity_project_root();
+        let mut manager = CsDocsManager::new(unity_root).expect("Failed to create manager");
+        
+        // Discover assemblies to populate the cache
+        manager.discover_assemblies().await.expect("Failed to discover assemblies");
+        
+        // Verify that the cache contains both assembly metadata and source files
+        assert!(!manager.csproj_cache.is_empty(), "Cache should not be empty after discovery");
+        
+        for (csproj_path, cache_entry) in &manager.csproj_cache {
+            println!("Cached .csproj: {}", csproj_path.to_string_lossy());
+            println!("  Assembly: {}", cache_entry.assembly.name);
+            println!("  Source files count: {}", cache_entry.source_files.len());
+            
+            // Verify that each cache entry has the expected structure
+            assert!(!cache_entry.assembly.name.is_empty(), "Assembly name should not be empty");
+            assert!(cache_entry.assembly.is_user_code, "Should be user code assembly");
+            assert_eq!(cache_entry.assembly.source_location, *csproj_path, "Source location should match csproj path");
+            
+            // Verify that source files are normalized paths
+            for source_file in &cache_entry.source_files {
+                assert!(source_file.is_absolute(), "Source file paths should be absolute: {}", source_file.to_string_lossy());
+            }
+        }
+        
+        println!("✓ Unified cache structure is working correctly");
+    }
+
+    #[test]
+    fn test_normalize_path_for_comparison() {
+        use std::path::Path;
+        
+        // Test Windows UNC path normalization
+        let unc_path = Path::new("\\\\?\\F:\\projects\\unity\\TestUnityCode\\Assets\\Scripts\\TestHover.cs");
+        let normal_path = Path::new("F:\\projects\\unity\\TestUnityCode\\Assets\\Scripts\\TestHover.cs");
+        
+        let normalized_unc = normalize_path_for_comparison(unc_path);
+        let normalized_normal = normalize_path_for_comparison(normal_path);
+        
+        println!("UNC path: {}", unc_path.to_string_lossy());
+        println!("Normal path: {}", normal_path.to_string_lossy());
+        println!("Normalized UNC: {}", normalized_unc.to_string_lossy());
+        println!("Normalized normal: {}", normalized_normal.to_string_lossy());
+        
+        assert_eq!(normalized_unc, normalized_normal, "UNC and normal paths should be equal after normalization");
+        
+        // Test that normal paths are unchanged
+        let regular_path = Path::new("/home/user/file.txt");
+        let normalized_regular = normalize_path_for_comparison(regular_path);
+        assert_eq!(regular_path, normalized_regular, "Regular paths should remain unchanged");
+        
+        // Test edge case - path that starts with \\?\ but is not actually UNC
+        let fake_unc = Path::new("\\\\?\\not_a_real_unc");
+        let normalized_fake = normalize_path_for_comparison(fake_unc);
+        assert_eq!(normalized_fake.to_string_lossy(), "not_a_real_unc", "Fake UNC prefix should be removed");
     }
 
     #[tokio::test]

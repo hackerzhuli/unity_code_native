@@ -173,6 +173,10 @@ mod tests {
         // Test on-demand source file retrieval
         let source_files = get_assembly_source_files(assembly, &unity_root).await.unwrap();
         assert!(!source_files.is_empty(), "Should have source files");
+
+        for source_file in &source_files {
+            println!("Source file: {}", source_file.to_string_lossy());
+        }
         
         println!("Found {} user assemblies", assemblies.len());
     }
