@@ -9,11 +9,10 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tree_sitter::{Parser, Language, Node, Tree};
 use super::source_assembly::SourceAssembly;
+use super::compile_utils::{normalize_type_name, normalize_member_name};
 
 /// Current version of the DocsAssembly data structure
 pub const DOCS_ASSEMBLY_VERSION: u32 = 1;
-
-
 
 /// Represents XML documentation for a C# member
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -208,9 +207,9 @@ impl DocsCompiler {
             return Ok(None);
         }
         
-        // Build fully qualified name
+        // Build fully qualified name and normalize it
         let full_name = if namespace_prefix.is_empty() {
-            type_name.to_string()
+            normalize_type_name(name_node, source).unwrap_or_else(|| type_name.to_string())
         } else {
             format!("{}.{}", namespace_prefix, type_name)
         };
@@ -252,8 +251,9 @@ impl DocsCompiler {
                     return Ok(None);
                 }
                 
-                // Get member name
-                let name = self.get_member_name(node, source)?;
+                // Get member name and normalize it
+                let name = normalize_member_name(node, source)
+                    .ok_or_else(|| anyhow!("Failed to normalize member name for node at {}", node.start_position().row))?;
                 let xml_doc = self.extract_xml_doc_comment(node, source)?;
                 
                 // Skip members without XML documentation
@@ -311,8 +311,16 @@ impl DocsCompiler {
         if let Some(name_node) = node.child_by_field_name("name") {
             let base_name = name_node.utf8_text(source.as_bytes())?;
             
-            // For methods, append parameter types
+            // For methods, append generic parameters and parameter types
             if node.kind() == "method_declaration" {
+                // Check for generic type parameters
+                let mut method_name_with_generics = base_name.to_string();
+                if let Some(type_params_node) = node.child_by_field_name("type_parameters") {
+                    if let Ok(type_params_text) = type_params_node.utf8_text(source.as_bytes()) {
+                        method_name_with_generics = format!("{}{}", base_name, type_params_text);
+                    }
+                }
+                
                 if let Some(params_node) = node.child_by_field_name("parameters") {
                     let mut param_types = Vec::new();
                     for child in params_node.children(&mut params_node.walk()) {
@@ -324,7 +332,7 @@ impl DocsCompiler {
                             }
                         }
                     }
-                    return Ok(format!("{}({})", base_name, param_types.join(", ")));
+                    return Ok(format!("{}({})", method_name_with_generics, param_types.join(", ")));
                 }
             }
             
@@ -375,6 +383,7 @@ impl DocsCompiler {
         Ok(xml_doc)
     }
     
+
 
     /// Get source files for an assembly on-demand based on its source_location
     pub async fn get_assembly_source_files(&self, assembly: &SourceAssembly, unity_project_root: &Path) -> Result<Vec<PathBuf>> {

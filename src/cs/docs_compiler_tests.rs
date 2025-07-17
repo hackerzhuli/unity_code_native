@@ -1,5 +1,77 @@
 use crate::{cs::{docs_compiler::DocsCompiler, package_manager::UnityPackageManager}, test_utils::get_unity_project_root};
 
+use crate::cs::compile_utils::{split_parameters, get_simple_type_name, normalize_generic_parameters, normalize_member_name, normalize_type_name};
+use tree_sitter::{Parser, Language};
+
+#[test]
+fn test_split_parameters() {
+    // Simple parameters
+    assert_eq!(
+        split_parameters("int, string"),
+        vec!["int", "string"]
+    );
+    
+    // Parameters with generics
+    assert_eq!(
+        split_parameters("List<T>, int, Dictionary<string, int>"),
+        vec!["List<T>", "int", "Dictionary<string, int>"]
+    );
+    
+    // Nested generics
+    assert_eq!(
+        split_parameters("Dictionary<string, List<T>>, int"),
+        vec!["Dictionary<string, List<T>>", "int"]
+    );
+    
+    // Empty parameters
+    assert_eq!(
+        split_parameters(""),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn test_get_simple_type_name() {
+    // Simple type without namespace
+    assert_eq!(
+        get_simple_type_name("int"),
+        "int"
+    );
+    
+    // Type with namespace
+    assert_eq!(
+        get_simple_type_name("System.String"),
+        "String"
+    );
+    
+    // Nested type
+    assert_eq!(
+        get_simple_type_name("System.Collections.Generic.List"),
+        "List"
+    );
+}
+
+#[test]
+fn test_normalize_generic_parameters() {
+    // Simple generic
+    assert_eq!(
+        normalize_generic_parameters("<T>"),
+        "<T>"
+    );
+    
+    // Multiple type parameters
+    assert_eq!(
+        normalize_generic_parameters("<System.String, int>"),
+        "<String, int>"
+    );
+    
+    // Nested generics
+    assert_eq!(
+        normalize_generic_parameters("<System.Collections.Generic.List<T>, System.String>"),
+        "<List<T>, String>"
+    );
+}
+
 #[tokio::test]
 async fn test_compile_assembly_csharp() {
     let mut compiler = DocsCompiler::new().unwrap();
@@ -405,6 +477,8 @@ async fn test_partial_class_merging() {
         );
     }
 }
+
+
 
 #[tokio::test]
 async fn test_exclude_non_public_types_and_members() {

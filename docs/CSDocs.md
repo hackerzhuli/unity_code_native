@@ -149,3 +149,69 @@ For methods, names must add the parameter types as part of the name(and generic 
 
 Other types of members just the name is enough.
 
+## Type Names and member names
+We want to store type name and member names in a normalized way.
+
+For typename, it's namespace and typename and generic parameters.
+
+eg.
+`System.Collections.Generic.List<T>`, that's for `List<T>` type.
+
+For member names, if it is not a method, then it's just it's simple name.
+
+If it is a method, then it must include all parameter types.
+
+Also need to have generic parameter if method is generic.
+
+eg.
+`GenericMethod<T>(T, int)`
+
+if a parameter type has dots in it, meaning it can be a nested type or it has namespace, we strip all that just get the last type name.
+
+eg.
+`Method(System.Collections.Generic.List<T>, int)` becomes `Method(List<T>, int)`
+
+keep `ref` `in` `out` as is.
+
+eg.
+`Method(ref int, out int, in int)`
+
+## cref
+members or types referenced in cref is similar than our type names and member names.
+
+except that generics braket can be `{T}` instead of `<T>`
+
+eg.
+`List{T}` is `List<T>`
+
+So, when we need to handle inheritdoc and resolve that, we need to be aware of that.
+
+## Logic to resolve inherit doc
+When a member or type inherit doc from something else, we support only this format, the type or member's xml doc is just `<inheritdoc>` without any other tags. Then we resolve to the actual doc.
+
+Note that if the type or member it inherit from is also `<inheritdoc>`, we don't keep going but just top there, and return that doc there, even if it is still a `<inheritdoc>`.
+
+The `cref` attribute in it can be a member name, a type name, or type and member name, or a fully qualified type name, or a fully qualified type name and member name.
+
+It typically is not fully qualified. So we have to guess what it is referring to.
+
+To guess that, first we look at the name in cref.
+
+First, we prepend the containing type's fully qualified name to it. That is the first candidate.
+
+Then we prepend all using namespace in the containing source file to it.
+
+This way we get potential full name of that symbol. (don't forget convert `{T}` to `<T>`, and for method parameters, we need to normalize parameter types to a single type without dots)
+
+Once we have all potential full name of symbols, we do a normal search.
+
+Return the first match's xml docs.
+
+
+
+
+
+
+
+
+

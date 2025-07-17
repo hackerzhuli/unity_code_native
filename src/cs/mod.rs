@@ -11,5 +11,6 @@ pub mod assembly_manager;
 pub mod source_finder;
 pub mod docs_manager;
 pub mod package_manager;
+pub mod compile_utils;
 pub mod docs_compiler;
 pub mod source_assembly;
