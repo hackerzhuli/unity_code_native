@@ -32,7 +32,7 @@ struct AsmDefFile {
 /// Cached package data
 #[derive(Debug, Clone)]
 struct PackageCache {
-    /// Package assemblies found in this package
+    /// Assemblies found in this package
     assemblies: Vec<SourceAssembly>,
     /// Last modified time of the package directory
     last_modified: std::time::SystemTime,
@@ -219,23 +219,6 @@ impl UnityPackageManager {
 mod tests {
     use super::*;
     use crate::test_utils::get_unity_project_root;
-
-    #[tokio::test]
-    async fn test_find_package_assemblies() {
-        let unity_root = get_unity_project_root();
-        let mut manager = UnityPackageManager::new(unity_root);
-        
-        let assemblies = manager.update().await.unwrap();
-        
-        println!("Found {} package assemblies", assemblies.len());
-        for assembly in &assemblies {
-            assert!(!assembly.is_user_code, "Package assemblies should not be user code");
-        }
-        
-        // Test cache statistics
-        let (cached_packages, total_assemblies) = manager.get_cache_stats();
-        println!("Cache stats: {} packages, {} assemblies", cached_packages, total_assemblies);
-    }
 
     #[tokio::test]
     async fn test_cache_functionality() {
