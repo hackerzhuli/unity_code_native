@@ -318,18 +318,23 @@ impl CsDocsManager {
             }
         }
         
-        // Try exact member match in any type
-        for type_doc in docs_assembly.types.values() {
-            if let Some(member_doc) = type_doc.members.get(symbol_name) {
-                if !member_doc.xml_doc.trim().is_empty() {
-                    return Some(DocResult {
-                        xml_doc: member_doc.xml_doc.clone(),
-                        source_type_name: type_doc.name.clone(),
-                        source_member_name: Some(member_doc.name.clone()),
-                        inherited_from_type_name: None,
-                        inherited_from_member_name: None,
-                        is_inherited: false,
-                    });
+        // Try to extract type name from fully qualified symbol name
+        if let Some(last_dot) = symbol_name.rfind('.') {
+            let type_name = &symbol_name[..last_dot];
+            let member_name = &symbol_name[last_dot + 1..];
+            
+            if let Some(type_doc) = docs_assembly.types.get(type_name) {
+                if let Some(member_doc) = type_doc.members.get(member_name) {
+                    if !member_doc.xml_doc.trim().is_empty() {
+                        return Some(DocResult {
+                            xml_doc: member_doc.xml_doc.clone(),
+                            source_type_name: type_doc.name.clone(),
+                            source_member_name: Some(member_doc.name.clone()),
+                            inherited_from_type_name: None,
+                            inherited_from_member_name: None,
+                            is_inherited: false,
+                        });
+                    }
                 }
             }
         }
@@ -444,10 +449,7 @@ impl CsDocsManager {
         
         candidates
     }
-    
-    /// Find symbol documentation without inheritdoc resolution (to avoid infinite recursion)
 
-    
     /// Find all assemblies and their source files
     async fn discover_assemblies(&mut self) -> Result<()> {
         // Clear existing assemblies

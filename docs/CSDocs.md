@@ -207,11 +207,4 @@ Once we have all potential full name of symbols, we do a normal search.
 
 Return the first match's xml docs.
 
-
-
-
-
-
-
-
-
+Note:  we have a limitation, we only resolve inheritdoc to symbols that are defined in the same assembly.

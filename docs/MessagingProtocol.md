@@ -42,6 +42,8 @@ pub struct SymbolDocsResponse {
     Success: bool,
     Documentation: Option<String>, // XML documentation string if found
     ErrorMessage: Option<String>,  // Error message if failed
+    FoundSymbolName: Option<String>, // Full name of the symbol found in docs assembly
+    InheritedFromSymbolName: Option<String>, // Full symbol name that the doc is inherited from
 }
 ```
 

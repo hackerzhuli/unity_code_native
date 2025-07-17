@@ -60,6 +60,10 @@ pub struct SymbolDocsResponse {
     pub documentation: Option<String>,
     #[serde(rename = "ErrorMessage")]
     pub error_message: Option<String>,
+    #[serde(rename = "FoundSymbolName")]
+    pub found_symbol_name: Option<String>,
+    #[serde(rename = "InheritedFromSymbolName")]
+    pub inherited_from_symbol_name: Option<String>,
 }
 
 // Time interval for periodic detect Unity when Unity is not yet detected
@@ -222,6 +226,8 @@ impl Server {
                 success: false,
                 documentation: None,
                 error_message: Some("Empty request payload".to_string()),
+                found_symbol_name: None,
+                inherited_from_symbol_name: None,
             }
         } else {
             match serde_json::from_str::<SymbolDocsRequest>(payload) {
@@ -232,6 +238,8 @@ impl Server {
                             success: false,
                             documentation: None,
                             error_message: Some("Either AssemblyName or SourceFilePath must be provided".to_string()),
+                            found_symbol_name: None,
+                            inherited_from_symbol_name: None,
                         }
                     } else {
                         // Convert source file path to PathBuf if provided
@@ -243,15 +251,42 @@ impl Server {
                             request.assembly_name.as_deref(),
                             source_file_path.as_deref(),
                         ).await {
-                            Ok(doc_result) => SymbolDocsResponse {
-                                success: true,
-                                documentation: Some(doc_result.xml_doc),
-                                error_message: None,
+                            Ok(doc_result) => {
+                                // Construct the found symbol name from source type and member
+                                let found_symbol_name = if let Some(ref member_name) = doc_result.source_member_name {
+                                    format!("{}.{}", doc_result.source_type_name, member_name)
+                                } else {
+                                    doc_result.source_type_name.clone()
+                                };
+                                
+                                // Construct the inherited from symbol name if applicable
+                                 let inherited_from_symbol_name = if doc_result.is_inherited {
+                                     if let (Some(inherited_type), Some(inherited_member)) = 
+                                         (&doc_result.inherited_from_type_name, &doc_result.inherited_from_member_name) {
+                                         Some(format!("{}.{}", inherited_type, inherited_member))
+                                     } else if let Some(inherited_type) = &doc_result.inherited_from_type_name {
+                                         Some(inherited_type.clone())
+                                     } else {
+                                         None
+                                     }
+                                 } else {
+                                     None
+                                 };
+                                
+                                SymbolDocsResponse {
+                                    success: true,
+                                    documentation: Some(doc_result.xml_doc),
+                                    error_message: None,
+                                    found_symbol_name: Some(found_symbol_name),
+                                    inherited_from_symbol_name,
+                                }
                             },
                             Err(e) => SymbolDocsResponse {
                                 success: false,
                                 documentation: None,
                                 error_message: Some(e.to_string()),
+                                found_symbol_name: None,
+                                inherited_from_symbol_name: None,
                             },
                         }
                     }
@@ -260,6 +295,8 @@ impl Server {
                     success: false,
                     documentation: None,
                     error_message: Some(format!("Invalid request format: {}", e)),
+                    found_symbol_name: None,
+                    inherited_from_symbol_name: None,
                 },
             }
         };
