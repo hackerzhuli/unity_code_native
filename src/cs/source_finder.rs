@@ -19,8 +19,8 @@ struct PackageLockFile {
 #[derive(Debug, Deserialize)]
 struct PackageInfo {
     version: String,
-    #[serde(default)]
-    dependencies: std::collections::HashMap<String, String>,
+    depth: u32,
+    source: String,
 }
 
 /// Assembly definition file structure
