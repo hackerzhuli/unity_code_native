@@ -36,6 +36,8 @@ pub struct TypeDoc {
     pub is_public: bool,
     /// Documentation for all members of this type (key: member name)
     pub members: std::collections::HashMap<String, MemberDoc>,
+    /// Using namespaces from the source file containing this type
+    pub using_namespaces: Vec<String>,
 }
 
 /// Represents the complete documentation assembly
@@ -118,6 +120,13 @@ impl DocsCompiler {
                 
                 // Keep the most permissive visibility (if any part is public, the whole type is public)
                 existing_type.is_public = existing_type.is_public || type_doc.is_public;
+                
+                // Merge using namespaces (combine and deduplicate)
+                for using_ns in type_doc.using_namespaces {
+                    if !existing_type.using_namespaces.contains(&using_ns) {
+                        existing_type.using_namespaces.push(using_ns);
+                    }
+                }
             } else {
                 // First occurrence of this type
                 merged_types.insert(type_doc.name.clone(), type_doc);
@@ -135,8 +144,11 @@ impl DocsCompiler {
         let tree = self.parser.parse(&content, None)
             .ok_or_else(|| anyhow!("Failed to parse C# file: {:?}", file_path))?;
         
+        // Extract using directives from the file
+        let using_namespaces = self.extract_using_directives(tree.root_node(), &content)?;
+        
         let mut types = Vec::new();
-        self.extract_types_from_node(tree.root_node(), &content, include_non_public, &mut types, String::new())?;
+        self.extract_types_from_node(tree.root_node(), &content, include_non_public, &mut types, String::new(), &using_namespaces)?;
         
         Ok(types)
     }
@@ -149,6 +161,7 @@ impl DocsCompiler {
         include_non_public: bool,
         types: &mut Vec<TypeDoc>,
         namespace_prefix: String,
+        using_namespaces: &[String],
     ) -> Result<()> {
         match node.kind() {
             "namespace_declaration" => {
@@ -164,21 +177,21 @@ impl DocsCompiler {
                     // Recurse into namespace body
                     if let Some(body) = node.child_by_field_name("body") {
                         for child in body.children(&mut body.walk()) {
-                            self.extract_types_from_node(child, source, include_non_public, types, new_prefix.clone())?;
+                            self.extract_types_from_node(child, source, include_non_public, types, new_prefix.clone(), using_namespaces)?;
                         }
                     }
                 }
             },
             "class_declaration" | "interface_declaration" | "struct_declaration" | "enum_declaration" => {
                 // Extract type documentation
-                if let Some(type_doc) = self.extract_type_doc(node, source, include_non_public, &namespace_prefix)? {
+                if let Some(type_doc) = self.extract_type_doc(node, source, include_non_public, &namespace_prefix, using_namespaces)? {
                     types.push(type_doc);
                 }
             },
             _ => {
                 // Recurse into child nodes
                 for child in node.children(&mut node.walk()) {
-                    self.extract_types_from_node(child, source, include_non_public, types, namespace_prefix.clone())?;
+                    self.extract_types_from_node(child, source, include_non_public, types, namespace_prefix.clone(), using_namespaces)?;
                 }
             }
         }
@@ -193,6 +206,7 @@ impl DocsCompiler {
         source: &str,
         include_non_public: bool,
         namespace_prefix: &str,
+        using_namespaces: &[String],
     ) -> Result<Option<TypeDoc>> {
         // Get type name
         let name_node = node.child_by_field_name("name")
@@ -235,6 +249,7 @@ impl DocsCompiler {
             xml_doc,
             is_public,
             members,
+            using_namespaces: using_namespaces.to_vec(),
         }))
     }
     
@@ -291,6 +306,24 @@ impl DocsCompiler {
     }
     
 
+    
+    /// Extract using directives from the compilation unit
+    fn extract_using_directives(&self, root_node: Node, source: &str) -> Result<Vec<String>> {
+        let mut using_namespaces = Vec::new();
+        
+        // Walk through all children of the root node to find using directives
+        for child in root_node.children(&mut root_node.walk()) {
+            if child.kind() == "using_directive" {
+                // Extract the namespace from the using directive
+                if let Some(name_node) = child.child_by_field_name("name") {
+                    let namespace_name = name_node.utf8_text(source.as_bytes())?;
+                    using_namespaces.push(namespace_name.to_string());
+                }
+            }
+        }
+        
+        Ok(using_namespaces)
+    }
     
     /// Extract XML documentation comment preceding a node
     fn extract_xml_doc_comment(&self, node: Node, source: &str) -> Result<String> {

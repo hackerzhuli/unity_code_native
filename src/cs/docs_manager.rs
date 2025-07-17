@@ -9,6 +9,7 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, Context, anyhow};
 use tokio::fs;
+use regex::Regex;
 
 use crate::cs::{
     assembly_manager::AssemblyManager, 
@@ -60,6 +61,23 @@ struct CsprojCacheEntry {
     last_modified: SystemTime,
 }
 
+/// Enriched documentation result that includes inheritance information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocResult {
+    /// The XML documentation content
+    pub xml_doc: String,
+    /// The type name where the documentation is actually located (normalized)
+    pub source_type_name: String,
+    /// The member name where the documentation is actually located (normalized, None for type docs)
+    pub source_member_name: Option<String>,
+    /// If inherited, the type name where the documentation was inherited from (normalized)
+    pub inherited_from_type_name: Option<String>,
+    /// If inherited, the member name where the documentation was inherited from (normalized, None for type docs)
+    pub inherited_from_member_name: Option<String>,
+    /// Whether this documentation was resolved through inheritdoc
+    pub is_inherited: bool,
+}
+
 /// Main CS documentation manager
 #[derive(Debug)]
 pub struct CsDocsManager {
@@ -103,13 +121,13 @@ impl CsDocsManager {
     /// * `assembly_name` - Optional assembly name to search in
     /// * `source_file_path` - Optional source file path (must be from user code)
     /// 
-    /// Returns the XML documentation string for the symbol
+    /// Returns enriched documentation information including inheritance details
     pub async fn get_docs_for_symbol(
         &mut self,
         symbol_name: &str,
         assembly_name: Option<&str>,
         source_file_path: Option<&Path>,
-    ) -> Result<String> {
+    ) -> Result<DocResult> {
         // Determine which assembly to search
         let target_assembly_name = if let Some(name) = assembly_name {
             name.to_string()
@@ -129,7 +147,7 @@ impl CsDocsManager {
         
         // Search for the symbol in the documentation
         if let Some(docs) = docs_assembly {
-            self.find_symbol_docs(&docs, symbol_name)
+            self.find_symbol_with_inheritdoc(&docs, symbol_name)
                 .ok_or_else(|| anyhow!("Symbol '{}' not found in assembly '{}'", symbol_name, target_assembly_name))
         } else {
             Err(anyhow!("No documentation available for assembly '{}'", target_assembly_name))
@@ -284,45 +302,151 @@ impl CsDocsManager {
         self.docs_assemblies_dir.join(format!("{}.json", assembly_name))
     }
     
-    /// Find documentation for a specific symbol in a documentation assembly
-    fn find_symbol_docs(&self, docs_assembly: &DocsAssembly, symbol_name: &str) -> Option<String> {
-        // Try to find as a type first
+    /// Find symbol documentation - basic version without inheritdoc resolution
+    fn find_symbol_basic(&self, docs_assembly: &DocsAssembly, symbol_name: &str) -> Option<DocResult> {
+        // Try exact type match
         if let Some(type_doc) = docs_assembly.types.get(symbol_name) {
             if !type_doc.xml_doc.trim().is_empty() {
-                return Some(type_doc.xml_doc.clone());
+                return Some(DocResult {
+                    xml_doc: type_doc.xml_doc.clone(),
+                    source_type_name: type_doc.name.clone(),
+                    source_member_name: None,
+                    inherited_from_type_name: None,
+                    inherited_from_member_name: None,
+                    is_inherited: false,
+                });
             }
         }
         
-        // Try to find as a member in any type
+        // Try exact member match in any type
         for type_doc in docs_assembly.types.values() {
-            // Try direct member name lookup
             if let Some(member_doc) = type_doc.members.get(symbol_name) {
                 if !member_doc.xml_doc.trim().is_empty() {
-                    return Some(member_doc.xml_doc.clone());
-                }
-            }
-            
-            // Try full member name lookup (Type.Member)
-            let full_member_name = format!("{}.{}", type_doc.name, symbol_name);
-            if let Some(member_doc) = type_doc.members.get(&full_member_name) {
-                if !member_doc.xml_doc.trim().is_empty() {
-                    return Some(member_doc.xml_doc.clone());
-                }
-            }
-            
-            // Try to find by checking if symbol_name matches full member name
-            for (member_name, member_doc) in &type_doc.members {
-                let full_member_name = format!("{}.{}", type_doc.name, member_name);
-                if full_member_name == symbol_name {
-                    if !member_doc.xml_doc.trim().is_empty() {
-                        return Some(member_doc.xml_doc.clone());
-                    }
+                    return Some(DocResult {
+                        xml_doc: member_doc.xml_doc.clone(),
+                        source_type_name: type_doc.name.clone(),
+                        source_member_name: Some(member_doc.name.clone()),
+                        inherited_from_type_name: None,
+                        inherited_from_member_name: None,
+                        is_inherited: false,
+                    });
                 }
             }
         }
         
         None
     }
+    
+    /// Find symbol documentation with inheritdoc resolution
+    fn find_symbol_with_inheritdoc(&self, docs_assembly: &DocsAssembly, symbol_name: &str) -> Option<DocResult> {
+        // First try basic lookup
+        if let Some(result) = self.find_symbol_basic(docs_assembly, symbol_name) {
+            // Check if it's inheritdoc
+            if self.is_inheritdoc(&result.xml_doc) {
+                // Extract cref and resolve
+                if let Some(cref) = self.extract_cref(&result.xml_doc) {
+                    return self.resolve_inheritdoc(&cref, symbol_name, docs_assembly);
+                }
+            }
+            return Some(result);
+        }
+        None
+    }
+    
+    /// Resolve inheritdoc by generating candidates and calling basic lookup
+    fn resolve_inheritdoc(&self, cref: &str, original_symbol: &str, docs_assembly: &DocsAssembly) -> Option<DocResult> {
+        let candidates = self.generate_inheritdoc_candidates(cref, original_symbol, docs_assembly);
+        
+        for candidate in candidates {
+            if let Some(mut result) = self.find_symbol_basic(docs_assembly, &candidate) {
+                // Mark as inherited and set inheritance info
+                result.is_inherited = true;
+                result.inherited_from_type_name = Some(result.source_type_name.clone());
+                result.inherited_from_member_name = result.source_member_name.clone();
+                
+                // Update source info to original symbol
+                let (source_type, source_member) = self.parse_symbol_name(original_symbol);
+                result.source_type_name = source_type;
+                result.source_member_name = source_member;
+                
+                return Some(result);
+            }
+        }
+        None
+    }
+    
+    /// Check if XML documentation is just an inheritdoc tag
+    fn is_inheritdoc(&self, xml_doc: &str) -> bool {
+        let trimmed = xml_doc.trim();
+        trimmed.starts_with("<inheritdoc") && trimmed.ends_with("/>")
+    }
+    
+    /// Extract cref attribute from inheritdoc tag
+    fn extract_cref(&self, xml_doc: &str) -> Option<String> {
+        let re = Regex::new("<inheritdoc\\s+cref\\s*=\\s*[\"']([^\"']+)[\"']\\s*/>").ok()?;
+        if let Some(captures) = re.captures(xml_doc.trim()) {
+            return captures.get(1).map(|m| m.as_str().to_string());
+        }
+        None
+    }
+    
+    /// Parse symbol name into type and member components
+    fn parse_symbol_name(&self, symbol_name: &str) -> (String, Option<String>) {
+        if let Some(last_dot) = symbol_name.rfind('.') {
+            let type_part = &symbol_name[..last_dot];
+            let member_part = &symbol_name[last_dot + 1..];
+            
+            // Check if this looks like a method (has parentheses)
+            if member_part.contains('(') {
+                (type_part.to_string(), Some(member_part.to_string()))
+            } else {
+                // Could be a nested type, return as type
+                (symbol_name.to_string(), None)
+            }
+        } else {
+            (symbol_name.to_string(), None)
+        }
+    }
+    
+    /// Generate candidate symbol names for inheritdoc resolution
+    fn generate_inheritdoc_candidates(&self, cref: &str, original_symbol: &str, docs_assembly: &DocsAssembly) -> Vec<String> {
+        let mut candidates = Vec::new();
+        
+        // Normalize cref
+        let normalized_cref = cref
+            .replace('{', "<")
+            .replace('}', ">")
+            .replace("System.Int32", "int")
+            .replace("System.String", "string")
+            .replace("System.Boolean", "bool")
+            .replace("System.Double", "double")
+            .replace("System.Single", "float")
+            .replace("System.Int64", "long")
+            .replace("System.Int16", "short")
+            .replace("System.Byte", "byte")
+            .replace("System.Object", "object");
+        
+        // Get containing type from original symbol
+        let (containing_type, _) = self.parse_symbol_name(original_symbol);
+        
+        // Candidate 1: Prepend containing type if cref doesn't have namespace
+        if !normalized_cref.contains('.') {
+            candidates.push(format!("{}.{}", containing_type, normalized_cref));
+        }
+        
+        // Candidate 2: Use normalized cref as-is
+        candidates.push(normalized_cref.clone());
+        
+        // Candidate 3: Original cref as-is
+        if normalized_cref != cref {
+            candidates.push(cref.to_string());
+        }
+        
+        candidates
+    }
+    
+    /// Find symbol documentation without inheritdoc resolution (to avoid infinite recursion)
+
     
     /// Find all assemblies and their source files
     async fn discover_assemblies(&mut self) -> Result<()> {
@@ -428,8 +552,14 @@ mod tests {
         ).await;
         
         match result {
-            Ok(docs) => {
-                println!("Found documentation: {}", docs);
+            Ok(doc_result) => {
+                println!("Found documentation: {}", doc_result.xml_doc);
+                println!("Source: {}.{:?}", doc_result.source_type_name, doc_result.source_member_name);
+                if doc_result.is_inherited {
+                    println!("Inherited from: {}.{:?}", 
+                        doc_result.inherited_from_type_name.unwrap_or_default(),
+                        doc_result.inherited_from_member_name);
+                }
             },
             Err(e) => println!("Error getting docs: {:?}", e),
         }
@@ -448,11 +578,11 @@ mod tests {
             Some("Unity.Mathematics"), 
             None
         ).await {
-            Ok(docs) => {
+            Ok(doc_result) => {
                 println!("✓ Successfully retrieved documentation for Unity.Mathematics.math.asin:");
-                println!("{}", docs);
-                assert!(!docs.trim().is_empty(), "Documentation should not be empty");
-                assert!(docs.contains("arcsine"), "Documentation should mention arcsine");
+                println!("{}", doc_result.xml_doc);
+                assert!(!doc_result.xml_doc.trim().is_empty(), "Documentation should not be empty");
+                assert!(doc_result.xml_doc.contains("arcsine"), "Documentation should mention arcsine");
             },
             Err(e) => {
                 println!("✗ Failed to get Unity.Mathematics.math.asin documentation: {:?}", e);
@@ -487,7 +617,7 @@ mod tests {
         if let Ok(Some(docs)) = manager.get_docs_for_assembly("Assembly-CSharp").await {
             if let Some(first_type) = docs.types.values().next() {
                 match manager.get_docs_for_symbol(&first_type.name, Some("Assembly-CSharp"), None).await {
-                    Ok(docs) => println!("✓ Successfully retrieved docs for {}: {}", first_type.name, docs.trim()),
+                    Ok(doc_result) => println!("✓ Successfully retrieved docs for {}: {}", first_type.name, doc_result.xml_doc.trim()),
                     Err(e) => println!("✗ Failed to get docs for {}: {:?}", first_type.name, e),
                 }
             }
@@ -522,11 +652,88 @@ mod tests {
         
         // Both should return the same result
         match (result1, result2) {
-            (Ok(docs1), Ok(docs2)) => {
-                assert_eq!(docs1, docs2, "Cache should return consistent results");
+            (Ok(doc_result1), Ok(doc_result2)) => {
+                assert_eq!(doc_result1.xml_doc, doc_result2.xml_doc, "Cache should return consistent results");
+                assert_eq!(doc_result1.source_type_name, doc_result2.source_type_name, "Cache should return consistent source info");
                 println!("Cache test passed - consistent results");
             },
             _ => println!("One or both calls failed"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_inheritdoc_resolution() {
+        let unity_project_root = PathBuf::from("UnityProject");
+        let mut docs_manager = CsDocsManager::new(unity_project_root).expect("Failed to create manager");
+        
+        // Test 1: Add() method inherits from Add(int, int, int)
+        let result1 = docs_manager.get_docs_for_symbol(
+            "UnityProject.Inherit1.Add()",
+            None,
+            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
+        ).await;
+        
+        if let Ok(doc_result) = result1 {
+            println!("Test 1 - Add() inheritdoc:");
+            println!("XML Doc: {}", doc_result.xml_doc);
+            println!("Is Inherited: {}", doc_result.is_inherited);
+            if doc_result.is_inherited {
+                assert!(doc_result.xml_doc.contains("doc for add with 3 parameters"));
+                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
+            }
+        }
+        
+        // Test 2: Add2() method inherits from Add<T>(T, int, int)
+        let result2 = docs_manager.get_docs_for_symbol(
+            "UnityProject.Inherit1.Add2()",
+            None,
+            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
+        ).await;
+        
+        if let Ok(doc_result) = result2 {
+            println!("Test 2 - Add2() inheritdoc:");
+            println!("XML Doc: {}", doc_result.xml_doc);
+            println!("Is Inherited: {}", doc_result.is_inherited);
+            if doc_result.is_inherited {
+                assert!(doc_result.xml_doc.contains("doc for generic add"));
+                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
+            }
+        }
+        
+        // Test 3: Add3() method inherits from Add(ref int, out int, in System.Int32)
+        let result3 = docs_manager.get_docs_for_symbol(
+            "UnityProject.Inherit1.Add3()",
+            None,
+            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
+        ).await;
+        
+        if let Ok(doc_result) = result3 {
+            println!("Test 3 - Add3() inheritdoc:");
+            println!("XML Doc: {}", doc_result.xml_doc);
+            println!("Is Inherited: {}", doc_result.is_inherited);
+            if doc_result.is_inherited {
+                assert!(doc_result.xml_doc.contains("doc for add with 3 parameters complex"));
+                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
+            }
+        }
+        
+        // Test 4: Method() from Inherit2 inherits from Inherit1.Add<T>(T, int, int)
+        let result4 = docs_manager.get_docs_for_symbol(
+            "OtherProject.MyNamespace.Inherit2.Method()",
+            None,
+            Some(Path::new("UnityProject/Assets/Scripts/Inherit2.cs")),
+        ).await;
+        
+        if let Ok(doc_result) = result4 {
+            println!("Test 4 - Inherit2.Method() inheritdoc:");
+            println!("XML Doc: {}", doc_result.xml_doc);
+            println!("Is Inherited: {}", doc_result.is_inherited);
+            if doc_result.is_inherited {
+                assert!(doc_result.xml_doc.contains("doc for generic add"));
+                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
+            }
+        } else {
+            println!("Test 4 failed: {:?}", result4);
         }
     }
 }

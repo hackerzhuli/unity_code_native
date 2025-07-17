@@ -1784,6 +1784,7 @@ dependencies = [
  "malva",
  "notify",
  "quick-xml",
+ "regex",
  "scraper",
  "serde",
  "serde_json",

@@ -243,9 +243,9 @@ impl Server {
                             request.assembly_name.as_deref(),
                             source_file_path.as_deref(),
                         ).await {
-                            Ok(documentation) => SymbolDocsResponse {
+                            Ok(doc_result) => SymbolDocsResponse {
                                 success: true,
-                                documentation: Some(documentation),
+                                documentation: Some(doc_result.xml_doc),
                                 error_message: None,
                             },
                             Err(e) => SymbolDocsResponse {
