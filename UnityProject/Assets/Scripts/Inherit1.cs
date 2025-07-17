@@ -3,33 +3,33 @@ namespace UnityProject
     public class Inherit1
     {
         /// <inheritdoc cref="Add(int, int, int)"/>
-        public void Add()
-        {
-            
-        }
+        public void Add() {}
 
         /// <inheritdoc cref="Add{T}(T, int, int)"/>
-        public void Add2()
-        {
-            
-        }
+        public void Add2(){    }
 
         /// <inheritdoc cref="Add(ref int, out int, in System.Int32)"/>
-        public void Add3()
-        {
-            
-        }
+        public void Add3(){}
 
         /// <inheritdoc cref="Add5"/> /* parameters can be ommited if there is just one overload of the same name */
-        public void Add4(int a, int b){
-
-        }
+        public void Add4(int a, int b){        }
 
         /// <summary>
         /// doc for add 5
         /// </summary>
-        public void Add5(){
-        }
+        /// <remarks>remarks from Add5</remarks>
+        /// <returns>return from Add5</returns>
+        public void Add5(){}
+
+        ///<summary>
+        /// <inheritdoc cref="Add5"/>
+        /// </summary>
+        /// <remarks>remarks from Add6</remarks>
+        public void Add6(){}    // should only inherit summary content from Add5, and the rest is kept as is
+
+        /// <inheritdoc cref="Add5"/>
+        /// <remarks>remarks from Add7</remarks>
+        public void Add7(){ } // inherit everything from Add5, but override remarks content with remarks from Add7
 
         /// <summary>
         /// doc for generic add
