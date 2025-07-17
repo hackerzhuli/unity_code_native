@@ -91,11 +91,15 @@ mod tests {
         assert!(assemblies.contains_key("Assembly-CSharp"), "Assembly-CSharp not found");
         
         // Print discovered assemblies for debugging
+        // THERE ARE TOO MANY ASSEMBLIES, ONLY PRINT USER ASSEMBLY
         for (name, info) in assemblies {
+            if !info.is_user_code {
+                continue;
+            }
+
             println!("Assembly: {}", name);
             println!("  User code: {}", info.is_user_code);
-            // TOO MANY SOURCE FILES, DON'T PRINT
-            //println!("  Source files: {:?}", info.source_files);
+            println!("  Source files: {:?}", info.source_files);
             println!("  Source location: {:?}", info.source_location);
             println!();
         }
