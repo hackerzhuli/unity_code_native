@@ -43,11 +43,13 @@ impl CsDocsManager {
         }
 
         // Find package assemblies using the package manager
-        let package_assemblies = self.package_manager.update().await
+        self.package_manager.update().await
             .context("Failed to find package assemblies")?;
         
-        for assembly in package_assemblies {
-            self.assemblies.insert(assembly.name.clone(), assembly);
+        for package in self.package_manager.get_packages() {
+            for assembly in package.assemblies {
+                self.assemblies.insert(assembly.name.clone(), assembly);
+            }
         }
 
         Ok(())
@@ -66,16 +68,6 @@ impl CsDocsManager {
     /// Find user code assemblies from .csproj files in the project root
     async fn find_user_assemblies(&self) -> Result<Vec<SourceAssembly>> {
         source_finder::find_user_assemblies(&self.unity_project_root).await
-    }
-
-    /// Clear the package cache (useful for testing or when packages change)
-    pub fn clear_package_cache(&mut self) {
-        self.package_manager.clear_cache();
-    }
-
-    /// Get package cache statistics
-    pub fn get_package_cache_stats(&self) -> (usize, usize) {
-        self.package_manager.get_cache_stats()
     }
 
     /// Get source files for a specific assembly on-demand
@@ -106,10 +98,6 @@ mod tests {
         
         // Should find at least Assembly-CSharp
         assert!(assemblies.contains_key("Assembly-CSharp"), "Assembly-CSharp not found");
-        
-        // Print cache statistics
-        let (cached_packages, total_package_assemblies) = manager.get_package_cache_stats();
-        println!("Package cache: {} packages, {} assemblies", cached_packages, total_package_assemblies);
         
         // Print discovered user assemblies for debugging
         for (name, info) in assemblies {

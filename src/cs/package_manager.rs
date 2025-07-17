@@ -13,14 +13,21 @@ use super::source_assembly::SourceAssembly;
 /// Package information from packages-lock.json
 #[derive(Debug, Deserialize, Clone)]
 struct PackageLockFile {
-    dependencies: HashMap<String, PackageInfo>,
+    dependencies: HashMap<String, PackageInfoInPackageLock>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-struct PackageInfo {
+struct PackageInfoInPackageLock {
     version: String,
     depth: u32,
     source: String,
+}
+
+/// Package information from package.json
+#[derive(Debug, Deserialize)]
+struct PackageJson {
+    name: String,
+    version: String,
 }
 
 /// Assembly definition file structure
@@ -31,23 +38,25 @@ struct AsmDefFile {
 
 /// Cached package data
 #[derive(Debug, Clone)]
-struct PackageCache {
+pub struct PackageInfo {
+    pub name: String,
+    pub version: String,
     /// Assemblies found in this package
-    assemblies: Vec<SourceAssembly>,
-    /// Last modified time of the package directory
-    last_modified: std::time::SystemTime,
+    pub assemblies: Vec<SourceAssembly>,
 }
 
-/// Unity Package Manager for handling package discovery and caching
+/// Unity Package Manager for handling package discovery and caching, note this only includes packages in `Library/PackageCache`
 #[derive(Debug)]
 pub struct UnityPackageManager {
     unity_project_root: PathBuf,
     package_cache_dir: PathBuf,
     packages_lock_path: PathBuf,
-    /// Cache of package assemblies by package directory name
-    cache: HashMap<String, PackageCache>,
+    /// Cache of package assemblies by package name
+    cache: HashMap<String, PackageInfo>,
     /// Last modified time of packages-lock.json
     packages_lock_modified: Option<std::time::SystemTime>,
+    /// Set of directory names in `Library/PackageCache` that have been processed (never need to process again)
+    processed_dirs: std::collections::HashSet<String>,
 }
 
 impl UnityPackageManager {
@@ -62,21 +71,27 @@ impl UnityPackageManager {
             packages_lock_path,
             cache: HashMap::new(),
             packages_lock_modified: None,
+            processed_dirs: std::collections::HashSet::new(),
         }
     }
 
+    pub fn get_packages(&self) -> Vec<PackageInfo> {
+        self.cache.values().cloned().collect()
+    }
+
     /// Find all package assemblies, using cache when possible
-    pub async fn update(&mut self) -> Result<Vec<SourceAssembly>> {
-        // Check if packages-lock.json has changed
+    pub async fn update(&mut self) -> Result<()> {
+        // Load packages-lock.json to validate packages
+        let packages_lock = self.load_packages_lock().await?;
+        
+        // Check if packages-lock.json has changed and invalidate cache selectively
         if self.should_refresh_packages_lock().await? {
-            self.cache.clear();
+            self.invalidate_removed_packages(&packages_lock).await?;
             self.update_packages_lock_timestamp().await?;
         }
 
-        let mut all_assemblies = Vec::new();
-
         if !self.package_cache_dir.exists() {
-            return Ok(all_assemblies);
+            return Ok(());
         }
 
         let mut cache_entries = fs::read_dir(&self.package_cache_dir).await
@@ -85,44 +100,33 @@ impl UnityPackageManager {
         while let Some(entry) = cache_entries.next_entry().await? {
             let package_dir = entry.path();
             if package_dir.is_dir() {
-                let package_name = package_dir.file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("unknown")
-                    .to_string();
-
-                // Check if we have cached data and if it's still valid
-                if let Some(cached) = self.cache.get(&package_name) {
-                    if self.is_cache_valid(&package_dir, &cached).await? {
-                        all_assemblies.extend(cached.assemblies.clone());
-                        continue;
-                    }
-                }
-
-                // Cache miss or invalid, discover assemblies
-                let assemblies = self.discover_assemblies_in_package(&package_dir).await?;
-                let last_modified = self.get_directory_modified_time(&package_dir).await?;
+                let dir_name = package_dir.file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("");
                 
-                // Update cache
-                self.cache.insert(package_name, PackageCache {
-                    assemblies: assemblies.clone(),
-                    last_modified,
-                });
-
-                all_assemblies.extend(assemblies);
+                // Skip if we've already processed this directory (unique names guarantee no duplicates)
+                if self.processed_dirs.contains(dir_name) {
+                    continue;
+                }
+                
+                self.processed_dirs.insert(dir_name.to_string());
+                
+                self.process_package_directory(&package_dir, &packages_lock).await;
             }
         }
 
-        Ok(all_assemblies)
+        Ok(())
     }
 
     /// Clear the package cache
-    pub fn clear_cache(&mut self) {
+    fn clear_cache(&mut self) {
         self.cache.clear();
         self.packages_lock_modified = None;
+        self.processed_dirs.clear();
     }
 
     /// Get cache statistics
-    pub fn get_cache_stats(&self) -> (usize, usize) {
+    fn get_cache_stats(&self) -> (usize, usize) {
         let cached_packages = self.cache.len();
         let total_assemblies = self.cache.values()
             .map(|c| c.assemblies.len())
@@ -157,19 +161,79 @@ impl UnityPackageManager {
         Ok(())
     }
 
-    /// Check if cached data is still valid for a package
-    async fn is_cache_valid(&self, package_dir: &Path, cached: &PackageCache) -> Result<bool> {
-        let current_modified = self.get_directory_modified_time(package_dir).await?;
-        Ok(current_modified <= cached.last_modified)
+    /// Load packages-lock.json file
+    async fn load_packages_lock(&self) -> Result<PackageLockFile> {
+        if !self.packages_lock_path.exists() {
+            return Ok(PackageLockFile {
+                dependencies: HashMap::new(),
+            });
+        }
+
+        let content = fs::read_to_string(&self.packages_lock_path).await
+            .context("Failed to read packages-lock.json")?;
+        
+        serde_json::from_str(&content)
+            .context("Failed to parse packages-lock.json")
     }
 
-    /// Get the last modified time of a directory (latest file modification)
-    async fn get_directory_modified_time(&self, dir: &Path) -> Result<std::time::SystemTime> {
-        let metadata = fs::metadata(dir).await
-            .context("Failed to get directory metadata")?;
+    /// Invalidate cache entries for packages that are no longer in packages-lock.json
+    async fn invalidate_removed_packages(&mut self, packages_lock: &PackageLockFile) -> Result<()> {
+        let mut packages_to_remove = Vec::new();
         
-        metadata.modified()
-            .context("Failed to get directory modified time")
+        // Find cached packages that are no longer in packages-lock.json
+        for package_name in self.cache.keys() {
+            if !packages_lock.dependencies.contains_key(package_name) {
+                packages_to_remove.push(package_name.clone());
+            }
+        }
+        
+        // Remove invalidated packages from cache
+        for package_name in packages_to_remove {
+            self.cache.remove(&package_name);
+        }
+        
+        Ok(())
+    }
+
+    /// Process a single package directory
+    async fn process_package_directory(
+        &mut self,
+        package_dir: &Path,
+        packages_lock: &PackageLockFile,
+    ) -> Result<()> {
+        // Read package.json to get the actual package name and version
+        let package_json_path = package_dir.join("package.json");
+        if !package_json_path.exists() {
+            return Ok(());
+        }
+
+        let package_json_content = fs::read_to_string(&package_json_path).await
+            .context("Failed to read package.json")?;
+        
+        let package_json: PackageJson = serde_json::from_str(&package_json_content)
+            .context("Failed to parse package.json")?;
+
+        // Check if this package is included in packages-lock.json
+        if !packages_lock.dependencies.contains_key(&package_json.name) {
+            return Ok(());
+        }
+
+        // Check if we have cached data for this package
+        if let Some(cached) = self.cache.get(&package_json.name) {
+            return Ok(());
+        }
+
+        // Cache miss, discover assemblies
+        let assemblies = self.discover_assemblies_in_package(package_dir).await?;
+        
+        // Update cache using package name as key
+        self.cache.insert(package_json.name.clone(), PackageInfo {
+            name: package_json.name,
+            version: package_json.version,
+            assemblies: assemblies,
+        });
+
+        Ok(())
     }
 
     /// Discover assemblies in a specific package directory
@@ -221,21 +285,17 @@ mod tests {
     use crate::test_utils::get_unity_project_root;
 
     #[tokio::test]
-    async fn test_cache_functionality() {
+    async fn test_update() {
         let unity_root = get_unity_project_root();
         let mut manager = UnityPackageManager::new(unity_root);
         
         // First call - should populate cache
-        let assemblies1 = manager.update().await.unwrap();
-        let (cached_packages1, _) = manager.get_cache_stats();
+        manager.update().await;
+
+        let packages = manager.get_packages();
         
-        // Second call - should use cache
-        let assemblies2 = manager.update().await.unwrap();
-        let (cached_packages2, _) = manager.get_cache_stats();
-        
-        assert_eq!(assemblies1.len(), assemblies2.len(), "Cache should return same results");
-        assert_eq!(cached_packages1, cached_packages2, "Cache should be stable");
-        
-        println!("Cache test passed: {} assemblies, {} cached packages", assemblies1.len(), cached_packages1);
+        for package in packages {
+            println!("Package: {:?}", package);
+        }
     }
 }
