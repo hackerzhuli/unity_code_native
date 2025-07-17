@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     io,
+    path::PathBuf,
     time::{Duration, Instant},
 };
 
@@ -12,12 +13,14 @@ use tokio::{
 };
 use log::{debug, error, info, warn};
 use crate::monitor::ProcessMonitor;
+use crate::cs::docs_manager::CsDocsManager;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum MessageType {
     None = 0,
     GetUnityState = 1,
+    GetSymbolDocs = 2,
 }
 
 impl From<u8> for MessageType {
@@ -25,6 +28,7 @@ impl From<u8> for MessageType {
         match value {
             0 => MessageType::None,
             1 => MessageType::GetUnityState,
+            2 => MessageType::GetSymbolDocs,
             _ => MessageType::None,
         }
     }
@@ -36,6 +40,26 @@ pub struct ProcessState {
     pub unity_process_id: u32,
     #[serde(rename = "IsHotReloadEnabled")]
     pub is_hot_reload_enabled: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SymbolDocsRequest {
+    #[serde(rename = "SymbolName")]
+    pub symbol_name: String,
+    #[serde(rename = "AssemblyName")]
+    pub assembly_name: Option<String>,
+    #[serde(rename = "SourceFilePath")]
+    pub source_file_path: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SymbolDocsResponse {
+    #[serde(rename = "Success")]
+    pub success: bool,
+    #[serde(rename = "Documentation")]
+    pub documentation: Option<String>,
+    #[serde(rename = "ErrorMessage")]
+    pub error_message: Option<String>,
 }
 
 // Time interval for periodic detect Unity when Unity is not yet detected
@@ -50,6 +74,7 @@ pub struct Server {
     clients: HashMap<std::net::SocketAddr, ClientInfo>,
     monitor: ProcessMonitor,
     last_monitor_update: Instant,
+    docs_manager: CsDocsManager,
 }
 
 impl Server {
@@ -62,11 +87,16 @@ impl Server {
 
         info!("Server listening on {}", addr);
 
+        let unity_project_root = PathBuf::from(&project_path);
+        let docs_manager = CsDocsManager::new(unity_project_root)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to create docs manager: {}", e)))?;
+
         Ok(Server {
             socket,
             clients: HashMap::new(),
             monitor: ProcessMonitor::new(project_path),
             last_monitor_update: Instant::now() - DETECT_UNITY_INTERVAL, // we want to update immediately
+            docs_manager,
         })
     }
 
@@ -154,7 +184,7 @@ impl Server {
             return;
         }
 
-        let _payload = if payload_length > 0 {
+        let payload = if payload_length > 0 {
             match std::str::from_utf8(&data[9..9 + payload_length]) {
                 Ok(s) => s,
                 Err(_) => {
@@ -173,6 +203,9 @@ impl Server {
             MessageType::GetUnityState => {
                 self.handle_get_unity_state(addr, request_id).await;
             }
+            MessageType::GetSymbolDocs => {
+                self.handle_get_symbol_docs(addr, request_id, payload).await;
+            }
         }
     }
 
@@ -181,6 +214,65 @@ impl Server {
         let _changed = self.monitor_update(true);
 
         self.send_state(addr, request_id).await;
+    }
+
+    async fn handle_get_symbol_docs(&mut self, addr: std::net::SocketAddr, request_id: u32, payload: &str) {
+        let response = if payload.is_empty() {
+            SymbolDocsResponse {
+                success: false,
+                documentation: None,
+                error_message: Some("Empty request payload".to_string()),
+            }
+        } else {
+            match serde_json::from_str::<SymbolDocsRequest>(payload) {
+                Ok(request) => {
+                    // Validate request
+                    if request.assembly_name.is_none() && request.source_file_path.is_none() {
+                        SymbolDocsResponse {
+                            success: false,
+                            documentation: None,
+                            error_message: Some("Either AssemblyName or SourceFilePath must be provided".to_string()),
+                        }
+                    } else {
+                        // Convert source file path to PathBuf if provided
+                        let source_file_path = request.source_file_path.as_ref().map(|p| PathBuf::from(p));
+                        
+                        // Call docs manager
+                        match self.docs_manager.get_docs_for_symbol(
+                            &request.symbol_name,
+                            request.assembly_name.as_deref(),
+                            source_file_path.as_deref(),
+                        ).await {
+                            Ok(documentation) => SymbolDocsResponse {
+                                success: true,
+                                documentation: Some(documentation),
+                                error_message: None,
+                            },
+                            Err(e) => SymbolDocsResponse {
+                                success: false,
+                                documentation: None,
+                                error_message: Some(e.to_string()),
+                            },
+                        }
+                    }
+                }
+                Err(e) => SymbolDocsResponse {
+                    success: false,
+                    documentation: None,
+                    error_message: Some(format!("Invalid request format: {}", e)),
+                },
+            }
+        };
+
+        // Send response
+        match serde_json::to_string(&response) {
+            Ok(json) => {
+                self.send_response(MessageType::GetSymbolDocs, request_id, &json, addr).await;
+            }
+            Err(e) => {
+                error!("Error serializing SymbolDocsResponse: {}", e);
+            }
+        }
     }
 
     async fn send_state(&mut self, addr: std::net::SocketAddr, request_id: u32) {
