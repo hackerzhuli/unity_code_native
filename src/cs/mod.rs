@@ -8,9 +8,10 @@
 //! 2. Package cache code: Found in .asmdef files within Library/PackageCache
 
 pub mod assembly_manager;
-pub mod source_finder;
+pub mod source_utils;
 pub mod docs_manager;
 pub mod package_manager;
 pub mod compile_utils;
 pub mod docs_compiler;
 pub mod source_assembly;
+pub mod xml_doc_utils;

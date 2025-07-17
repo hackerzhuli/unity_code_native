@@ -10,7 +10,44 @@ use serde::Deserialize;
 use tokio::fs;
 use super::source_assembly::SourceAssembly;
 
+/// Normalize a path for comparison by removing Windows UNC prefix if present
+pub fn normalize_path_for_comparison(path: &Path) -> PathBuf {
+    let path_str = path.to_string_lossy();
+    if path_str.starts_with("\\\\?\\") {
+        // Remove the UNC prefix \\?\\ 
+        PathBuf::from(&path_str[4..])
+    } else {
+        path.to_path_buf()
+    }
+}
 
+/// Parse a single .csproj file to extract assembly information
+pub async fn parse_single_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Result<SourceAssembly> {
+    let content = fs::read_to_string(csproj_path).await
+        .context("Failed to read .csproj file")?;
+    
+    // Parse XML to extract AssemblyName
+    let assembly_name = extract_assembly_name(&content)
+        .ok_or_else(|| anyhow!("Could not find AssemblyName in .csproj file"))?;
+    
+    Ok(SourceAssembly {
+        name: assembly_name,
+        is_user_code: true,
+        source_location: csproj_path.to_path_buf(),
+    })
+}
+
+/// Extract AssemblyName from .csproj XML content
+pub fn extract_assembly_name(content: &str) -> Option<String> {
+    // Simple XML parsing to find <AssemblyName>value</AssemblyName>
+    if let Some(start) = content.find("<AssemblyName>") {
+        let start_pos = start + "<AssemblyName>".len();
+        if let Some(end) = content[start_pos..].find("</AssemblyName>") {
+            return Some(content[start_pos..start_pos + end].trim().to_string());
+        }
+    }
+    None
+}
 
 /// Find user assemblies from .csproj files in the Unity project root
 pub async fn find_user_assemblies(unity_project_root: &Path) -> Result<Vec<SourceAssembly>> {
@@ -105,18 +142,6 @@ async fn parse_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Res
         is_user_code: true,
         source_location: csproj_path.to_path_buf(),
     })
-}
-
-/// Extract AssemblyName from .csproj XML content
-fn extract_assembly_name(content: &str) -> Option<String> {
-    // Simple XML parsing to find <AssemblyName>value</AssemblyName>
-    if let Some(start) = content.find("<AssemblyName>") {
-        let start_pos = start + "<AssemblyName>".len();
-        if let Some(end) = content[start_pos..].find("</AssemblyName>") {
-            return Some(content[start_pos..start_pos + end].trim().to_string());
-        }
-    }
-    None
 }
 
 /// Extract Compile items from .csproj XML content

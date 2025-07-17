@@ -11,52 +11,16 @@ use anyhow::{Result, Context, anyhow};
 use tokio::fs;
 use regex::Regex;
 
-/// Normalize a path for comparison by removing Windows UNC prefix if present
-fn normalize_path_for_comparison(path: &Path) -> PathBuf {
-    let path_str = path.to_string_lossy();
-    if path_str.starts_with("\\\\?\\") {
-        // Remove the UNC prefix \\?\\ 
-        PathBuf::from(&path_str[4..])
-    } else {
-        path.to_path_buf()
-    }
-}
-
+use crate::cs::source_utils::{normalize_path_for_comparison, parse_single_csproj_file};
+use crate::cs::xml_doc_utils::merge_xml_docs;
 use crate::cs::{
     assembly_manager::AssemblyManager, 
     package_manager::UnityPackageManager, 
     source_assembly::SourceAssembly, 
-    source_finder::{find_user_assemblies, get_assembly_source_files},
-    docs_compiler::{DocsCompiler, DocsAssembly, DOCS_ASSEMBLY_VERSION}
+    source_utils::{find_user_assemblies, get_assembly_source_files},
+    docs_compiler::{DocsCompiler, DocsAssembly, DOCS_ASSEMBLY_VERSION},
+    xml_doc_utils
 };
-
-/// Parse a single .csproj file to extract assembly information
-async fn parse_single_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Result<SourceAssembly> {
-    let content = fs::read_to_string(csproj_path).await
-        .context("Failed to read .csproj file")?;
-    
-    // Parse XML to extract AssemblyName
-    let assembly_name = extract_assembly_name(&content)
-        .ok_or_else(|| anyhow!("Could not find AssemblyName in .csproj file"))?;
-    
-    Ok(SourceAssembly {
-        name: assembly_name,
-        is_user_code: true,
-        source_location: csproj_path.to_path_buf(),
-    })
-}
-
-/// Extract AssemblyName from .csproj XML content
-fn extract_assembly_name(content: &str) -> Option<String> {
-    // Simple XML parsing to find <AssemblyName>value</AssemblyName>
-    if let Some(start) = content.find("<AssemblyName>") {
-        let start_pos = start + "<AssemblyName>".len();
-        if let Some(end) = content[start_pos..].find("</AssemblyName>") {
-            return Some(content[start_pos..start_pos + end].trim().to_string());
-        }
-    }
-    None
-}
 
 /// Cached documentation assembly with timestamp
 #[derive(Debug, Clone)]
@@ -394,11 +358,11 @@ impl CsDocsManager {
     fn find_symbol_with_inheritdoc(&self, docs_assembly: &DocsAssembly, symbol_name: &str) -> Option<DocResult> {
         // First try basic lookup
         if let Some(result) = self.find_symbol_basic(docs_assembly, symbol_name) {
-            // Check if it's inheritdoc
-            if self.is_inheritdoc(&result.xml_doc) {
+            // Check if it contains inheritdoc (either top-level or nested)
+            if self.contains_inheritdoc(&result.xml_doc) {
                 // Extract cref and resolve
                 if let Some(cref) = self.extract_cref(&result.xml_doc) {
-                    return self.resolve_inheritdoc(&cref, symbol_name, docs_assembly);
+                    return self.resolve_inheritdoc_with_merge(&cref, symbol_name, docs_assembly, &result.xml_doc, &result);
                 }
             }
             return Some(result);
@@ -406,39 +370,45 @@ impl CsDocsManager {
         None
     }
     
-    /// Resolve inheritdoc by generating candidates and calling basic lookup
-    fn resolve_inheritdoc(&self, cref: &str, original_symbol: &str, docs_assembly: &DocsAssembly) -> Option<DocResult> {
+    /// Resolve inheritdoc by finding target documentation and merging with original
+    fn resolve_inheritdoc_with_merge(&self, cref: &str, original_symbol: &str, docs_assembly: &DocsAssembly, original_xml: &str, original_result: &DocResult) -> Option<DocResult> {
         let candidates = self.generate_inheritdoc_candidates(cref, original_symbol, docs_assembly);
         
         for candidate in candidates {
             // Use parameter omission when resolving inheritdoc
-            if let Some(mut result) = self.find_symbol_basic_with_options(docs_assembly, &candidate, true) {
-                // Mark as inherited and set inheritance info
-                result.is_inherited = true;
-                result.inherited_from_type_name = Some(result.source_type_name.clone());
-                result.inherited_from_member_name = result.source_member_name.clone();
-                
-                // Update source info to original symbol
-                let (source_type, source_member) = self.parse_symbol_name(original_symbol);
-                result.source_type_name = source_type;
-                result.source_member_name = source_member;
-                
-                return Some(result);
+            if let Some(target_result) = self.find_symbol_basic_with_options(docs_assembly, &candidate, true) {
+                // Merge the XML documentation
+                if let Some(merged_xml) = merge_xml_docs(original_xml, &target_result.xml_doc) {                    
+                    return Some(DocResult {
+                        xml_doc: merged_xml,
+                        source_type_name: original_result.source_type_name.clone(),
+                        source_member_name: original_result.source_member_name.clone(),
+                        inherited_from_type_name: Some(target_result.source_type_name),
+                        inherited_from_member_name: target_result.source_member_name,
+                        is_inherited: true,
+                    });
+                }
             }
         }
-        None
+        
+        return Some(original_result.clone());
+    }
+
+    /// Check if XML documentation contains any inheritdoc tag
+    fn contains_inheritdoc(&self, xml_doc: &str) -> bool {
+        xml_doc.contains("<inheritdoc")
     }
     
-    /// Check if XML documentation is just an inheritdoc tag
+    /// Check if XML documentation is just an inheritdoc tag (kept for backward compatibility)
     fn is_inheritdoc(&self, xml_doc: &str) -> bool {
         let trimmed = xml_doc.trim();
         trimmed.starts_with("<inheritdoc") && trimmed.ends_with("/>")
     }
     
-    /// Extract cref attribute from inheritdoc tag
+    /// Extract cref attribute from the first inheritdoc tag found
     fn extract_cref(&self, xml_doc: &str) -> Option<String> {
         let re = Regex::new("<inheritdoc\\s+cref\\s*=\\s*[\"']([^\"']+)[\"']\\s*/>").ok()?;
-        if let Some(captures) = re.captures(xml_doc.trim()) {
+        if let Some(captures) = re.captures(xml_doc) {
             return captures.get(1).map(|m| m.as_str().to_string());
         }
         None
@@ -588,283 +558,5 @@ impl CsDocsManager {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::test_utils::get_unity_project_root;
-
-    #[tokio::test]
-    async fn test_get_docs_for_symbol() {
-        let unity_root = get_unity_project_root();
-        let mut manager = CsDocsManager::new(unity_root).expect("Failed to create manager");
-        
-        // Test with assembly name
-        let result = manager.get_docs_for_symbol(
-            "TestClass", 
-            Some("Assembly-CSharp"), 
-            None
-        ).await;
-        
-        match result {
-            Ok(doc_result) => {
-                println!("Found documentation: {}", doc_result.xml_doc);
-                println!("Source: {}.{:?}", doc_result.source_type_name, doc_result.source_member_name);
-                if doc_result.is_inherited {
-                    println!("Inherited from: {}.{:?}", 
-                        doc_result.inherited_from_type_name.unwrap_or_default(),
-                        doc_result.inherited_from_member_name);
-                }
-            },
-            Err(e) => println!("Error getting docs: {:?}", e),
-        }
-    }
-    
-    #[tokio::test]
-    async fn test_unity_mathematics_docs() {
-        let unity_root = get_unity_project_root();
-        let mut manager = CsDocsManager::new(unity_root).expect("Failed to create manager");
-        
-        // Test getting documentation for Unity.Mathematics.math.asin(float4) as requested
-        println!("Testing Unity.Mathematics.math.asin(float4) documentation retrieval:");
-        
-        match manager.get_docs_for_symbol(
-            "Unity.Mathematics.math.asin(float4)", 
-            Some("Unity.Mathematics"), 
-            None
-        ).await {
-            Ok(doc_result) => {
-                println!("✓ Successfully retrieved documentation for Unity.Mathematics.math.asin:");
-                println!("{}", doc_result.xml_doc);
-                assert!(!doc_result.xml_doc.trim().is_empty(), "Documentation should not be empty");
-                assert!(doc_result.xml_doc.contains("arcsine"), "Documentation should mention arcsine");
-            },
-            Err(e) => {
-                println!("✗ Failed to get Unity.Mathematics.math.asin documentation: {:?}", e);
-                
-                // Let's see what's available in Unity.Mathematics
-                manager.discover_assemblies().await.expect("Failed to discover assemblies");
-                if let Ok(Some(docs)) = manager.get_docs_for_assembly("Unity.Mathematics").await {
-                    println!("Unity.Mathematics assembly has {} types documented", docs.types.len());
-                    
-                    // Look for math type specifically
-                    if let Some(math_type) = docs.types.values().find(|t| t.name.contains("math")) {
-                        println!("Found math type: {} with {} members", math_type.name, math_type.members.len());
-                        
-                        // Show available asin methods
-                        let asin_methods: Vec<_> = math_type.members.values()
-                            .filter(|m| m.name.contains("asin"))
-                            .collect();
-                        
-                        if !asin_methods.is_empty() {
-                            println!("Available asin methods:");
-                            for method in asin_methods {
-                                println!("  - {}", method.name);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Also test with a working example from Assembly-CSharp
-        println!("\nTesting with Assembly-CSharp for comparison:");
-        if let Ok(Some(docs)) = manager.get_docs_for_assembly("Assembly-CSharp").await {
-            if let Some(first_type) = docs.types.values().next() {
-                match manager.get_docs_for_symbol(&first_type.name, Some("Assembly-CSharp"), None).await {
-                    Ok(doc_result) => println!("✓ Successfully retrieved docs for {}: {}", first_type.name, doc_result.xml_doc.trim()),
-                    Err(e) => println!("✗ Failed to get docs for {}: {:?}", first_type.name, e),
-                }
-            }
-        }
-    }
-    
-    #[tokio::test]
-    async fn test_caching_behavior() {
-        let unity_root = get_unity_project_root();
-        let mut manager = CsDocsManager::new(unity_root).expect("Failed to create manager");
-        
-        // First call should compile and cache
-        let start_time = std::time::Instant::now();
-        let result1 = manager.get_docs_for_symbol(
-            "TestClass", 
-            Some("Assembly-CSharp"), 
-            None
-        ).await;
-        let first_duration = start_time.elapsed();
-        
-        // Second call should use cache and be faster
-        let start_time = std::time::Instant::now();
-        let result2 = manager.get_docs_for_symbol(
-            "TestClass", 
-            Some("Assembly-CSharp"), 
-            None
-        ).await;
-        let second_duration = start_time.elapsed();
-        
-        println!("First call took: {:?}", first_duration);
-        println!("Second call took: {:?}", second_duration);
-        
-        // Both should return the same result
-        match (result1, result2) {
-            (Ok(doc_result1), Ok(doc_result2)) => {
-                assert_eq!(doc_result1.xml_doc, doc_result2.xml_doc, "Cache should return consistent results");
-                assert_eq!(doc_result1.source_type_name, doc_result2.source_type_name, "Cache should return consistent source info");
-                println!("Cache test passed - consistent results");
-            },
-            _ => println!("One or both calls failed"),
-        }
-    }
-
-    #[tokio::test]
-    async fn test_unified_csproj_cache() {
-        let unity_root = get_unity_project_root();
-        let mut manager = CsDocsManager::new(unity_root).expect("Failed to create manager");
-        
-        // Discover assemblies to populate the cache
-        manager.discover_assemblies().await.expect("Failed to discover assemblies");
-        
-        // Verify that the cache contains both assembly metadata and source files
-        assert!(!manager.csproj_cache.is_empty(), "Cache should not be empty after discovery");
-        
-        for (csproj_path, cache_entry) in &manager.csproj_cache {
-            println!("Cached .csproj: {}", csproj_path.to_string_lossy());
-            println!("  Assembly: {}", cache_entry.assembly.name);
-            println!("  Source files count: {}", cache_entry.source_files.len());
-            
-            // Verify that each cache entry has the expected structure
-            assert!(!cache_entry.assembly.name.is_empty(), "Assembly name should not be empty");
-            assert!(cache_entry.assembly.is_user_code, "Should be user code assembly");
-            assert_eq!(cache_entry.assembly.source_location, *csproj_path, "Source location should match csproj path");
-            
-            // Verify that source files are normalized paths
-            for source_file in &cache_entry.source_files {
-                assert!(source_file.is_absolute(), "Source file paths should be absolute: {}", source_file.to_string_lossy());
-            }
-        }
-        
-        println!("✓ Unified cache structure is working correctly");
-    }
-
-    #[test]
-    fn test_normalize_path_for_comparison() {
-        use std::path::Path;
-        
-        // Test Windows UNC path normalization
-        let unc_path = Path::new("\\\\?\\F:\\projects\\unity\\TestUnityCode\\Assets\\Scripts\\TestHover.cs");
-        let normal_path = Path::new("F:\\projects\\unity\\TestUnityCode\\Assets\\Scripts\\TestHover.cs");
-        
-        let normalized_unc = normalize_path_for_comparison(unc_path);
-        let normalized_normal = normalize_path_for_comparison(normal_path);
-        
-        println!("UNC path: {}", unc_path.to_string_lossy());
-        println!("Normal path: {}", normal_path.to_string_lossy());
-        println!("Normalized UNC: {}", normalized_unc.to_string_lossy());
-        println!("Normalized normal: {}", normalized_normal.to_string_lossy());
-        
-        assert_eq!(normalized_unc, normalized_normal, "UNC and normal paths should be equal after normalization");
-        
-        // Test that normal paths are unchanged
-        let regular_path = Path::new("/home/user/file.txt");
-        let normalized_regular = normalize_path_for_comparison(regular_path);
-        assert_eq!(regular_path, normalized_regular, "Regular paths should remain unchanged");
-        
-        // Test edge case - path that starts with \\?\ but is not actually UNC
-        let fake_unc = Path::new("\\\\?\\not_a_real_unc");
-        let normalized_fake = normalize_path_for_comparison(fake_unc);
-        assert_eq!(normalized_fake.to_string_lossy(), "not_a_real_unc", "Fake UNC prefix should be removed");
-    }
-
-    #[tokio::test]
-    async fn test_inheritdoc_resolution() {
-        let unity_project_root = PathBuf::from("UnityProject");
-        let mut docs_manager = CsDocsManager::new(unity_project_root).expect("Failed to create manager");
-        
-        // Test 1: Add() method inherits from Add(int, int, int)
-        let result1 = docs_manager.get_docs_for_symbol(
-            "UnityProject.Inherit1.Add()",
-            None,
-            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
-        ).await;
-        
-        if let Ok(doc_result) = result1 {
-            println!("Test 1 - Add() inheritdoc:");
-            println!("XML Doc: {}", doc_result.xml_doc);
-            println!("Is Inherited: {}", doc_result.is_inherited);
-            if doc_result.is_inherited {
-                assert!(doc_result.xml_doc.contains("doc for add with 3 parameters"));
-                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
-            }
-        }
-        
-        // Test 2: Add2() method inherits from Add<T>(T, int, int)
-        let result2 = docs_manager.get_docs_for_symbol(
-            "UnityProject.Inherit1.Add2()",
-            None,
-            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
-        ).await;
-        
-        if let Ok(doc_result) = result2 {
-            println!("Test 2 - Add2() inheritdoc:");
-            println!("XML Doc: {}", doc_result.xml_doc);
-            println!("Is Inherited: {}", doc_result.is_inherited);
-            if doc_result.is_inherited {
-                assert!(doc_result.xml_doc.contains("doc for generic add"));
-                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
-            }
-        }
-        
-        // Test 3: Add3() method inherits from Add(ref int, out int, in System.Int32)
-        let result3 = docs_manager.get_docs_for_symbol(
-            "UnityProject.Inherit1.Add3()",
-            None,
-            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
-        ).await;
-        
-        if let Ok(doc_result) = result3 {
-            println!("Test 3 - Add3() inheritdoc:");
-            println!("XML Doc: {}", doc_result.xml_doc);
-            println!("Is Inherited: {}", doc_result.is_inherited);
-            if doc_result.is_inherited {
-                assert!(doc_result.xml_doc.contains("doc for add with 3 parameters complex"));
-                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
-            }
-        }
-        
-        // Test 4: Method() from Inherit2 inherits from Inherit1.Add<T>(T, int, int)
-        let result4 = docs_manager.get_docs_for_symbol(
-            "OtherProject.MyNamespace.Inherit2.Method()",
-            None,
-            Some(Path::new("UnityProject/Assets/Scripts/Inherit2.cs")),
-        ).await;
-        
-        if let Ok(doc_result) = result4 {
-            println!("Test 4 - Inherit2.Method() inheritdoc:");
-            println!("XML Doc: {}", doc_result.xml_doc);
-            println!("Is Inherited: {}", doc_result.is_inherited);
-            if doc_result.is_inherited {
-                assert!(doc_result.xml_doc.contains("doc for generic add"));
-                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
-            }
-        } else {
-            println!("Test 4 failed: {:?}", result4);
-        }
-        
-        // Test 5: Add4() method inherits from Add5 (parameter omission test)
-        let result5 = docs_manager.get_docs_for_symbol(
-            "UnityProject.Inherit1.Add4(System.Int32,System.Int32)",
-            None,
-            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
-        ).await;
-        
-        if let Ok(doc_result) = result5 {
-            println!("Test 5 - Add4() inheritdoc:");
-            println!("XML Doc: {}", doc_result.xml_doc);
-            println!("Is Inherited: {}", doc_result.is_inherited);
-            if doc_result.is_inherited {
-                assert!(doc_result.xml_doc.contains("doc for add 5"));
-                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
-            }
-        } else {
-            println!("Test 5 failed: {:?}", result5);
-        }
-    }
-}
+#[path ="docs_manager_tests.rs"]
+mod tests;
