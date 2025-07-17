@@ -208,11 +208,14 @@ impl DocsCompiler {
         }
         
         // Build fully qualified name and normalize it
-        let full_name = if namespace_prefix.is_empty() {
-            normalize_type_name(name_node, source).unwrap_or_else(|| type_name.to_string())
-        } else {
-            format!("{}.{}", namespace_prefix, type_name)
-        };
+        let full_name = normalize_type_name(name_node, source).unwrap_or_else(|| {
+            // Fallback: manually build the qualified name
+            if namespace_prefix.is_empty() {
+                type_name.to_string()
+            } else {
+                format!("{}.{}", namespace_prefix, type_name)
+            }
+        });
         
         // Extract XML documentation comment
         let xml_doc = self.extract_xml_doc_comment(node, source)?;
@@ -287,70 +290,7 @@ impl DocsCompiler {
         Ok(false)
     }
     
-    /// Get the name of a member, including parameter types for methods
-    fn get_member_name(&self, node: Node, source: &str) -> Result<String> {
-        // Handle field declarations specially
-        if node.kind() == "field_declaration" {
-            // For field declarations, look for variable_declaration -> variable_declarator -> identifier
-            for child in node.children(&mut node.walk()) {
-                if child.kind() == "variable_declaration" {
-                    for var_child in child.children(&mut child.walk()) {
-                        if var_child.kind() == "variable_declarator" {
-                            for declarator_child in var_child.children(&mut var_child.walk()) {
-                                if declarator_child.kind() == "identifier" {
-                                    return Ok(declarator_child.utf8_text(source.as_bytes())?.to_string());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Try to find name field first
-        if let Some(name_node) = node.child_by_field_name("name") {
-            let base_name = name_node.utf8_text(source.as_bytes())?;
-            
-            // For methods, append generic parameters and parameter types
-            if node.kind() == "method_declaration" {
-                // Check for generic type parameters
-                let mut method_name_with_generics = base_name.to_string();
-                if let Some(type_params_node) = node.child_by_field_name("type_parameters") {
-                    if let Ok(type_params_text) = type_params_node.utf8_text(source.as_bytes()) {
-                        method_name_with_generics = format!("{}{}", base_name, type_params_text);
-                    }
-                }
-                
-                if let Some(params_node) = node.child_by_field_name("parameters") {
-                    let mut param_types = Vec::new();
-                    for child in params_node.children(&mut params_node.walk()) {
-                        if child.kind() == "parameter" {
-                            if let Some(type_node) = child.child_by_field_name("type") {
-                                if let Ok(type_text) = type_node.utf8_text(source.as_bytes()) {
-                                    param_types.push(type_text);
-                                }
-                            }
-                        }
-                    }
-                    return Ok(format!("{}({})", method_name_with_generics, param_types.join(", ")));
-                }
-            }
-            
-            Ok(base_name.to_string())
-        } else {
-            // Fallback: try to find any identifier node
-            for child in node.children(&mut node.walk()) {
-                if child.kind() == "identifier" {
-                    if let Ok(name) = child.utf8_text(source.as_bytes()) {
-                        return Ok(name.to_string());
-                    }
-                }
-            }
-            
-            // Last resort: use the node kind as name
-            Ok(format!("<{}_at_{}>", node.kind(), node.start_position().row))
-        }
-    }
+
     
     /// Extract XML documentation comment preceding a node
     fn extract_xml_doc_comment(&self, node: Node, source: &str) -> Result<String> {
