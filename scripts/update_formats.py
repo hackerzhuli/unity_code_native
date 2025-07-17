@@ -372,12 +372,12 @@ if __name__ == '__main__':
     print(f"Project root detected: {project_root}")
     
     # Read the Unity USS documentation file
-    unity_md_file_path = project_root / 'Assets' / 'data' / 'USS_property_format_6.0.md'
+    unity_md_file_path = project_root / 'data' / 'USS_property_format_6.0.md'
     with open(unity_md_file_path, 'r', encoding='utf-8') as f:
         unity_md_content = f.read()
     
     # Read the Mozilla CSS documentation file
-    mozilla_md_file_path = project_root / 'Assets' / 'data' / 'Mozilla_CSS_properties_2025.md'
+    mozilla_md_file_path = project_root / 'data' / 'Mozilla_CSS_properties_2025.md'
     with open(mozilla_md_file_path, 'r', encoding='utf-8') as f:
         mozilla_md_content = f.read()
     
