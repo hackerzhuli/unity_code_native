@@ -10,6 +10,9 @@ use tokio::fs;
 use tree_sitter::{Parser, Language, Node, Tree};
 use super::source_assembly::SourceAssembly;
 
+/// Current version of the DocsAssembly data structure
+pub const DOCS_ASSEMBLY_VERSION: u32 = 1;
+
 
 
 /// Represents XML documentation for a C# member
@@ -39,6 +42,8 @@ pub struct TypeDoc {
 /// Represents the complete documentation assembly
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DocsAssembly {
+    /// Version of the data structure for compatibility checking
+    pub version: u32,
     /// Name of the assembly
     pub assembly_name: String,
     /// Whether this is user code or package code
@@ -86,6 +91,7 @@ impl DocsCompiler {
         let merged_types = self.merge_partial_classes(types);
         
         Ok(DocsAssembly {
+            version: DOCS_ASSEMBLY_VERSION,
             assembly_name: assembly.name.clone(),
             is_user_code: assembly.is_user_code,
             types: merged_types,

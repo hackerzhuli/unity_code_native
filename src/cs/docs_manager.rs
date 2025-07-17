@@ -15,7 +15,7 @@ use crate::cs::{
     package_manager::UnityPackageManager, 
     source_assembly::SourceAssembly, 
     source_finder::{find_user_assemblies, get_assembly_source_files},
-    docs_compiler::{DocsCompiler, DocsAssembly}
+    docs_compiler::{DocsCompiler, DocsAssembly, DOCS_ASSEMBLY_VERSION}
 };
 
 /// Parse a single .csproj file to extract assembly information
@@ -215,16 +215,29 @@ impl CsDocsManager {
             if self.is_cache_valid(assembly_name, json_modified).await? {
                 // Load from JSON file
                 let content = fs::read_to_string(&json_path).await?;
-                let docs_assembly: DocsAssembly = serde_json::from_str(&content)
-                    .context("Failed to deserialize docs assembly")?;
-                
-                // Cache in memory
-                self.docs_cache.insert(assembly_name.to_string(), CachedDocsAssembly {
-                    docs: docs_assembly.clone(),
-                    cached_at: json_modified,
-                });
-                
-                return Ok(Some(docs_assembly));
+                match serde_json::from_str::<DocsAssembly>(&content) {
+                    Ok(docs_assembly) => {
+                        // Check version compatibility
+                        if docs_assembly.version == DOCS_ASSEMBLY_VERSION {
+                            // Cache in memory
+                            self.docs_cache.insert(assembly_name.to_string(), CachedDocsAssembly {
+                                docs: docs_assembly.clone(),
+                                cached_at: json_modified,
+                            });
+                            
+                            return Ok(Some(docs_assembly));
+                        } else {
+                            // Version mismatch, ignore cached file and recompile
+                            // Optionally delete the incompatible cache file
+                            let _ = fs::remove_file(&json_path).await;
+                        }
+                    }
+                    Err(_) => {
+                        // Failed to deserialize, ignore cached file and recompile
+                        // Optionally delete the corrupted cache file
+                        let _ = fs::remove_file(&json_path).await;
+                    }
+                }
             }
         }
         
