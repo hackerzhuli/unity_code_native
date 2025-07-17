@@ -1,33 +1,12 @@
 use crate::language::url_completion::*;
+use crate::test_utils::get_unity_project_root;
 use std::env;
 use std::fs::{self, File};
 use tempfile::TempDir;
 
-/// Helper function to get the project root directory for tests
-/// This looks for the Cargo.toml file to determine the project root
-fn get_project_root() -> std::path::PathBuf {
-    // Try to get the manifest directory from environment (works during cargo test)
-    if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-        return std::path::PathBuf::from(manifest_dir);
-    }
-
-    // Fallback: start from current directory and walk up to find Cargo.toml
-    let mut current_dir = env::current_dir().expect("Failed to get current directory");
-    loop {
-        if current_dir.join("Cargo.toml").exists() {
-            return current_dir;
-        }
-        if let Some(parent) = current_dir.parent() {
-            current_dir = parent.to_path_buf();
-        } else {
-            panic!("Could not find project root (Cargo.toml not found)");
-        }
-    }
-}
-
 #[test]
 fn test_analyze_completion_context_path() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     let context = provider
@@ -44,7 +23,7 @@ fn test_analyze_completion_context_path() {
 
 #[test]
 fn test_analyze_completion_context_query() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     let context = provider
@@ -65,7 +44,7 @@ fn test_analyze_completion_context_query() {
 
 #[test]
 fn test_analyze_completion_context_query_uppercase_scheme() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     // Test with uppercase PROJECT: scheme
@@ -103,7 +82,7 @@ fn test_analyze_completion_context_query_uppercase_scheme() {
 
 #[test]
 fn test_no_completion_without_slash() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     let result = provider.complete_path("project", None).unwrap();
@@ -112,7 +91,7 @@ fn test_no_completion_without_slash() {
 
 #[test]
 fn test_complete_assets_directory() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     let completions = provider.complete_url("project:/Assets/", "project:/Assets/".len(), None);
@@ -150,7 +129,7 @@ fn test_complete_assets_directory() {
 
 #[test]
 fn test_complete_ui_subdirectory() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     let completions =
@@ -206,7 +185,7 @@ fn test_complete_with_filename_prefix() {
 
 #[test]
 fn test_complete_relative_path_parent_directory() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     // Test relative path completion using '../' from UI/Styles/ to UI/
@@ -234,7 +213,7 @@ fn test_complete_relative_path_parent_directory() {
 
 #[test]
 fn test_complete_relative_path_current_directory() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     // Test relative path completion using './' from UI/ directory
@@ -262,7 +241,7 @@ fn test_complete_relative_path_current_directory() {
 
 #[test]
 fn test_complete_relative_path_multiple_parent_directories() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     // Test relative path completion using '../../' from UI/Styles/ to Assets/
@@ -373,7 +352,7 @@ fn test_complete_relative_path_no_dot_prefix() {
 
 #[test]
 fn test_no_completion_for_exact_matches() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UrlCompletionProvider::new(&project_root);
 
     // Test completion for exact filename "variables.uss" - should not return itself

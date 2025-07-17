@@ -1,4 +1,4 @@
-use crate::test_utils::get_project_root;
+use crate::test_utils::{get_project_root, get_unity_project_root};
 use crate::uss::constants::*;
 use crate::uss::definitions::{PropertyAnimation, UssDefinitions};
 use scraper::{Html, Selector};
@@ -220,7 +220,6 @@ fn test_properties_against_source_data() {
     // Read the official properties HTML source data
     let project_root = get_project_root();
     let html_file_path = project_root
-        .join("Assets")
         .join("data")
         .join("USS_properties_reference_table_6.0_clean.html");
 
@@ -441,7 +440,6 @@ fn test_properties_against_markdown_format() {
     // Step 1: Extract data from source
     let project_root = get_project_root();
     let md_file_path = project_root
-        .join("Assets")
         .join("data")
         .join("USS_property_format_6.0.md");
     let source_properties = extract_properties_from_markdown(&md_file_path);
@@ -560,7 +558,6 @@ fn test_color_keywords_against_source_data() {
     // Step 1: Extract data from source
     let project_root = get_project_root();
     let html_file_path = project_root
-        .join("Assets")
         .join("data")
         .join("Unity - Manual_ USS color keywords_6.1_clean.html");
     let source_colors = extract_colors_from_html(&html_file_path);

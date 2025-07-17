@@ -1,7 +1,7 @@
 use std::path::Path;
 use url::Url;
 use crate::unity_asset_database::UnityAssetDatabase;
-use crate::test_utils::get_project_root;
+use crate::test_utils::get_unity_project_root;
 
 #[test]
 fn test_get_meta_file_path() {
@@ -32,7 +32,7 @@ fn test_url_to_asset_path() {
 
 #[test]
 fn test_texture_with_multiple_sprites() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let db = UnityAssetDatabase::new(&project_root);
     
     // Test with the example texture that has multiple sprites
@@ -70,7 +70,7 @@ fn test_texture_with_multiple_sprites() {
 
 #[test]
 fn test_basic_asset_uxml() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let db = UnityAssetDatabase::new(&project_root);
     
     // Test with the example UXML file
@@ -90,7 +90,7 @@ fn test_basic_asset_uxml() {
 
 #[test]
 fn test_texture_asset_info_for_non_multiple_sprite() {
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let db = UnityAssetDatabase::new(&project_root);
     
     // Test with the UXML file using texture asset info method

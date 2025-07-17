@@ -1,6 +1,6 @@
 use tower_lsp::lsp_types::{CompletionItemKind, Position};
 use crate::language::tree_printer::print_tree;
-use crate::test_utils::get_project_root;
+use crate::test_utils::get_unity_project_root;
 use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
 
 #[test]
@@ -870,7 +870,7 @@ fn test_id_selector_excludes_self() {
 #[test]
 fn test_url_completion() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
 
     // Test case: cursor inside url() function pointing to Assets directory
@@ -912,7 +912,7 @@ fn test_url_completion() {
 #[test]
 fn test_url_completion_resources_directory() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
 
     // Test case: cursor inside url() function pointing to Resources directory
@@ -949,7 +949,7 @@ fn test_url_completion_resources_directory() {
 #[test]
 fn test_url_completion_specific_files() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
 
     // Test case: cursor inside url() function pointing to Icons directory
@@ -982,7 +982,7 @@ fn test_url_completion_specific_files() {
 #[test]
 fn test_url_completion_in_import_statement() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
 
     // Test case: cursor inside import statement string pointing to UI directory
@@ -1023,7 +1023,7 @@ fn test_url_completion_in_import_statement() {
 #[test]
 fn test_url_completion_in_import_statement_with_url_function() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
 
     // Test case: cursor inside import statement string pointing to UI directory
@@ -1064,7 +1064,7 @@ fn test_url_completion_in_import_statement_with_url_function() {
 #[test]
 fn test_url_completion_uss_files() {
     let mut parser = UssParser::new().unwrap();
-    let project_root = get_project_root();
+    let project_root = get_unity_project_root();
     let provider = UssCompletionProvider::new_with_project_root(&project_root);
 
     // Test case: cursor inside url() function pointing to UI/Styles directory
