@@ -304,6 +304,11 @@ impl CsDocsManager {
     
     /// Find symbol documentation - basic version without inheritdoc resolution
     fn find_symbol_basic(&self, docs_assembly: &DocsAssembly, symbol_name: &str) -> Option<DocResult> {
+        self.find_symbol_basic_with_options(docs_assembly, symbol_name, false)
+    }
+    
+    /// Find symbol documentation with options for parameter omission
+    fn find_symbol_basic_with_options(&self, docs_assembly: &DocsAssembly, symbol_name: &str, allow_parameter_omission: bool) -> Option<DocResult> {
         // Try exact type match
         if let Some(type_doc) = docs_assembly.types.get(symbol_name) {
             if !type_doc.xml_doc.trim().is_empty() {
@@ -324,6 +329,7 @@ impl CsDocsManager {
             let member_name = &symbol_name[last_dot + 1..];
             
             if let Some(type_doc) = docs_assembly.types.get(type_name) {
+                // First try exact match
                 if let Some(member_doc) = type_doc.members.get(member_name) {
                     if !member_doc.xml_doc.trim().is_empty() {
                         return Some(DocResult {
@@ -334,6 +340,35 @@ impl CsDocsManager {
                             inherited_from_member_name: None,
                             is_inherited: false,
                         });
+                    }
+                }
+                
+                // If allow_parameter_omission is true and the search symbol doesn't have parameters, try parameter omission
+                if allow_parameter_omission && !member_name.contains('(') {
+                    // Find all members that start with this method name (without parameters)
+                    let matching_members: Vec<_> = type_doc.members.iter()
+                        .filter(|(name, _)| {
+                            if let Some(paren_pos) = name.find('(') {
+                                &name[..paren_pos] == member_name
+                            } else {
+                                name.as_str() == member_name
+                            }
+                        })
+                        .collect();
+                    
+                    // If there's exactly one match, use it
+                    if matching_members.len() == 1 {
+                        let (_, member_doc) = matching_members[0];
+                        if !member_doc.xml_doc.trim().is_empty() {
+                            return Some(DocResult {
+                                xml_doc: member_doc.xml_doc.clone(),
+                                source_type_name: type_doc.name.clone(),
+                                source_member_name: Some(member_doc.name.clone()),
+                                inherited_from_type_name: None,
+                                inherited_from_member_name: None,
+                                is_inherited: false,
+                            });
+                        }
                     }
                 }
             }
@@ -363,7 +398,8 @@ impl CsDocsManager {
         let candidates = self.generate_inheritdoc_candidates(cref, original_symbol, docs_assembly);
         
         for candidate in candidates {
-            if let Some(mut result) = self.find_symbol_basic(docs_assembly, &candidate) {
+            // Use parameter omission when resolving inheritdoc
+            if let Some(mut result) = self.find_symbol_basic_with_options(docs_assembly, &candidate, true) {
                 // Mark as inherited and set inheritance info
                 result.is_inherited = true;
                 result.inherited_from_type_name = Some(result.source_type_name.clone());
@@ -736,6 +772,25 @@ mod tests {
             }
         } else {
             println!("Test 4 failed: {:?}", result4);
+        }
+        
+        // Test 5: Add4() method inherits from Add5 (parameter omission test)
+        let result5 = docs_manager.get_docs_for_symbol(
+            "UnityProject.Inherit1.Add4(System.Int32,System.Int32)",
+            None,
+            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
+        ).await;
+        
+        if let Ok(doc_result) = result5 {
+            println!("Test 5 - Add4() inheritdoc:");
+            println!("XML Doc: {}", doc_result.xml_doc);
+            println!("Is Inherited: {}", doc_result.is_inherited);
+            if doc_result.is_inherited {
+                assert!(doc_result.xml_doc.contains("doc for add 5"));
+                assert_eq!(doc_result.inherited_from_type_name, Some("UnityProject.Inherit1".to_string()));
+            }
+        } else {
+            println!("Test 5 failed: {:?}", result5);
         }
     }
 }

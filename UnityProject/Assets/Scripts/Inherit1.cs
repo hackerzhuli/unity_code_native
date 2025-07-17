@@ -20,6 +20,17 @@ namespace UnityProject
             
         }
 
+        /// <inheritdoc cref="Add5"/> /* parameters can be ommited if there is just one overload of the same name */
+        public void Add4(int a, int b){
+
+        }
+
+        /// <summary>
+        /// doc for add 5
+        /// </summary>
+        public void Add5(){
+        }
+
         /// <summary>
         /// doc for generic add
         /// </summary>
