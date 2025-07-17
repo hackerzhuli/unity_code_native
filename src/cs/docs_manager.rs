@@ -18,11 +18,46 @@ use crate::cs::{
     docs_compiler::{DocsCompiler, DocsAssembly}
 };
 
+/// Parse a single .csproj file to extract assembly information
+async fn parse_single_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Result<SourceAssembly> {
+    let content = fs::read_to_string(csproj_path).await
+        .context("Failed to read .csproj file")?;
+    
+    // Parse XML to extract AssemblyName
+    let assembly_name = extract_assembly_name(&content)
+        .ok_or_else(|| anyhow!("Could not find AssemblyName in .csproj file"))?;
+    
+    Ok(SourceAssembly {
+        name: assembly_name,
+        is_user_code: true,
+        source_location: csproj_path.to_path_buf(),
+    })
+}
+
+/// Extract AssemblyName from .csproj XML content
+fn extract_assembly_name(content: &str) -> Option<String> {
+    // Simple XML parsing to find <AssemblyName>value</AssemblyName>
+    if let Some(start) = content.find("<AssemblyName>") {
+        let start_pos = start + "<AssemblyName>".len();
+        if let Some(end) = content[start_pos..].find("</AssemblyName>") {
+            return Some(content[start_pos..start_pos + end].trim().to_string());
+        }
+    }
+    None
+}
+
 /// Cached documentation assembly with timestamp
 #[derive(Debug, Clone)]
 struct CachedDocsAssembly {
     docs: DocsAssembly,
     cached_at: SystemTime,
+}
+
+/// Cache entry for .csproj file information to avoid re-reading unchanged files
+#[derive(Debug, Clone)]
+struct CsprojCacheEntry {
+    assemblies: Vec<SourceAssembly>,
+    last_modified: SystemTime,
 }
 
 /// Main CS documentation manager
@@ -37,6 +72,8 @@ pub struct CsDocsManager {
     docs_cache: HashMap<String, CachedDocsAssembly>,
     /// Directory where JSON documentation files are stored
     docs_assemblies_dir: PathBuf,
+    /// Cache for .csproj file parsing to avoid re-reading unchanged files
+    csproj_cache: HashMap<PathBuf, CsprojCacheEntry>,
 }
 
 impl CsDocsManager {
@@ -55,6 +92,7 @@ impl CsDocsManager {
             docs_compiler,
             docs_cache: HashMap::new(),
             docs_assemblies_dir,
+            csproj_cache: HashMap::new(),
         })
     }
 
@@ -299,9 +337,63 @@ impl CsDocsManager {
         Ok(())
     }
     
-    /// Find user code assemblies from .csproj files in the project root
-    async fn find_user_assemblies(&self) -> Result<Vec<SourceAssembly>> {
-        find_user_assemblies(&self.unity_project_root).await
+    /// Find user code assemblies from .csproj files in the project root with efficient caching
+    async fn find_user_assemblies(&mut self) -> Result<Vec<SourceAssembly>> {
+        let mut all_assemblies = Vec::new();
+        
+        // Read all .csproj files in the project root
+        let mut entries = fs::read_dir(&self.unity_project_root).await
+            .context("Failed to read Unity project directory")?;
+        
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) == Some("csproj") {
+                // Check if we can use cached data
+                let metadata = fs::metadata(&path).await
+                    .context("Failed to get .csproj file metadata")?;
+                let last_modified = metadata.modified()
+                    .context("Failed to get .csproj file modification time")?;
+                
+                // Check cache for this file
+                let use_cache = if let Some(cached_entry) = self.csproj_cache.get(&path) {
+                    cached_entry.last_modified >= last_modified
+                } else {
+                    false
+                };
+                
+                let assemblies = if use_cache {
+                     // Use cached data
+                     self.csproj_cache.get(&path).unwrap().assemblies.clone()
+                 } else {
+                     // Parse this specific .csproj file
+                     match parse_single_csproj_file(&path, &self.unity_project_root).await {
+                         Ok(assembly) => {
+                             let file_assemblies = vec![assembly];
+                             
+                             // Update cache
+                             self.csproj_cache.insert(path.clone(), CsprojCacheEntry {
+                                 assemblies: file_assemblies.clone(),
+                                 last_modified,
+                             });
+                             
+                             file_assemblies
+                         }
+                         Err(_) => {
+                             // Cache empty result for failed parsing
+                             self.csproj_cache.insert(path.clone(), CsprojCacheEntry {
+                                 assemblies: Vec::new(),
+                                 last_modified,
+                             });
+                             Vec::new()
+                         }
+                     }
+                 };
+                
+                all_assemblies.extend(assemblies);
+            }
+        }
+        
+        Ok(all_assemblies)
     }
 }
 
