@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, Context};
 
-use super::{source_assembly::SourceAssembly, source_finder, UnityPackageManager, AssemblyManager};
+use crate::cs::{assembly_manager::AssemblyManager, package_manager::UnityPackageManager, source_assembly::SourceAssembly, source_finder::{find_user_assemblies, get_assembly_source_files}};
 
 /// Main CS documentation manager
 #[derive(Debug)]
@@ -70,13 +70,13 @@ impl CsDocsManager {
 
     /// Find user code assemblies from .csproj files in the project root
     async fn find_user_assemblies(&self) -> Result<Vec<SourceAssembly>> {
-        source_finder::find_user_assemblies(&self.unity_project_root).await
+        find_user_assemblies(&self.unity_project_root).await
     }
 
     /// Get source files for a specific assembly on-demand
     pub async fn get_assembly_source_files(&self, assembly_name: &str) -> Result<Vec<PathBuf>> {
         if let Some(assembly) = self.assemblies.get(assembly_name) {
-            source_finder::get_assembly_source_files(assembly, &self.unity_project_root).await
+            get_assembly_source_files(assembly, &self.unity_project_root).await
         } else {
             Ok(Vec::new())
         }

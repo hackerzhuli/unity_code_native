@@ -7,19 +7,9 @@
 //! 1. User code: Found in .csproj files in the Unity project root
 //! 2. Package cache code: Found in .asmdef files within Library/PackageCache
 
-use std::path::PathBuf;
-use serde::{Deserialize, Serialize};
-
 pub mod assembly_manager;
 pub mod source_finder;
 pub mod docs_manager;
 pub mod package_manager;
 pub mod docs_compiler;
-
-// Re-export the main managers
-pub use assembly_manager::AssemblyManager;
-pub use docs_manager::CsDocsManager;
-pub use package_manager::UnityPackageManager;
-pub use docs_compiler::DocsCompiler;
-
 pub mod source_assembly;
