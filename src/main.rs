@@ -10,6 +10,7 @@ pub mod uxml_schema_manager;
 mod dir_changed;
 mod uss;
 mod language;
+mod cs;
 #[cfg(test)]
 pub mod test_utils;
 
