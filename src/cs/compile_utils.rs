@@ -3,6 +3,7 @@
 //! This module contains standalone functions for normalizing C# type and member names
 //! when processing syntax trees for documentation compilation.
 
+use tokio::net::windows::named_pipe::NamedPipeClient;
 use tree_sitter::Node;
 
 /// Normalize a type name from a tree-sitter node
@@ -171,7 +172,19 @@ pub fn get_simple_type_name(type_name: &str) -> String {
 
 /// Get simple name from a potentially qualified name
 fn get_simple_name(name: &str) -> String {
-    name.split('.').last().unwrap_or(name).to_string()
+    // Handle C# primitive types with exact equality checks
+    match name {
+        "System.Int32" => "int".to_string(),
+        "System.String" => "string".to_string(),
+        "System.Boolean" => "bool".to_string(),
+        "System.Double" => "double".to_string(),
+        "System.Single" => "float".to_string(),
+        "System.Int64" => "long".to_string(),
+        "System.Int16" => "short".to_string(),
+        "System.Byte" => "byte".to_string(),
+        "System.Object" => "object".to_string(),
+        _ => name.split('.').last().unwrap_or(name).to_string(),
+    }
 }
 
 /// Normalize generic parameters in a type
@@ -231,6 +244,93 @@ pub fn normalize_parameter_type_string(param_type: &str) -> String {
     get_simple_type_name(param_type)
 }
 
+/// Normalize a symbol name(can be a method name) from string
+pub fn normalize_symbol_name(named: &str) -> String {
+    let mut result = named.to_string();
+    
+    // Normalize spaces around parentheses and commas
+    result = result.replace(" (", "(");
+    result = result.replace("( ", "(");
+    result = result.replace(" )", ")");
+    result = result.replace(") ", ")");
+    
+    // Normalize spaces around commas in parameter lists
+    let mut normalized = String::new();
+    let mut in_params = false;
+    let mut chars = result.chars().peekable();
+    
+    while let Some(ch) = chars.next() {
+        match ch {
+            '(' => {
+                in_params = true;
+                normalized.push(ch);
+            }
+            ')' => {
+                in_params = false;
+                normalized.push(ch);
+            }
+            ',' if in_params => {
+                normalized.push(ch);
+                // Skip any following whitespace and add exactly one space
+                while chars.peek() == Some(&' ') {
+                    chars.next();
+                }
+                normalized.push(' ');
+            }
+            ' ' if in_params => {
+                // Skip extra spaces in parameter lists, they'll be normalized by comma handling
+                if chars.peek() != Some(&',') && !normalized.ends_with(' ') {
+                    normalized.push(ch);
+                }
+            }
+            _ => {
+                normalized.push(ch);
+            }
+        }
+    }
+    
+    result = normalized;
+    
+    // Primitive type normalization is now handled in get_simple_name() for better precision
+    
+    // Replace {} with <> for generics
+    result = result.replace('{', "<");
+    result = result.replace('}', ">");
+    
+    // Normalize parameter types by removing namespace prefixes
+     if let Some(paren_start) = result.find('(') {
+         if let Some(paren_end) = result.rfind(')') {
+             let method_name = result[..paren_start].to_string();
+             let params_str = result[paren_start + 1..paren_end].to_string();
+             let suffix = result[paren_end..].to_string();
+             
+             if !params_str.trim().is_empty() {
+                 let params: Vec<String> = split_parameters(&params_str)
+                     .into_iter()
+                     .map(|param| {
+                         let trimmed = param.trim();
+                         // Handle ref, in, out modifiers
+                         if trimmed.starts_with("ref ") {
+                             format!("ref {}", get_simple_type_name(&trimmed[4..]))
+                         } else if trimmed.starts_with("in ") {
+                             format!("in {}", get_simple_type_name(&trimmed[3..]))
+                         } else if trimmed.starts_with("out ") {
+                             format!("out {}", get_simple_type_name(&trimmed[4..]))
+                         } else {
+                             get_simple_type_name(trimmed)
+                         }
+                     })
+                     .collect();
+                 
+                 result = format!("{}{}{}", method_name, "(", params.join(", "));
+                 result.push_str(&suffix);
+             }
+         }
+     }
+    
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,10 +368,10 @@ mod tests {
     #[test]
     fn test_get_simple_type_name() {
         assert_eq!(get_simple_type_name("int"), "int");
-        assert_eq!(get_simple_type_name("System.String"), "String");
+        assert_eq!(get_simple_type_name("System.String"), "string");
         assert_eq!(get_simple_type_name("List<int>"), "List<int>");
         assert_eq!(get_simple_type_name("Dictionary<string, int>"), "Dictionary<string, int>");
-        assert_eq!(get_simple_type_name("System.Collections.Generic.List<System.String>"), "List<String>");
+        assert_eq!(get_simple_type_name("System.Collections.Generic.List<System.String>"), "List<string>");
     }
 
     #[test]
@@ -286,9 +386,9 @@ mod tests {
     #[test]
     fn test_normalize_generic_parameters() {
         assert_eq!(normalize_generic_parameters("<int>"), "<int>");
-        assert_eq!(normalize_generic_parameters("<System.String>"), "<String>");
+        assert_eq!(normalize_generic_parameters("<System.String>"), "<string>");
         assert_eq!(normalize_generic_parameters("<int, string>"), "<int, string>");
-        assert_eq!(normalize_generic_parameters("<System.Collections.Generic.List<System.String>>"), "<List<String>>");
+        assert_eq!(normalize_generic_parameters("<System.Collections.Generic.List<System.String>>"), "<List<string>>");
     }
 
     #[test]
@@ -367,6 +467,62 @@ mod tests {
         
         // Should preserve ref, in, out modifiers
         assert_eq!(normalized_name, "ProcessData(ref int, in string, out bool)");
+    }
+    
+    #[test]
+    fn test_normalize_method_name_string() {
+        // Test basic method normalization
+        assert_eq!(normalize_symbol_name("A.B.Method()"), "A.B.Method()");
+        assert_eq!(normalize_symbol_name("Method(int)"), "Method(int)");
+        assert_eq!(normalize_symbol_name("Method(int, string)"), "Method(int, string)");
+        
+        // Test space normalization
+        assert_eq!(normalize_symbol_name("C.D.Method ( int , string )"), "C.D.Method(int, string)");
+        assert_eq!(normalize_symbol_name("Method(  int  ,  string  )"), "Method(int, string)");
+        assert_eq!(normalize_symbol_name("Method( int,string )"), "Method(int, string)");
+        
+        // Test C# primitive type normalization
+        assert_eq!(normalize_symbol_name("Method(System.Int32)"), "Method(int)");
+        assert_eq!(normalize_symbol_name("Method(System.String, System.Boolean)"), "Method(string, bool)");
+        assert_eq!(normalize_symbol_name("Method(System.Double, System.Single)"), "Method(double, float)");
+        assert_eq!(normalize_symbol_name("Method(System.Int64, System.Int16, System.Byte)"), "Method(long, short, byte)");
+        assert_eq!(normalize_symbol_name("Method(System.Object)"), "Method(object)");
+        
+        // Test generic bracket normalization
+        assert_eq!(normalize_symbol_name("GenericMethod{T}(T)"), "GenericMethod<T>(T)");
+        assert_eq!(normalize_symbol_name("Method(List{int})"), "Method(List<int>)");
+        assert_eq!(normalize_symbol_name("Method(Dictionary{string, int})"), "Method(Dictionary<string, int>)");
+        
+        // Test ref, in, out modifiers
+        assert_eq!(normalize_symbol_name("Method(ref int)"), "Method(ref int)");
+        assert_eq!(normalize_symbol_name("Method(in string)"), "Method(in string)");
+        assert_eq!(normalize_symbol_name("Method(out bool)"), "Method(out bool)");
+        assert_eq!(normalize_symbol_name("Method(ref System.Int32, in System.String, out System.Boolean)"), "Method(ref int, in string, out bool)");
+        
+        // Test namespace stripping for parameter types
+        assert_eq!(normalize_symbol_name("Method(System.Collections.Generic.List<T>)"), "Method(List<T>)");
+        assert_eq!(normalize_symbol_name("Method(System.Collections.Generic.Dictionary<string, int>)"), "Method(Dictionary<string, int>)");
+        assert_eq!(normalize_symbol_name("Method(UnityEngine.GameObject, UnityEngine.Transform)"), "Method(GameObject, Transform)");
+        
+        // Test complex combinations
+        assert_eq!(
+            normalize_symbol_name("ProcessData( ref System.Collections.Generic.List{System.String} , in UnityEngine.GameObject,out System.Boolean )"),
+            "ProcessData(ref List<string>, in GameObject, out bool)"
+        );
+        
+        // Test generic methods with complex parameters
+        assert_eq!(
+            normalize_symbol_name("GenericMethod{T, U}(System.Collections.Generic.Dictionary{T, System.Collections.Generic.List{U}}, System.Int32)"),
+            "GenericMethod<T, U>(Dictionary<T, List<U>>, int)"
+        );
+        
+        // Test methods without parameters
+        assert_eq!(normalize_symbol_name("GetValue()"), "GetValue()");
+        assert_eq!(normalize_symbol_name("GetValue( )"), "GetValue()");
+        
+        // Test edge cases
+        assert_eq!(normalize_symbol_name("Method"), "Method"); // No parentheses
+        assert_eq!(normalize_symbol_name("Method()"), "Method()"); // Empty parameters
     }
     
     #[test]

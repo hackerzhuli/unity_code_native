@@ -41,7 +41,7 @@ fn test_get_simple_type_name() {
     // Type with namespace
     assert_eq!(
         get_simple_type_name("System.String"),
-        "String"
+        "string"
     );
     
     // Nested type
@@ -62,13 +62,13 @@ fn test_normalize_generic_parameters() {
     // Multiple type parameters
     assert_eq!(
         normalize_generic_parameters("<System.String, int>"),
-        "<String, int>"
+        "<string, int>"
     );
     
     // Nested generics
     assert_eq!(
         normalize_generic_parameters("<System.Collections.Generic.List<T>, System.String>"),
-        "<List<T>, String>"
+        "<List<T>, string>"
     );
 }
 
@@ -637,6 +637,152 @@ async fn test_exclude_non_public_types_and_members() {
             }
         );
     }
+}
+
+#[tokio::test]
+async fn test_using_statements_extraction() {
+    let mut compiler = DocsCompiler::new().unwrap();
+    let unity_root = get_unity_project_root();
+
+    // Find Assembly-CSharp
+    let assemblies = compiler.find_user_assemblies(&unity_root).await.unwrap();
+    let assembly_csharp = assemblies
+        .iter()
+        .find(|a| a.name == "Assembly-CSharp")
+        .expect("Should find Assembly-CSharp assembly");
+
+    // Compile documentation (include non-public for user code)
+    let docs_assembly = compiler
+        .compile_assembly(assembly_csharp, &unity_root, true)
+        .await
+        .unwrap();
+
+    // Test using statements for TestClass
+    let test_type = docs_assembly
+        .types
+        .get("UnityProject.TestClass")
+        .expect("Should find UnityProject.TestClass type");
+
+    // Verify TestClass has using statements
+    assert!(
+        !test_type.using_namespaces.is_empty(),
+        "TestClass should have using statements"
+    );
+
+    // Check for expected using statements from Test.cs
+    assert!(
+        test_type.using_namespaces.contains(&"System".to_string()),
+        "TestClass should have 'using System;'"
+    );
+    assert!(
+        test_type.using_namespaces.contains(&"UnityEngine.UI".to_string()),
+        "TestClass should have 'using UnityEngine.UI;'"
+    );
+
+    println!("TestClass using statements: {:?}", test_type.using_namespaces);
+
+    // Test using statements for PartialTestClass (should merge from both files)
+    let partial_type = docs_assembly
+        .types
+        .get("UnityProject.PartialTestClass")
+        .expect("Should find UnityProject.PartialTestClass type");
+
+    // Verify PartialTestClass has using statements
+    assert!(
+        !partial_type.using_namespaces.is_empty(),
+        "PartialTestClass should have using statements"
+    );
+
+    // Check for using statements from both partial files
+    // From PartialTest1.cs: using System; using UnityEngine.UI;
+    assert!(
+        partial_type.using_namespaces.contains(&"System".to_string()),
+        "PartialTestClass should have 'using System;' from both files"
+    );
+    assert!(
+        partial_type.using_namespaces.contains(&"UnityEngine.UI".to_string()),
+        "PartialTestClass should have 'using UnityEngine.UI;' from PartialTest1.cs"
+    );
+
+    // From PartialTest2.cs: using System; using UnityEngine.EventSystems;
+    assert!(
+        partial_type.using_namespaces.contains(&"UnityEngine.EventSystems".to_string()),
+        "PartialTestClass should have 'using UnityEngine.EventSystems;' from PartialTest2.cs"
+    );
+
+    println!("PartialTestClass using statements: {:?}", partial_type.using_namespaces);
+
+    // Verify that using statements are deduplicated (System appears in both files)
+    let system_count = partial_type
+        .using_namespaces
+        .iter()
+        .filter(|ns| *ns == "System")
+        .count();
+    assert_eq!(
+        system_count, 1,
+        "'using System;' should appear only once even though it's in both partial files"
+    );
+
+    // Verify we have the expected total number of unique using statements
+    // Expected: System, UnityEngine.UI, UnityEngine.EventSystems
+    assert!(
+        partial_type.using_namespaces.len() >= 3,
+        "PartialTestClass should have at least 3 unique using statements"
+    );
+
+    // Test that using statements are properly sorted/organized
+    let mut sorted_usings = partial_type.using_namespaces.clone();
+    sorted_usings.sort();
+    
+    println!("All using statements for PartialTestClass (sorted): {:?}", sorted_usings);
+    
+    // Verify specific expected using statements are present
+    let expected_usings = vec![
+        "System".to_string(),
+        "UnityEngine.EventSystems".to_string(),
+        "UnityEngine.UI".to_string(),
+    ];
+    
+    for expected_using in &expected_usings {
+        assert!(
+            partial_type.using_namespaces.contains(expected_using),
+            "PartialTestClass should contain using statement: {}", expected_using
+        );
+    }
+
+    // Test using statements for Inherit2 class
+    let inherit2_type = docs_assembly
+        .types
+        .get("OtherProject.MyNamespace.Inherit2")
+        .expect("Should find OtherProject.MyNamespace.Inherit2 type");
+
+    // Verify Inherit2 has using statements
+    assert!(
+        !inherit2_type.using_namespaces.is_empty(),
+        "Inherit2 should have using statements"
+    );
+
+    // Check for expected using statement from Inherit2.cs
+    assert!(
+        inherit2_type.using_namespaces.contains(&"UnityProject".to_string()),
+        "Inherit2 should have 'using UnityProject;'"
+    );
+
+    println!("Inherit2 using statements: {:?}", inherit2_type.using_namespaces);
+
+    println!("Successfully verified using statements extraction and merging for partial classes");
+    println!(
+        "TestClass using statements count: {}",
+        test_type.using_namespaces.len()
+    );
+    println!(
+        "PartialTestClass using statements count: {}",
+        partial_type.using_namespaces.len()
+    );
+    println!(
+        "Inherit2 using statements count: {}",
+        inherit2_type.using_namespaces.len()
+    );
 }
 
 // test will take a few seconds, too slow, so comment out

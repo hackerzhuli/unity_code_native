@@ -21,6 +21,7 @@ use crate::cs::{
     docs_compiler::{DocsCompiler, DocsAssembly, DOCS_ASSEMBLY_VERSION},
     xml_doc_utils
 };
+use crate::cs::compile_utils::normalize_symbol_name;
 
 /// Cached documentation assembly with timestamp
 #[derive(Debug, Clone)]
@@ -124,8 +125,9 @@ impl CsDocsManager {
         
         // Search for the symbol in the documentation
         if let Some(docs) = docs_assembly {
-            self.find_symbol_with_inheritdoc(&docs, symbol_name)
-                .ok_or_else(|| anyhow!("Symbol '{}' not found in assembly '{}'", symbol_name, target_assembly_name))
+            let normalized_symbol_name = normalize_symbol_name(symbol_name);
+            self.find_symbol_with_inheritdoc(&docs, normalized_symbol_name.as_str())
+                .ok_or_else(|| anyhow!("Symbol '{}' not found in assembly '{}'", normalized_symbol_name, target_assembly_name))
         } else {
             Err(anyhow!("No documentation available for assembly '{}'", target_assembly_name))
         }
@@ -372,7 +374,7 @@ impl CsDocsManager {
     
     /// Resolve inheritdoc by finding target documentation and merging with original
     fn resolve_inheritdoc_with_merge(&self, cref: &str, original_symbol: &str, docs_assembly: &DocsAssembly, original_xml: &str, original_result: &DocResult) -> Option<DocResult> {
-        let candidates = self.generate_inheritdoc_candidates(cref, original_symbol, docs_assembly);
+        let candidates = self.generate_inheritdoc_candidates(cref, original_result.source_type_name.as_str(), docs_assembly);
         
         for candidate in candidates {
             // Use parameter omission when resolving inheritdoc
@@ -413,59 +415,21 @@ impl CsDocsManager {
         }
         None
     }
-    
-    /// Parse symbol name into type and member components
-    fn parse_symbol_name(&self, symbol_name: &str) -> (String, Option<String>) {
-        if let Some(last_dot) = symbol_name.rfind('.') {
-            let type_part = &symbol_name[..last_dot];
-            let member_part = &symbol_name[last_dot + 1..];
-            
-            // Check if this looks like a method (has parentheses)
-            if member_part.contains('(') {
-                (type_part.to_string(), Some(member_part.to_string()))
-            } else {
-                // Could be a nested type, return as type
-                (symbol_name.to_string(), None)
-            }
-        } else {
-            (symbol_name.to_string(), None)
-        }
-    }
-    
+
     /// Generate candidate symbol names for inheritdoc resolution
-    fn generate_inheritdoc_candidates(&self, cref: &str, original_symbol: &str, docs_assembly: &DocsAssembly) -> Vec<String> {
+    fn generate_inheritdoc_candidates(&self, cref: &str, containing_type: &str, docs_assembly: &DocsAssembly) -> Vec<String> {
         let mut candidates = Vec::new();
         
         // Normalize cref
-        let normalized_cref = cref
-            .replace('{', "<")
-            .replace('}', ">")
-            .replace("System.Int32", "int")
-            .replace("System.String", "string")
-            .replace("System.Boolean", "bool")
-            .replace("System.Double", "double")
-            .replace("System.Single", "float")
-            .replace("System.Int64", "long")
-            .replace("System.Int16", "short")
-            .replace("System.Byte", "byte")
-            .replace("System.Object", "object");
-        
-        // Get containing type from original symbol
-        let (containing_type, _) = self.parse_symbol_name(original_symbol);
-        
-        // Candidate 1: Prepend containing type if cref doesn't have namespace
-        if !normalized_cref.contains('.') {
-            candidates.push(format!("{}.{}", containing_type, normalized_cref));
-        }
-        
-        // Candidate 2: Use normalized cref as-is
+        let normalized_cref = normalize_symbol_name(cref);
         candidates.push(normalized_cref.clone());
-        
-        // Candidate 3: Original cref as-is
-        if normalized_cref != cref {
-            candidates.push(cref.to_string());
+        candidates.push(format!("{}.{}", containing_type, normalized_cref));
+        if let Some(v) = docs_assembly.types.get(&containing_type.to_string()) {
+            for namespace in &v.using_namespaces{
+                candidates.push(format!("{}.{}", namespace, normalized_cref))
+            }
         }
-        
+
         candidates
     }
 

@@ -1,4 +1,5 @@
 using System;
+using UnityEngine.UI;
 
 namespace UnityProject
 {
@@ -99,7 +100,7 @@ namespace UnityProject
         {
             return "test";
         }
-
+ 
         /// <summary>
         /// Another public method in the private class.
         /// </summary>
@@ -107,6 +108,7 @@ namespace UnityProject
         public void DoSomething(int count)
         {
             // Implementation here
+            Button button;
         }
     }
 }

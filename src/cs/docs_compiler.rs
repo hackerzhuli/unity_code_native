@@ -315,9 +315,13 @@ impl DocsCompiler {
         for child in root_node.children(&mut root_node.walk()) {
             if child.kind() == "using_directive" {
                 // Extract the namespace from the using directive
-                if let Some(name_node) = child.child_by_field_name("name") {
-                    let namespace_name = name_node.utf8_text(source.as_bytes())?;
-                    using_namespaces.push(namespace_name.to_string());
+                // The tree-sitter C# grammar uses child nodes like 'identifier' and 'qualified_name'
+                for grandchild in child.children(&mut child.walk()) {
+                    if grandchild.kind() == "qualified_name" || grandchild.kind() == "identifier" {
+                        let namespace_name = grandchild.utf8_text(source.as_bytes())?;
+                        using_namespaces.push(namespace_name.to_string());
+                        break;
+                    }
                 }
             }
         }

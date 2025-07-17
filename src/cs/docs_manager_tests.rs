@@ -1,6 +1,9 @@
 use std::path::{Path, PathBuf};
 
-use crate::{cs::{docs_manager::CsDocsManager, source_utils::normalize_path_for_comparison}, test_utils::get_unity_project_root};
+use crate::{
+    cs::{docs_manager::CsDocsManager, source_utils::normalize_path_for_comparison},
+    test_utils::get_unity_project_root,
+};
 
 #[tokio::test]
 async fn test_get_docs_for_symbol() {
@@ -265,18 +268,12 @@ async fn test_inheritdoc_resolution() {
         )
         .await;
 
-    if let Ok(doc_result) = result1 {
-        println!("Test 1 - Add() inheritdoc:");
-        println!("XML Doc: {}", doc_result.xml_doc);
-        println!("Is Inherited: {}", doc_result.is_inherited);
-        if doc_result.is_inherited {
-            assert!(doc_result.xml_doc.contains("doc for add with 3 parameters"));
-            assert_eq!(
-                doc_result.inherited_from_type_name,
-                Some("UnityProject.Inherit1".to_string())
-            );
-        }
-    }
+    let doc_result = result1.unwrap();
+    assert!(doc_result.xml_doc.contains("doc for add with 3 parameters"));
+    assert_eq!(
+        doc_result.inherited_from_type_name,
+        Some("UnityProject.Inherit1".to_string())
+    );
 
     // Test 2: Add2() method inherits from Add<T>(T, int, int)
     let result2 = docs_manager
@@ -287,18 +284,12 @@ async fn test_inheritdoc_resolution() {
         )
         .await;
 
-    if let Ok(doc_result) = result2 {
-        println!("Test 2 - Add2() inheritdoc:");
-        println!("XML Doc: {}", doc_result.xml_doc);
-        println!("Is Inherited: {}", doc_result.is_inherited);
-        if doc_result.is_inherited {
-            assert!(doc_result.xml_doc.contains("doc for generic add"));
-            assert_eq!(
-                doc_result.inherited_from_type_name,
-                Some("UnityProject.Inherit1".to_string())
-            );
-        }
-    }
+    let doc_result = result2.unwrap();
+    assert!(doc_result.xml_doc.contains("doc for generic add"));
+    assert_eq!(
+        doc_result.inherited_from_type_name,
+        Some("UnityProject.Inherit1".to_string())
+    );
 
     // Test 3: Add3() method inherits from Add(ref int, out int, in System.Int32)
     let result3 = docs_manager
@@ -309,22 +300,17 @@ async fn test_inheritdoc_resolution() {
         )
         .await;
 
-    if let Ok(doc_result) = result3 {
-        println!("Test 3 - Add3() inheritdoc:");
-        println!("XML Doc: {}", doc_result.xml_doc);
-        println!("Is Inherited: {}", doc_result.is_inherited);
-        if doc_result.is_inherited {
-            assert!(
-                doc_result
-                    .xml_doc
-                    .contains("doc for add with 3 parameters complex")
-            );
-            assert_eq!(
-                doc_result.inherited_from_type_name,
-                Some("UnityProject.Inherit1".to_string())
-            );
-        }
-    }
+    // replace with just he assert
+    let doc_result = result3.unwrap();
+    assert!(
+        doc_result
+            .xml_doc
+            .contains("doc for add with 3 parameters complex")
+    );
+    assert_eq!(
+        doc_result.inherited_from_type_name,
+        Some("UnityProject.Inherit1".to_string())
+    );
 
     // Test 4: Method() from Inherit2 inherits from Inherit1.Add<T>(T, int, int)
     let result4 = docs_manager
@@ -335,20 +321,12 @@ async fn test_inheritdoc_resolution() {
         )
         .await;
 
-    if let Ok(doc_result) = result4 {
-        println!("Test 4 - Inherit2.Method() inheritdoc:");
-        println!("XML Doc: {}", doc_result.xml_doc);
-        println!("Is Inherited: {}", doc_result.is_inherited);
-        if doc_result.is_inherited {
-            assert!(doc_result.xml_doc.contains("doc for generic add"));
-            assert_eq!(
-                doc_result.inherited_from_type_name,
-                Some("UnityProject.Inherit1".to_string())
-            );
-        }
-    } else {
-        println!("Test 4 failed: {:?}", result4);
-    }
+    let doc_result = result4.unwrap();
+    assert!(doc_result.xml_doc.contains("doc for generic add"));
+    assert_eq!(
+        doc_result.inherited_from_type_name,
+        Some("UnityProject.Inherit1".to_string())
+    );
 
     // Test 5: Add4() method inherits from Add5 (parameter omission test)
     let result5 = docs_manager
@@ -359,18 +337,37 @@ async fn test_inheritdoc_resolution() {
         )
         .await;
 
-    if let Ok(doc_result) = result5 {
-        println!("Test 5 - Add4() inheritdoc:");
-        println!("XML Doc: {}", doc_result.xml_doc);
-        println!("Is Inherited: {}", doc_result.is_inherited);
-        if doc_result.is_inherited {
-            assert!(doc_result.xml_doc.contains("doc for add 5"));
-            assert_eq!(
-                doc_result.inherited_from_type_name,
-                Some("UnityProject.Inherit1".to_string())
-            );
-        }
-    } else {
-        println!("Test 5 failed: {:?}", result5);
-    }
+    // replace with just he assert
+    let doc_result = result5.unwrap();
+    assert!(doc_result.xml_doc.contains("doc for add 5"));
+    assert_eq!(
+        doc_result.inherited_from_type_name,
+        Some("UnityProject.Inherit1".to_string())
+    );
+
+    // Test 6: should only inherit summary content from Add5, and the rest is kept as is
+    let result6 = docs_manager
+        .get_docs_for_symbol(
+            "UnityProject.Inherit1.Add6()",
+            None,
+            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
+        )
+        .await;
+
+    let doc_result = result6.unwrap();
+    assert!(doc_result.xml_doc.contains("doc for add 5"));
+    assert!(doc_result.xml_doc.contains("remarks from Add6"));
+
+    // Test 7: inherit everything from Add5, but override remarks content with remarks from Add7
+    let result7 = docs_manager
+        .get_docs_for_symbol(
+            "UnityProject.Inherit1.Add7()",
+            None,
+            Some(Path::new("UnityProject/Assets/Scripts/Inherit1.cs")),
+        )
+        .await;
+    let doc_result = result7.unwrap();
+    assert!(doc_result.xml_doc.contains("doc for add 5"));
+    assert!(doc_result.xml_doc.contains("return from Add5"));
+    assert!(doc_result.xml_doc.contains("remarks from Add7"));
 }
