@@ -60,7 +60,7 @@ pub async fn get_assembly_source_files(assembly: &SourceAssembly, unity_project_
     }
 }
 
-/// Recursively find all .cs files in a directory and return paths relative to Unity project root
+/// Recursively find all .cs files in a directory and return absolute paths
 pub fn find_cs_files_in_dir<'a>(dir: &'a Path, unity_project_root: &'a Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<PathBuf>>> + 'a>> {
     Box::pin(async move {
         let mut cs_files = Vec::new();
@@ -71,10 +71,13 @@ pub fn find_cs_files_in_dir<'a>(dir: &'a Path, unity_project_root: &'a Path) -> 
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("cs") {
-                // Convert to relative path from Unity project root
-                if let Ok(relative_path) = path.strip_prefix(unity_project_root) {
-                    cs_files.push(relative_path.to_path_buf());
-                }
+                // Ensure all paths are absolute for clients
+                let absolute_path = if path.is_absolute() {
+                    path
+                } else {
+                    unity_project_root.join(&path)
+                };
+                cs_files.push(absolute_path);
             } else if path.is_dir() {
                 // Recursively search subdirectories
                 let mut sub_files = find_cs_files_in_dir(&path, unity_project_root).await?;
@@ -127,13 +130,14 @@ fn extract_compile_items(content: &str, unity_project_root: &Path) -> Result<Vec
         if let Some(quote_end) = content[absolute_start..].find('"') {
             let file_path = &content[absolute_start..absolute_start + quote_end];
             
-            // Convert to PathBuf and make it relative to unity project root
+            // Convert to PathBuf and ensure it's absolute
             let path_buf = PathBuf::from(file_path);
             
             // Ensure the file exists and is a .cs file
             let full_path = unity_project_root.join(&path_buf);
             if full_path.exists() && path_buf.extension().and_then(|s| s.to_str()) == Some("cs") {
-                source_files.push(path_buf);
+                // Return absolute path for clients
+                source_files.push(full_path);
             }
             
             search_pos = absolute_start + quote_end;
@@ -208,16 +212,16 @@ mod tests {
         // Verify that the actual existing files are extracted
         assert!(!items.is_empty(), "Should extract at least one source file");
         
-        // Check that all extracted files actually exist
+        // Check that all extracted files actually exist and are absolute paths
         for item in &items {
-            let full_path = unity_root.join(item);
-            assert!(full_path.exists(), "Extracted file should exist: {:?}", item);
+            assert!(item.exists(), "Extracted file should exist: {:?}", item);
+            assert!(item.is_absolute(), "All paths should be absolute: {:?}", item);
             assert_eq!(item.extension().and_then(|s| s.to_str()), Some("cs"), "Should only extract .cs files");
         }
         
-        // Should find the Readme.cs file that we know exists
-        let readme_path = PathBuf::from("Assets/TutorialInfo/Scripts/Readme.cs");
-        assert!(items.contains(&readme_path), "Should find Readme.cs in the extracted files");
+        // Should find the Readme.cs file that we know exists (as absolute path)
+        let readme_absolute_path = unity_root.join("Assets/TutorialInfo/Scripts/Readme.cs");
+        assert!(items.contains(&readme_absolute_path), "Should find Readme.cs in the extracted files");
         
         println!("Successfully extracted {} source files from Assembly-CSharp.csproj", items.len());
     }
