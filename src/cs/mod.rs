@@ -12,11 +12,11 @@ use serde::{Deserialize, Serialize};
 
 pub mod assembly_finder;
 pub mod source_finder;
-pub mod manager;
+pub mod docs_manager;
 pub mod package_manager;
 
 // Re-export the main manager
-pub use manager::CsDocsManager;
+pub use docs_manager::CsDocsManager;
 pub use package_manager::UnityPackageManager;
 
 pub mod source_assembly;
