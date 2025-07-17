@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use anyhow::{Result, Context};
 
-use super::{source_assembly::SourceAssembly, source_finder, UnityPackageManager};
+use super::{source_assembly::SourceAssembly, source_finder, UnityPackageManager, AssemblyManager};
 
 /// Main CS documentation manager
 #[derive(Debug)]
@@ -16,16 +16,19 @@ pub struct CsDocsManager {
     unity_project_root: PathBuf,
     assemblies: HashMap<String, SourceAssembly>,
     package_manager: UnityPackageManager,
+    assembly_manager: AssemblyManager,
 }
 
 impl CsDocsManager {
     /// Create a new CS documentation manager for the given Unity project
     pub fn new(unity_project_root: PathBuf) -> Self {
         let package_manager = UnityPackageManager::new(unity_project_root.clone());
+        let assembly_manager = AssemblyManager::new(unity_project_root.clone());
         Self {
             unity_project_root,
             assemblies: HashMap::new(),
             package_manager,
+            assembly_manager,
         }
     }
 
@@ -78,6 +81,16 @@ impl CsDocsManager {
             Ok(Vec::new())
         }
     }
+
+    /// Get mutable reference to the assembly manager
+    pub fn get_assembly_manager_mut(&mut self) -> &mut AssemblyManager {
+        &mut self.assembly_manager
+    }
+
+    /// Get reference to the assembly manager
+    pub fn get_assembly_manager(&self) -> &AssemblyManager {
+        &self.assembly_manager
+    }
 }
 
 #[cfg(test)]
@@ -93,11 +106,35 @@ mod tests {
         let result = manager.discover_assemblies().await;
         assert!(result.is_ok(), "Failed to discover assemblies: {:?}", result.err());
         
+        // Update assembly manager to get compiled assemblies
+        manager.get_assembly_manager_mut().update().await.expect("Failed to update assembly manager");
+        
         let assemblies = manager.get_assemblies();
         assert!(!assemblies.is_empty(), "No assemblies found");
         
         // Should find at least Assembly-CSharp
         assert!(assemblies.contains_key("Assembly-CSharp"), "Assembly-CSharp not found");
+        
+        let compiled_assemblies = manager.get_assembly_manager().get_assemblies();
+        
+        // Check if source assemblies are found for all compiled assemblies
+        let mut missing_source_assemblies = Vec::new();
+        for compiled_assembly in &compiled_assemblies {
+            if !assemblies.contains_key(&compiled_assembly.name) {
+                missing_source_assemblies.push(compiled_assembly.name.clone());
+            }
+        }
+        
+        if !missing_source_assemblies.is_empty() {
+            println!("WARNING: Compiled assemblies without source assemblies found:");
+            for assembly_name in &missing_source_assemblies {
+                println!("  - {}", assembly_name);
+            }
+            println!("Total: {} compiled assemblies, {} source assemblies, {} missing source assemblies", 
+                compiled_assemblies.len(), assemblies.len(), missing_source_assemblies.len());
+        } else {
+            println!("All {} compiled assemblies have corresponding source assemblies", compiled_assemblies.len());
+        }
         
         // Print discovered user assemblies for debugging
         for (name, info) in assemblies {
