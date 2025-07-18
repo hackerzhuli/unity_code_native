@@ -205,12 +205,7 @@ impl UssCompletionProvider {
                 Some(p) => p.kind(),
             };
 
-            if current_node_kind == NODE_ATTRIBUTE_NAME && parent_node_kind == NODE_ERROR {
-                return Some(CompletionContext {
-                    t: CompletionType::Property,
-                    current_node: Some(current_node),
-                });
-            } else if current_node_kind == NODE_IDENTIFIER && parent_node_kind == NODE_ERROR {
+            if current_node_kind == NODE_IDENTIFIER && parent_node_kind == NODE_ERROR {
                 return Some(CompletionContext {
                     t: CompletionType::Property,
                     current_node: Some(current_node),
@@ -272,26 +267,6 @@ impl UssCompletionProvider {
                         }
                     }
                 }
-
-                // another case is parent's next node becomes an error node with a tag name child and a colon after that
-                // similar, rarer, but does happen
-                if let Some(next_sib) = current_node.next_sibling() {
-                    if next_sib.kind() == NODE_ERROR {
-                        if let Some(next_sib_child) = next_sib.child(0) {
-                            if next_sib_child.kind() == NODE_TAG_NAME {
-                                if let Some(next_sib_second_child) = next_sib.child(1) {
-                                    if next_sib_second_child.kind() == NODE_COLON {
-                                        // now we know user is typing a property name
-                                        return Some(CompletionContext {
-                                            t: CompletionType::Property,
-                                            current_node: Some(current_node)
-                                        })
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -338,18 +313,6 @@ impl UssCompletionProvider {
     ) -> CompletionContext<'a> {
         if let Some(property_name_node) = declaration_node.child(0) {
             if property_name_node.kind() == NODE_PROPERTY_NAME {
-                // Check if we're still typing the property name
-                // Note: incomplete property names might be parsed as "attribute_name" in ERROR nodes
-                if current_node.kind() == NODE_PROPERTY_NAME
-                    || (current_node.kind() == "attribute_name"
-                        && current_node.parent().map(|p| p.kind()) == Some(NODE_ERROR))
-                {
-                    return CompletionContext {
-                        t: CompletionType::Property,
-                        current_node: Some(current_node),
-                    };
-                }
-
                 // Check if we're inside a URL function
                 if let Some(url_context) =
                     self.analyze_url_function_context(current_node, content, position)
@@ -644,22 +607,6 @@ impl UssCompletionProvider {
             });
         }
 
-        // partial pseudo class being typed after a selector
-        if current_node.kind() == NODE_CLASS_NAME {
-            if let Some(parent) = current_node.parent() {
-                if parent.kind() == NODE_PSEUDO_CLASS_SELECTOR {
-                    if let Some(prev) = current_node.prev_sibling() {
-                        if prev.kind() == NODE_COLON {
-                            return Some(CompletionContext {
-                                t: CompletionType::PseudoClass,
-                                current_node: Some(current_node),
-                            });
-                        }
-                    }
-                }
-            }
-        }
-
         // Check if current node is an ID selector being typed
         if current_node.kind() == NODE_ID_SELECTOR
             || (current_node.kind() == NODE_ID_NAME
@@ -676,39 +623,6 @@ impl UssCompletionProvider {
                 t: CompletionType::TagSelector,
                 current_node: Some(current_node),
             });
-        }
-
-        // Check if current node is attribute_name that might be a partial pseudo-class FIRST
-        // This happens when user types something like ".button:h" - the "h" becomes attribute_name
-        if current_node.kind() == NODE_ATTRIBUTE_NAME {
-            if let Some(parent) = current_node.parent() {
-                if parent.kind() == NODE_ERROR {
-                    // Check if there's a colon and selector before this attribute_name
-                    // For pseudo-class, we expect: selector -> colon -> attribute_name
-                    if let Some(prev_sibling) = current_node.prev_sibling() {
-                        if prev_sibling.kind() == NODE_COLON {
-                            // Found colon, now check if there's a selector before the colon
-                            if let Some(prev_prev_sibling) = prev_sibling.prev_sibling() {
-                                if prev_prev_sibling.kind() == NODE_CLASS_SELECTOR
-                                    || prev_prev_sibling.kind() == NODE_ID_SELECTOR
-                                    || prev_prev_sibling.kind() == NODE_TAG_NAME
-                                {
-                                    return Some(CompletionContext {
-                                        t: CompletionType::PseudoClass,
-                                        current_node: Some(current_node),
-                                    });
-                                }
-                            }
-                        }
-                    }
-
-                    // Otherwise, it's a partial tag name
-                    return Some(CompletionContext {
-                        t: CompletionType::TagSelector,
-                        current_node: Some(current_node),
-                    });
-                }
-            }
         }
 
         if Self::is_pseudo_class_being_typed(current_node) {
