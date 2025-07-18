@@ -245,6 +245,17 @@ impl LanguageServer for UssLanguageServer {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
+        // Get UXML element information
+        let uxml_elements = {
+            let mut manager = self.uxml_schema_manager.lock().await;
+            if let Err(e) = manager.update().await {
+                log::warn!("Failed to update UXML schemas: {}", e);
+            }
+            manager.get_all_elements().iter().map(|element| {
+                (element.name.clone(), element.fully_qualified_name.clone())
+            }).collect::<std::collections::HashMap<String, String>>()
+        };
+
         let state = self.state.lock().ok();
         if let Some(state) = state {
             if let Some(document) = state.document_manager.get_document(&uri) {
@@ -257,6 +268,7 @@ impl LanguageServer for UssLanguageServer {
                         position,
                         &state.unity_manager,
                         project_url.as_ref(),
+                        Some(&uxml_elements),
                     );
                     return Ok(hover);
                 }
