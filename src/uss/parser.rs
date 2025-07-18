@@ -14,8 +14,7 @@ impl UssParser {
     /// Create a new USS parser
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let mut parser = Parser::new();
-        let language = tree_sitter_css::language();
-        parser.set_language(language)?;
+        parser.set_language(&tree_sitter_css::LANGUAGE.into())?;
         
         Ok(Self { parser })
     }

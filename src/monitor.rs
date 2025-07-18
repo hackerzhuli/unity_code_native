@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use sysinfo::{Pid, ProcessExt, ProcessRefreshKind, System, SystemExt};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use log::info;
 
 pub(crate) struct ProcessMonitor {
@@ -41,7 +41,7 @@ impl ProcessMonitor {
 
         // Slow path: full system scan (when we don't have cached PIDs or they became invalid)
         self.system
-            .refresh_processes_specifics(ProcessRefreshKind::new()); // we need nothing, no cpu, no memory, just basics
+            .refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing()); // we need nothing, no cpu, no memory, just basics
         let normalized_project_path = normalize_path(&self.target_project_path.as_str());
 
         if self.unity_pid().is_none() {
@@ -101,9 +101,9 @@ impl ProcessMonitor {
 
         let unity_pid = self.unity_pid().unwrap();
 
-        if !self
+        if self
             .system
-            .refresh_process_specifics(unity_pid, ProcessRefreshKind::new())
+            .refresh_processes_specifics(ProcessesToUpdate::Some(&[unity_pid]), false, ProcessRefreshKind::nothing()) == 0
         {
             self.set_unity_pid(None);
         }
@@ -119,9 +119,9 @@ impl ProcessMonitor {
 
         let hot_reload_pid = self.hot_reload_pid().unwrap();
 
-        if !self
+        if self
             .system
-            .refresh_process_specifics(hot_reload_pid, ProcessRefreshKind::new())
+            .refresh_processes_specifics(ProcessesToUpdate::Some(&[hot_reload_pid]), false, ProcessRefreshKind::nothing()) == 0
         {
             self.set_hot_reload_pid(None);
         }
@@ -233,10 +233,13 @@ pub(crate) fn extract_unity_project_path(process: &sysinfo::Process) -> Option<S
         let arg = &cmd_args[i];
 
         // Check for -projectpath, -createproject, -createProject (case insensitive)
-        if arg.to_lowercase() == "-projectpath" || arg.to_lowercase() == "-createproject" {
-            if i + 1 < cmd_args.len() {
-                let path = &cmd_args[i + 1];
-                return Some(path.trim_matches('"').to_string());
+        if let Some(arg_str) = arg.to_str() {
+            if arg_str.to_lowercase() == "-projectpath" || arg_str.to_lowercase() == "-createproject" {
+                if i + 1 < cmd_args.len() {
+                    if let Some(path_str) = cmd_args[i + 1].to_str() {
+                        return Some(path_str.trim_matches('"').to_string());
+                    }
+                }
             }
         }
     }
@@ -251,10 +254,13 @@ pub(crate) fn extract_hot_reload_project_path(process: &sysinfo::Process) -> Opt
         let arg = &cmd_args[i];
 
         // Check for -u option
-        if arg == "-u" {
-            if i + 1 < cmd_args.len() {
-                let path = &cmd_args[i + 1];
-                return Some(path.trim_matches('"').to_string());
+        if let Some(arg_str) = arg.to_str() {
+            if arg_str == "-u" {
+                if i + 1 < cmd_args.len() {
+                    if let Some(path_str) = cmd_args[i + 1].to_str() {
+                        return Some(path_str.trim_matches('"').to_string());
+                    }
+                }
             }
         }
     }

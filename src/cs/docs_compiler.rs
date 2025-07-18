@@ -74,8 +74,7 @@ impl DocsCompiler {
     /// Create a new documentation compiler
     pub fn new() -> CsResult<Self> {
         let mut parser = Parser::new();
-        let language = tree_sitter_c_sharp::language();
-        parser.set_language(language)
+        parser.set_language(&tree_sitter_c_sharp::LANGUAGE.into())
             .map_err(|e| CsError::Parse {
                 file: PathBuf::from("<unknown>"),
                 message: format!("Failed to set C# language: {}", e),

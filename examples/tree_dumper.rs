@@ -24,8 +24,7 @@ fn main() {
     };
 
     let mut parser = Parser::new();
-    let language = tree_sitter_css::language();
-    parser.set_language(language).expect("Error loading CSS language");
+    parser.set_language(&tree_sitter_css::LANGUAGE.into()).expect("Error loading CSS language");
 
     let tree = parser.parse(&content, None).expect("Error parsing USS file");
     let root = tree.root_node();

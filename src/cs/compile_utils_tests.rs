@@ -76,8 +76,7 @@ fn test_normalize_generic_parameters() {
 #[test]
 fn test_normalize_functions_with_tree_sitter() {
     let mut parser = Parser::new();
-    let language = tree_sitter_c_sharp::language();
-    parser.set_language(language).unwrap();
+    parser.set_language(&tree_sitter_c_sharp::LANGUAGE.into()).unwrap();
 
     // Test normalize_type_name with a simple class in a compilation unit
     let source: &'static str = "namespace Test { public class TestClass { } }";
@@ -109,8 +108,7 @@ fn test_normalize_functions_with_tree_sitter() {
 #[test]
 fn test_method_with_ref_in_out_modifiers() {
     let mut parser = Parser::new();
-    let language = tree_sitter_c_sharp::language();
-    parser.set_language(language).unwrap();
+    parser.set_language(&tree_sitter_c_sharp::LANGUAGE.into()).unwrap();
 
     // Test method with ref, in, out modifiers
     let method_source = r#"namespace Test {
@@ -267,8 +265,7 @@ fn test_normalize_method_name_string() {
 #[test]
 fn test_method_with_attributes_and_comments() {
     let mut parser = Parser::new();
-    let language = tree_sitter_c_sharp::language();
-    parser.set_language(language).unwrap();
+    parser.set_language(&tree_sitter_c_sharp::LANGUAGE.into()).unwrap();
 
     // Test method with attributes and comments in parameters
     let method_source = r#"namespace Test {
@@ -317,8 +314,7 @@ fn test_method_with_attributes_and_comments() {
 #[test]
 fn test_nested_namespace_normalization() {
     let mut parser = Parser::new();
-    let language = tree_sitter_c_sharp::language();
-    parser.set_language(language).unwrap();
+    parser.set_language(&tree_sitter_c_sharp::LANGUAGE.into()).unwrap();
 
     // Test nested namespaces with complex hierarchy
     let nested_source = "namespace Namespace.Hello { namespace World.How.Are.You { public class HelloWorld { public void Method() { } } } }";

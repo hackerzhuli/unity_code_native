@@ -95,8 +95,7 @@ mod tests {
     #[test]
     fn test_tree_printing() {
         let mut parser = Parser::new();
-        let language = tree_sitter_css::language();
-        parser.set_language(language).expect("Error loading CSS language");
+        parser.set_language(&tree_sitter_css::LANGUAGE.into()).expect("Error loading CSS language");
 
         let content = ".test { color: red; }";
         let tree = parser.parse(content, None).expect("Error parsing USS");

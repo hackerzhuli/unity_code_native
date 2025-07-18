@@ -237,7 +237,6 @@ impl UxmlSchemaManager {
 
     fn parse_schema_content(&self, content: &str) -> Result<(String, Vec<String>), UxmlSchemaError> {
         let mut reader = Reader::from_str(content);
-        reader.trim_text(true);
         
         let mut namespace = String::new();
         let mut elements = Vec::new();

@@ -6,7 +6,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use sysinfo::PidExt;
+
 use tokio::{
     net::UdpSocket,
     time::interval,
