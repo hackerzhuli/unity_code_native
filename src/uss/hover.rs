@@ -194,8 +194,8 @@ impl UssHoverProvider {
 
     /// Provides hover information for CSS functions.
     /// 
-    /// Dispatches to specific hover handlers based on the function name.
-    /// Supports url(), resource(), rgb(), rgba(), and var() functions.
+    /// Uses structured data from definitions for all functions, with special handling
+    /// for url() functions to include file links and path resolution.
     fn hover_for_function(
         &self,
         call_node: Node,
@@ -205,27 +205,24 @@ impl UssHoverProvider {
     ) -> Option<Hover> {
         let function_node = FunctionNode::from_node(call_node, source, None)?;
         
-        match function_node.function_name.as_str() {
-            "url" => self.hover_for_url_function(call_node, source, unity_manager, source_url),
-            "resource" => self.hover_for_resource_function(call_node, source),
-            "rgb" => self.hover_for_rgb_function(call_node, source),
-            "rgba" => self.hover_for_rgba_function(call_node, source),
-            "var" => self.hover_for_var_function(call_node, source),
-            _ => {
-                // For other functions, use the structured data if available
-                if let Some(function_info) = self.definitions.get_function_info(&function_node.function_name) {
-                    let content = function_info.create_documentation();
-                    Some(Hover {
-                        contents: HoverContents::Markup(MarkupContent {
-                            kind: MarkupKind::Markdown,
-                            value: content,
-                        }),
-                        range: None,
-                    })
-                } else {
-                    None
-                }
-            }
+        // Special handling for url() function with file links
+        if function_node.function_name == "url" {
+            return self.hover_for_url_function(call_node, source, unity_manager, source_url);
+        }
+        
+        // Use structured data for all other functions
+        if let Some(function_info) = self.definitions.get_function_info(&function_node.function_name) {
+            let content = function_info.create_documentation();
+            
+            Some(Hover {
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: content,
+                }),
+                range: None,
+            })
+        } else {
+            None
         }
     }
 
@@ -242,8 +239,9 @@ impl UssHoverProvider {
     ) -> Option<Hover> {
         let url_function = UrlFunctionNode::from_node(call_node, source, None, source_url, None, false)?;
         
-        let mut content = format!("**url()**\n\n");
-        content.push_str("References an external resource by URL or file path.\n\n");
+        let mut content = self.definitions.get_function_info("url")?.create_documentation();
+
+        content.push_str("\n\n");
 
         // Try to resolve the file path and check if it exists
         if let Some((file_path, url)) = self.resolve_import_file_path(url_function.url(), unity_manager, source_url) {
@@ -262,188 +260,6 @@ impl UssHoverProvider {
         } else {
             content.push_str(&format!("⚠️ Could not resolve file path"));
         }
-        
-        Some(Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: content,
-            }),
-            range: None,
-        })
-    }
-
-    /// Provides hover information for resource() functions.
-    /// 
-    /// Analyzes resource() function calls which reference Unity assets from
-    /// the Resources folder. Provides documentation about the function and
-    /// shows the referenced resource path.
-    fn hover_for_resource_function(
-        &self,
-        call_node: Node,
-        source: &str,
-    ) -> Option<Hover> {
-        let function_node = FunctionNode::from_node(call_node, source, None)?;
-        
-        let content = if let Some(path) = function_node.get_argument_text(0, source) {
-            format!(
-                "**resource()** - Unity Resource Function\n\n\
-                References a Unity resource from the Resources folder.\n\n\
-                **Path:** `{}`\n\n\
-                The `resource()` function loads assets from Unity's Resources folder. \
-                The path should be relative to any Resources folder in your project.",
-                path
-            )
-        } else {
-            "**resource()** - Unity Resource Function\n\nReferences a Unity resource from the Resources folder.\n\nSyntax: `resource(\"path/to/resource\")`".to_string()
-        };
-        
-        Some(Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: content,
-            }),
-            range: None,
-        })
-    }
-
-    /// Provides hover information for RGB functions
-    fn hover_for_rgb_function(
-        &self,
-        call_node: Node,
-        source: &str,
-    ) -> Option<Hover> {
-        let function_node = FunctionNode::from_node(call_node, source, None)?;
-        
-        let content = if let Some(function_info) = self.definitions.get_function_info("rgb") {
-            let mut base_content = function_info.create_documentation();
-            
-            // Add specific argument information if available
-            if function_node.argument_count() >= 3 {
-                let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
-                let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
-                let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
-                
-                base_content.push_str(&format!("\n\n**Values:** R={}, G={}, B={}", r, g, b));
-            }
-            
-            base_content
-        } else {
-            // Fallback if function info is not available
-            if function_node.argument_count() >= 3 {
-                let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
-                let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
-                let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
-                
-                format!(
-                    "**rgb()** - RGB Color Function\n\n\
-                    Defines a color using red, green, and blue values.\n\n\
-                    **Values:** R={}, G={}, B={}\n\n\
-                    Each component can be a number (0-255) or percentage (0%-100%).",
-                    r, g, b
-                )
-            } else {
-                "**rgb()** - RGB Color Function\n\nDefines a color using red, green, and blue values.\n\nSyntax: `rgb(red, green, blue)`".to_string()
-            }
-        };
-        
-        Some(Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: content,
-            }),
-            range: None,
-        })
-    }
-
-    /// Provides hover information for RGBA functions
-    fn hover_for_rgba_function(
-        &self,
-        call_node: Node,
-        source: &str,
-    ) -> Option<Hover> {
-        let function_node = FunctionNode::from_node(call_node, source, None)?;
-        
-        let content = if let Some(function_info) = self.definitions.get_function_info("rgba") {
-            let mut base_content = function_info.create_documentation();
-            
-            // Add specific argument information if available
-            if function_node.argument_count() >= 4 {
-                let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
-                let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
-                let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
-                let a = function_node.get_argument_text(3, source).unwrap_or_else(|| "?".to_string());
-                
-                base_content.push_str(&format!("\n\n**Values:** R={}, G={}, B={}, A={}", r, g, b, a));
-            }
-            
-            base_content
-        } else {
-            // Fallback if function info is not available
-            if function_node.argument_count() >= 4 {
-                let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
-                let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
-                let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
-                let a = function_node.get_argument_text(3, source).unwrap_or_else(|| "?".to_string());
-                
-                format!(
-                    "**rgba()** - RGBA Color Function\n\n\
-                    Defines a color using red, green, blue, and alpha values.\n\n\
-                    **Values:** R={}, G={}, B={}, A={}\n\n\
-                    RGB components can be numbers (0-255) or percentages (0%-100%). \
-                    Alpha is a decimal from 0.0 (transparent) to 1.0 (opaque).",
-                    r, g, b, a
-                )
-            } else {
-                "**rgba()** - RGBA Color Function\n\nDefines a color using red, green, blue, and alpha values.\n\nSyntax: `rgba(red, green, blue, alpha)`".to_string()
-            }
-        };
-        
-        Some(Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: content,
-            }),
-            range: None,
-        })
-    }
-
-    /// Provides hover information for var functions (CSS custom properties)
-    fn hover_for_var_function(
-        &self,
-        call_node: Node,
-        source: &str,
-    ) -> Option<Hover> {
-        let function_node = FunctionNode::from_node(call_node, source, None)?;
-        
-        let content = if let Some(function_info) = self.definitions.get_function_info("var") {
-            let mut base_content = function_info.create_documentation();
-            
-            // Add specific variable information if available
-            if let Some(var_name) = function_node.get_argument_text(0, source) {
-                base_content.push_str(&format!("\n\n**Variable:** `{}`", var_name));
-                
-                if let Some(fallback) = function_node.get_argument_text(1, source) {
-                    base_content.push_str(&format!("\n\n**Fallback:** `{}`", fallback));
-                }
-            }
-            
-            base_content
-        } else {
-            // Fallback if function info is not available
-            if let Some(var_name) = function_node.get_argument_text(0, source) {
-                let fallback = function_node.get_argument_text(1, source)
-                    .map(|s| format!("\n\n**Fallback:** `{}`", s))
-                    .unwrap_or_default();
-                format!(
-                    "**var()** - CSS Custom Property\n\n\
-                    References a custom CSS property (variable).\n\n\
-                    **Variable:** `{}`{}",
-                    var_name, fallback
-                )
-            } else {
-                "**var()** - CSS Custom Property\n\nReferences a custom CSS property (variable).\n\nSyntax: `var(--property-name, fallback)`".to_string()
-            }
-        };
         
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
@@ -650,19 +466,6 @@ impl UssHoverProvider {
         }
         
         None
-    }
-
-    /// Creates a generic function hover
-    fn create_function_hover(&self, function_name: &str, description: &str) -> Hover {
-        let content = format!("**{}()**\n\n{}", function_name, description);
-        
-        Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: content,
-            }),
-            range: None,
-        }
     }
 
     /// Creates hover content for a USS property.
