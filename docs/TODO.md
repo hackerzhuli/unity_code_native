@@ -18,14 +18,14 @@ TODO list:
 - [x] Check our value spec against the format string and find problems with our value spec, make sure our value spec is solid
 - [x] ~~`transform` seems to be a special property for `transition-property` because Unity doesn't actually have this property but allow to use it in `transition-property` value, is this true? we need to confirm.~~
 - [x] We need to have a complete list of keywords(not including color keywords), though some may not contain documentation.
-- [ ] Add a simple refactor feature (ie. code action) that is renaming id selectors and class selectors in a document.
+- [x] Add a simple refactor feature (ie. code action) that is renaming id selectors and class selectors in a document.
 - [x] Property value auto completion: we should always provide auto completion for property value if a property can be a single value of keywords(unless it is a color property or other properties that have an dedicated completion logic), we only show the keywords.
 - [x] Dedicated autocompletion for `transition-property`, completion with animatable properties.
 - [x] For properties that supports multiple values, we should trigger completion after comma just like after colon, a new value, same completion logic.
 - [x] Bug: Auto completion for property names doesn't work if we are typing (at least one character) before another valid property in a block.
 - [x] We should make sure our list of color and their hex value are identical to what's shown in Unity's offcial docs, add a test for that.
 - [x] ~~CSDocs: Symbol name normalization from a string is still flawed, we should fix it. Eg. didn't handle when method parameters's generic arguments contains fully qualified name, or something like that. We need to improve the name normalization logic a lot before it will be reliable.~~
-- [ ] Auto completion for property names can sometimes repeat what user already have typed, especially after a hyphen, eg, if user typed, `font-s`, and select `font-size`, it will become `font-font-size`, which is incorrect.
+- [ ] Auto completion for property names can sometimes repeat what user already have typed, especially begining with a hyphen, eg, if user typed, `-unity-f`, and select `-unity-font-style`, it will become `--unity-font-style`, which is incorrect.
 
 TODO for consideration:
 - [ ] (We should do this later, it is complex because it involves Unity Editor) Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy
