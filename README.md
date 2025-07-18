@@ -63,6 +63,9 @@ unity_code_native.exe "C:\path\to\your\Unity\Project"
 
 The tool will detect running Unity Editor instances and provide status information via UDP messaging.
 
+## Test
+Some tests rely on the embedded Unity Project in `UnityProject` directory. Unity Engine generated files is needed for some tests to pass. So if you want to run full tests, you need to use Unity Engine to open the embedded Unity Project in `UnityProject` directory before running the tests.
+
 ## Build
 
 Ensure you have the latest Rust toolchain installed:
