@@ -347,6 +347,52 @@ fn test_property_name_completion_partial_match_before_2() {
     );
 }
 
+#[test]
+fn test_property_name_completion_bug_after_property() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: reproducing the bug where 'co' after a property doesn't trigger completions
+    let content = ".anim {\n    translate: 200px 300px;\n    co\n    transition-property: translate, rotate, scale;\n}";
+    let tree = parser.parse(content, None).unwrap();
+
+    println!("=== Tree structure for bug reproduction ===");
+    print_tree_to_stdout(tree.root_node(), content);
+
+    // Position at the end of "co" (line 2, character 6)
+    let position = Position {
+        line: 2,
+        character: 6,
+    };
+
+    let completions = provider.complete(&tree, content, position, None, None, None);
+
+    println!("Completions found: {}", completions.len());
+    for completion in &completions {
+        println!("  - {}", completion.label);
+    }
+
+    // Verify that the bug has been fixed - should have completions for properties starting with "co"
+    let labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    
+    // Bug should now be fixed - we should have completions
+    assert!(
+        !completions.is_empty(),
+        "Should have completions for properties starting with 'co'"
+    );
+    
+    assert!(
+        labels.contains(&"color".to_string()),
+        "Should include 'color' property"
+    );
+    
+    // Should not include properties that don't start with "co"
+    assert!(
+        !labels.contains(&"width".to_string()),
+        "Should not include 'width' property"
+    );
+}
+
 
 #[test]
 fn test_property_name_completion_case_insensitive() {

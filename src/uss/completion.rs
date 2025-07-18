@@ -267,6 +267,15 @@ impl UssCompletionProvider {
                         }
                     }
                 }
+                
+                // Handle case where incomplete property name is parsed as tag_name in descendant_selector
+                // within an ERROR node inside a block (e.g., "co" after a property declaration)
+                if Self::is_incomplete_property_in_error_block(current_node) {
+                    return Some(CompletionContext {
+                        t: CompletionType::Property,
+                        current_node: Some(current_node)
+                    });
+                }
             }
         }
 
@@ -299,6 +308,55 @@ impl UssCompletionProvider {
                     }
                 }
             }
+        }
+        false
+    }
+
+    /// Check if current node is an incomplete property name parsed as tag_name within an ERROR node inside a block
+    /// This handles cases like "co" after a property declaration that gets parsed incorrectly
+    fn is_incomplete_property_in_error_block(current_node: Node) -> bool {
+        if current_node.kind() != NODE_TAG_NAME {
+            return false;
+        }
+
+        // Check if we're inside a descendant_selector within an ERROR node
+        if let Some(parent) = current_node.parent() {
+            if parent.kind() == NODE_DESCENDANT_SELECTOR {
+                if let Some(grandparent) = parent.parent() {
+                    if grandparent.kind() == NODE_SELECTORS {
+                        if let Some(great_grandparent) = grandparent.parent() {
+                            if great_grandparent.kind() == NODE_ERROR {
+                                // Check if this ERROR node is inside a block
+                                if let Some(block_ancestor) = Self::find_ancestor_of_type(great_grandparent, NODE_BLOCK) {
+                                    // Verify we have a previous declaration sibling to confirm we're after a property
+                                    if Self::has_previous_declaration_sibling(great_grandparent) {
+                                        return true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Find an ancestor node of the specified type
+    fn find_ancestor_of_type<'a>(mut node: Node<'a>, target_type: &str) -> Option<Node<'a>> {
+        while let Some(parent) = node.parent() {
+            if parent.kind() == target_type {
+                return Some(parent);
+            }
+            node = parent;
+        }
+        None
+    }
+
+    /// Check if the given node has a previous sibling that is a declaration
+    fn has_previous_declaration_sibling(node: Node) -> bool {
+        if let Some(prev_sibling) = node.prev_sibling() {
+            return prev_sibling.kind() == NODE_DECLARATION;
         }
         false
     }
