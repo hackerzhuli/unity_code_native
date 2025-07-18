@@ -144,21 +144,6 @@ impl UssHoverProvider {
     /// 
     /// Analyzes import statements and provides information about the imported file,
     /// including file existence, resolved paths, and usage documentation.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `import_node` - The syntax tree node representing the @import statement
-    /// * `source` - The complete source code of the USS document
-    /// * `unity_manager` - Unity project manager for resolving file paths
-    /// * `source_url` - Optional URL of the current USS file for relative path resolution
-    /// 
-    /// # Returns
-    /// 
-    /// Returns hover information containing:
-    /// - File path and existence status
-    /// - Link to open the imported file (if it exists)
-    /// - Documentation about @import functionality
-    /// - Usage examples
     fn hover_for_import_statement(
         &self,
         import_node: Node,
@@ -211,25 +196,6 @@ impl UssHoverProvider {
     /// 
     /// Dispatches to specific hover handlers based on the function name.
     /// Supports url(), resource(), rgb(), rgba(), and var() functions.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `call_node` - The syntax tree node representing the function call
-    /// * `source` - The complete source code of the USS document
-    /// * `unity_manager` - Unity project manager for resolving file paths
-    /// * `source_url` - Optional URL of the current USS file for relative path resolution
-    /// 
-    /// # Supported Functions
-    /// 
-    /// - **url()** - File references and asset paths
-    /// - **resource()** - Unity Resources folder references
-    /// - **rgb()** - RGB color values
-    /// - **rgba()** - RGBA color values with alpha
-    /// - **var()** - CSS custom properties (variables)
-    /// 
-    /// # Returns
-    /// 
-    /// Returns function-specific hover information or `None` for unsupported functions.
     fn hover_for_function(
         &self,
         call_node: Node,
@@ -245,7 +211,21 @@ impl UssHoverProvider {
             "rgb" => self.hover_for_rgb_function(call_node, source),
             "rgba" => self.hover_for_rgba_function(call_node, source),
             "var" => self.hover_for_var_function(call_node, source),
-            _ => None,
+            _ => {
+                // For other functions, use the structured data if available
+                if let Some(function_info) = self.definitions.get_function_info(&function_node.function_name) {
+                    let content = function_info.create_documentation();
+                    Some(Hover {
+                        contents: HoverContents::Markup(MarkupContent {
+                            kind: MarkupKind::Markdown,
+                            value: content,
+                        }),
+                        range: None,
+                    })
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -253,22 +233,6 @@ impl UssHoverProvider {
     /// 
     /// Analyzes url() function calls and provides information about the referenced
     /// file or resource, including path resolution and file existence checking.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `call_node` - The syntax tree node representing the url() function call
-    /// * `source` - The complete source code of the USS document
-    /// * `unity_manager` - Unity project manager for resolving file paths
-    /// * `source_url` - Optional URL of the current USS file for relative path resolution
-    /// 
-    /// # Returns
-    /// 
-    /// Returns hover information containing:
-    /// - Function description and usage
-    /// - Resolved asset path (if available)
-    /// - File existence status
-    /// - Link to open the referenced file (if it exists)
-    /// - Error messages for unresolvable paths
     fn hover_for_url_function(
         &self,
         call_node: Node,
@@ -313,18 +277,6 @@ impl UssHoverProvider {
     /// Analyzes resource() function calls which reference Unity assets from
     /// the Resources folder. Provides documentation about the function and
     /// shows the referenced resource path.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `call_node` - The syntax tree node representing the resource() function call
-    /// * `source` - The complete source code of the USS document
-    /// 
-    /// # Returns
-    /// 
-    /// Returns hover information containing:
-    /// - Function description and Unity-specific usage
-    /// - The resource path being referenced
-    /// - Information about Unity's Resources folder system
     fn hover_for_resource_function(
         &self,
         call_node: Node,
@@ -362,20 +314,36 @@ impl UssHoverProvider {
     ) -> Option<Hover> {
         let function_node = FunctionNode::from_node(call_node, source, None)?;
         
-        let content = if function_node.argument_count() >= 3 {
-            let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
-            let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
-            let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
+        let content = if let Some(function_info) = self.definitions.get_function_info("rgb") {
+            let mut base_content = function_info.create_documentation();
             
-            format!(
-                "**rgb()** - RGB Color Function\n\n\
-                Defines a color using red, green, and blue values.\n\n\
-                **Values:** R={}, G={}, B={}\n\n\
-                Each component can be a number (0-255) or percentage (0%-100%).",
-                r, g, b
-            )
+            // Add specific argument information if available
+            if function_node.argument_count() >= 3 {
+                let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
+                let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
+                let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
+                
+                base_content.push_str(&format!("\n\n**Values:** R={}, G={}, B={}", r, g, b));
+            }
+            
+            base_content
         } else {
-            "**rgb()** - RGB Color Function\n\nDefines a color using red, green, and blue values.\n\nSyntax: `rgb(red, green, blue)`".to_string()
+            // Fallback if function info is not available
+            if function_node.argument_count() >= 3 {
+                let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
+                let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
+                let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
+                
+                format!(
+                    "**rgb()** - RGB Color Function\n\n\
+                    Defines a color using red, green, and blue values.\n\n\
+                    **Values:** R={}, G={}, B={}\n\n\
+                    Each component can be a number (0-255) or percentage (0%-100%).",
+                    r, g, b
+                )
+            } else {
+                "**rgb()** - RGB Color Function\n\nDefines a color using red, green, and blue values.\n\nSyntax: `rgb(red, green, blue)`".to_string()
+            }
         };
         
         Some(Hover {
@@ -395,22 +363,39 @@ impl UssHoverProvider {
     ) -> Option<Hover> {
         let function_node = FunctionNode::from_node(call_node, source, None)?;
         
-        let content = if function_node.argument_count() >= 4 {
-            let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
-            let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
-            let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
-            let a = function_node.get_argument_text(3, source).unwrap_or_else(|| "?".to_string());
+        let content = if let Some(function_info) = self.definitions.get_function_info("rgba") {
+            let mut base_content = function_info.create_documentation();
             
-            format!(
-                "**rgba()** - RGBA Color Function\n\n\
-                Defines a color using red, green, blue, and alpha values.\n\n\
-                **Values:** R={}, G={}, B={}, A={}\n\n\
-                RGB components can be numbers (0-255) or percentages (0%-100%). \
-                Alpha is a decimal from 0.0 (transparent) to 1.0 (opaque).",
-                r, g, b, a
-            )
+            // Add specific argument information if available
+            if function_node.argument_count() >= 4 {
+                let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
+                let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
+                let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
+                let a = function_node.get_argument_text(3, source).unwrap_or_else(|| "?".to_string());
+                
+                base_content.push_str(&format!("\n\n**Values:** R={}, G={}, B={}, A={}", r, g, b, a));
+            }
+            
+            base_content
         } else {
-            "**rgba()** - RGBA Color Function\n\nDefines a color using red, green, blue, and alpha values.\n\nSyntax: `rgba(red, green, blue, alpha)`".to_string()
+            // Fallback if function info is not available
+            if function_node.argument_count() >= 4 {
+                let r = function_node.get_argument_text(0, source).unwrap_or_else(|| "?".to_string());
+                let g = function_node.get_argument_text(1, source).unwrap_or_else(|| "?".to_string());
+                let b = function_node.get_argument_text(2, source).unwrap_or_else(|| "?".to_string());
+                let a = function_node.get_argument_text(3, source).unwrap_or_else(|| "?".to_string());
+                
+                format!(
+                    "**rgba()** - RGBA Color Function\n\n\
+                    Defines a color using red, green, blue, and alpha values.\n\n\
+                    **Values:** R={}, G={}, B={}, A={}\n\n\
+                    RGB components can be numbers (0-255) or percentages (0%-100%). \
+                    Alpha is a decimal from 0.0 (transparent) to 1.0 (opaque).",
+                    r, g, b, a
+                )
+            } else {
+                "**rgba()** - RGBA Color Function\n\nDefines a color using red, green, blue, and alpha values.\n\nSyntax: `rgba(red, green, blue, alpha)`".to_string()
+            }
         };
         
         Some(Hover {
@@ -430,18 +415,34 @@ impl UssHoverProvider {
     ) -> Option<Hover> {
         let function_node = FunctionNode::from_node(call_node, source, None)?;
         
-        let content = if let Some(var_name) = function_node.get_argument_text(0, source) {
-            let fallback = function_node.get_argument_text(1, source)
-                .map(|s| format!("\n\n**Fallback:** `{}`", s))
-                .unwrap_or_default();
-            format!(
-                "**var()** - CSS Custom Property\n\n\
-                References a custom CSS property (variable).\n\n\
-                **Variable:** `{}`{}",
-                var_name, fallback
-            )
+        let content = if let Some(function_info) = self.definitions.get_function_info("var") {
+            let mut base_content = function_info.create_documentation();
+            
+            // Add specific variable information if available
+            if let Some(var_name) = function_node.get_argument_text(0, source) {
+                base_content.push_str(&format!("\n\n**Variable:** `{}`", var_name));
+                
+                if let Some(fallback) = function_node.get_argument_text(1, source) {
+                    base_content.push_str(&format!("\n\n**Fallback:** `{}`", fallback));
+                }
+            }
+            
+            base_content
         } else {
-            "**var()** - CSS Custom Property\n\nReferences a custom CSS property (variable).\n\nSyntax: `var(--property-name, fallback)`".to_string()
+            // Fallback if function info is not available
+            if let Some(var_name) = function_node.get_argument_text(0, source) {
+                let fallback = function_node.get_argument_text(1, source)
+                    .map(|s| format!("\n\n**Fallback:** `{}`", s))
+                    .unwrap_or_default();
+                format!(
+                    "**var()** - CSS Custom Property\n\n\
+                    References a custom CSS property (variable).\n\n\
+                    **Variable:** `{}`{}",
+                    var_name, fallback
+                )
+            } else {
+                "**var()** - CSS Custom Property\n\nReferences a custom CSS property (variable).\n\nSyntax: `var(--property-name, fallback)`".to_string()
+            }
         };
         
         Some(Hover {
@@ -491,45 +492,16 @@ impl UssHoverProvider {
     /// 
     /// Analyzes unit identifiers (px, %, deg, s, etc.) and provides documentation
     /// about their meaning and usage in USS.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `unit_node` - The syntax tree node representing the unit identifier
-    /// * `source` - The complete source code of the USS document
-    /// 
-    /// # Supported Units
-    /// 
-    /// - **Length units**: px (pixels), % (percentage)
-    /// - **Angle units**: deg (degrees), rad (radians), grad (gradians), turn (turns)
-    /// - **Time units**: s (seconds), ms (milliseconds)
-    /// 
-    /// # Returns
-    /// 
-    /// Returns hover information with unit description and usage context,
-    /// or `None` for unrecognized units.
     fn hover_for_unit(&self, unit_node: Node, source: &str) -> Option<Hover> {
         let unit_text = unit_node.utf8_text(source.as_bytes()).ok()?;
         
-        if !self.definitions.is_valid_unit(unit_text) {
-            return None;
-        }
-
-        let content = match unit_text {
-            "px" => "**px** - Pixel unit\n\nAbsolute length unit representing device pixels.",
-            "%" => "**%** - Percentage unit\n\nRelative unit based on the parent element's corresponding property.",
-            "deg" => "**deg** - Degree unit\n\nAngle unit where 360deg = full rotation.",
-            "rad" => "**rad** - Radian unit\n\nAngle unit where 2π rad = full rotation.",
-            "grad" => "**grad** - Gradian unit\n\nAngle unit where 400grad = full rotation.",
-            "turn" => "**turn** - Turn unit\n\nAngle unit where 1turn = full rotation.",
-            "s" => "**s** - Second unit\n\nTime unit for durations and delays.",
-            "ms" => "**ms** - Millisecond unit\n\nTime unit for durations and delays (1s = 1000ms).",
-            _ => return None,
-        };
+        let unit_info = self.definitions.get_unit_info(unit_text)?;
+        let content = unit_info.create_documentation();
 
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,
-                value: content.to_string(),
+                value: content,
             }),
             range: None,
         })
@@ -539,20 +511,6 @@ impl UssHoverProvider {
     /// 
     /// Analyzes tag selectors that target UXML elements and provides information
     /// about the element type, including its fully qualified name when available.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `tag_node` - The syntax tree node representing the tag selector
-    /// * `source` - The complete source code of the USS document
-    /// * `uxml_elements` - Optional map of UXML element names to their fully qualified types
-    /// 
-    /// # Returns
-    /// 
-    /// Returns hover information containing:
-    /// - Element name and description
-    /// - Fully qualified type name (if available in schema)
-    /// - Information about what the selector targets
-    /// - Warning if element is not found in UXML schema
     fn hover_for_tag_selector(&self, tag_node: Node, source: &str, uxml_elements: Option<&HashMap<String, String>>) -> Option<Hover> {
         let tag_text = tag_node.utf8_text(source.as_bytes()).ok()?;
         
@@ -583,26 +541,6 @@ impl UssHoverProvider {
     /// 
     /// Analyzes pseudo-class selectors (:hover, :focus, :active, etc.) and provides
     /// documentation about their behavior and usage in Unity UI.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `pseudo_node` - The syntax tree node representing the pseudo-class selector
-    /// * `source` - The complete source code of the USS document
-    /// * `unity_manager` - Unity project manager for version-specific documentation
-    /// 
-    /// # Supported Pseudo-classes
-    /// 
-    /// - **:hover** - Element is being hovered over
-    /// - **:focus** - Element has keyboard focus
-    /// - **:active** - Element is being activated (pressed)
-    /// - **:disabled** - Element is disabled
-    /// - **:enabled** - Element is enabled
-    /// - And other Unity-specific pseudo-classes
-    /// 
-    /// # Returns
-    /// 
-    /// Returns hover information with pseudo-class documentation and Unity version
-    /// compatibility, or `None` for unrecognized pseudo-classes.
     fn hover_for_pseudo_class(&self, pseudo_node: Node, source: &str, unity_manager: &UnityProjectManager) -> Option<Hover> {
         // Extract the pseudo-class name from the selector
         // The pseudo-class selector contains the full selector, we need to find the class_name that represents the pseudo-class
@@ -642,25 +580,6 @@ impl UssHoverProvider {
     /// 
     /// Analyzes CSS property declarations and provides context-sensitive hover information.
     /// Can show property documentation or value-specific information depending on cursor position.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `declaration_node` - The syntax tree node representing the CSS declaration
-    /// * `source` - The complete source code of the USS document
-    /// * `position` - The exact cursor position within the declaration
-    /// * `unity_manager` - Unity project manager for version-specific documentation
-    /// 
-    /// # Behavior
-    /// 
-    /// - If hovering over a value, attempts to provide value-specific information
-    /// - Falls back to property documentation for recognized USS properties
-    /// - Handles special cases like transition properties that reference other properties
-    /// - Provides keyword documentation for CSS keyword values
-    /// 
-    /// # Returns
-    /// 
-    /// Returns hover information with property or value documentation,
-    /// or `None` for unrecognized properties or values.
     fn hover_for_declaration(
         &self,
         declaration_node: Node,
@@ -750,27 +669,6 @@ impl UssHoverProvider {
     /// 
     /// Generates comprehensive hover documentation for a given USS property,
     /// including description, syntax, Unity version compatibility, and documentation links.
-    /// 
-    /// # Arguments
-    /// 
-    /// * `property_name` - The name of the USS property (e.g., "color", "font-size")
-    /// * `unity_manager` - Unity project manager for determining appropriate Unity version
-    /// 
-    /// # Returns
-    /// 
-    /// Returns a `Hover` object containing:
-    /// - Property description and usage information
-    /// - Syntax and accepted values
-    /// - Unity version compatibility
-    /// - Links to Unity documentation
-    /// - "Unknown Property" message for unrecognized properties
-    /// 
-    /// # Example
-    /// 
-    /// For the "color" property, this would return hover content with:
-    /// - Description of what the color property does
-    /// - Accepted color formats (hex, rgb, keywords, etc.)
-    /// - Link to Unity's USS documentation
     fn create_hover_content_for_property(
         &self,
         property_name: &str,

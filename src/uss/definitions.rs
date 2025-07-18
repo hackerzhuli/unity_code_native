@@ -171,6 +171,64 @@ impl PropertyInfo {
     }
 }
 
+/// Unit documentation information
+#[derive(Debug, Clone)]
+pub struct UnitInfo {
+    /// Unit name (e.g., "px", "%", "deg")
+    pub name: &'static str,
+    /// Unit category (e.g., "Length", "Angle", "Time")
+    pub category: &'static str,
+    /// Description of this unit
+    pub description: &'static str,
+    /// Additional details about usage
+    pub details: Option<&'static str>,
+}
+
+impl UnitInfo {
+    /// Create markdown documentation for the unit
+    pub fn create_documentation(&self) -> String {
+        let mut content = format!("**{}** - {} unit\n\n{}", self.name, self.category, self.description);
+        
+        if let Some(details) = self.details {
+            content.push_str("\n\n");
+            content.push_str(details);
+        }
+        
+        content
+    }
+}
+
+/// Function documentation information
+#[derive(Debug, Clone)]
+pub struct FunctionInfo {
+    /// Function name (e.g., "url", "rgb", "var")
+    pub name: &'static str,
+    /// Function category (e.g., "Resource", "Color", "Variable")
+    pub category: &'static str,
+    /// Description of this function
+    pub description: &'static str,
+    /// Function syntax
+    pub syntax: &'static str,
+    /// Additional details about usage
+    pub details: Option<&'static str>,
+}
+
+impl FunctionInfo {
+    /// Create markdown documentation for the function
+    pub fn create_documentation(&self) -> String {
+        let mut content = format!("**{}()** - {} Function\n\n{}", self.name, self.category, self.description);
+        
+        content.push_str(&format!("\n\n**Syntax:** `{}`", self.syntax));
+        
+        if let Some(details) = self.details {
+            content.push_str("\n\n");
+            content.push_str(details);
+        }
+        
+        content
+    }
+}
+
 /// Pseudo-class documentation information
 #[derive(Debug, Clone)]
 pub struct PseudoClassInfo {
@@ -248,6 +306,119 @@ fn create_pseudo_class_info() -> HashMap<&'static str, PseudoClassInfo> {
     pseudo_classes
 }
 
+/// Create unit information with documentation
+fn create_unit_info() -> HashMap<&'static str, UnitInfo> {
+    let mut units = HashMap::new();
+
+    // Length units
+    units.insert("px", UnitInfo {
+        name: "px",
+        category: "Length",
+        description: "Absolute length unit representing device pixels.",
+        details: None,
+    });
+
+    units.insert("%", UnitInfo {
+        name: "%",
+        category: "Length",
+        description: "Relative unit based on the parent element's corresponding property.",
+        details: None,
+    });
+
+    // Angle units
+    units.insert("deg", UnitInfo {
+        name: "deg",
+        category: "Angle",
+        description: "Angle unit where 360deg = full rotation.",
+        details: None,
+    });
+
+    units.insert("rad", UnitInfo {
+        name: "rad",
+        category: "Angle",
+        description: "Angle unit where 2π rad = full rotation.",
+        details: None,
+    });
+
+    units.insert("grad", UnitInfo {
+        name: "grad",
+        category: "Angle",
+        description: "Angle unit where 400grad = full rotation.",
+        details: None,
+    });
+
+    units.insert("turn", UnitInfo {
+        name: "turn",
+        category: "Angle",
+        description: "Angle unit where 1turn = full rotation.",
+        details: None,
+    });
+
+    // Time units
+    units.insert("s", UnitInfo {
+        name: "s",
+        category: "Time",
+        description: "Time unit for durations and delays.",
+        details: None,
+    });
+
+    units.insert("ms", UnitInfo {
+        name: "ms",
+        category: "Time",
+        description: "Time unit for durations and delays.",
+        details: Some("1s = 1000ms"),
+    });
+
+    units
+}
+
+/// Create function information with documentation
+fn create_function_info() -> HashMap<&'static str, FunctionInfo> {
+    let mut functions = HashMap::new();
+
+    functions.insert("url", FunctionInfo {
+        name: "url",
+        category: "Resource",
+        description: "References an external resource by URL or file path.",
+        syntax: "url(\"path/to/resource\")",
+        details: Some("Supports project:// URLs and relative paths."),
+    });
+
+    functions.insert("resource", FunctionInfo {
+        name: "resource",
+        category: "Resource",
+        description: "References a Unity resource from the Resources folder.",
+        syntax: "resource(\"path/to/resource\")",
+        details: Some("The path should be relative to any Resources folder in your project."),
+    });
+
+    functions.insert("rgb", FunctionInfo {
+        name: "rgb",
+        category: "Color",
+        description: "Defines a color using red, green, and blue values.",
+        syntax: "rgb(red, green, blue)",
+        details: Some("Each component can be a number (0-255) or percentage (0%-100%)."),
+    });
+
+    functions.insert("rgba", FunctionInfo {
+        name: "rgba",
+        category: "Color",
+        description: "Defines a color using red, green, blue, and alpha values.",
+        syntax: "rgba(red, green, blue, alpha)",
+        details: Some("RGB components can be numbers (0-255) or percentages (0%-100%). Alpha is a decimal from 0.0 (transparent) to 1.0 (opaque)."),
+    });
+
+    functions.insert("var", FunctionInfo {
+        name: "var",
+        category: "Variable",
+        description: "References a custom CSS property (variable).",
+        syntax: "var(--property-name, fallback)",
+        details: Some("The fallback value is optional and used when the variable is not defined."),
+    });
+
+    functions
+}
+
 /// USS language definitions and validation data
 #[derive(Clone, Debug)]
 pub struct UssDefinitions {
@@ -259,6 +430,10 @@ pub struct UssDefinitions {
     ///
     /// There are lots of keywords, so we only create them when needed
     keywords: OnceLock<HashMap<&'static str, KeywordInfo>>,
+    /// USS units with their documentation
+    pub units: HashMap<&'static str, UnitInfo>,
+    /// USS functions with their documentation
+    pub functions: HashMap<&'static str, FunctionInfo>,
     /// USS pseudo-classes with their documentation
     pub pseudo_classes: HashMap<&'static str, PseudoClassInfo>,
     /// Valid pseudo-classes (for backward compatibility)
@@ -274,6 +449,26 @@ impl UssDefinitions {
     ///
     /// Relatively lightweight, expensive fields are created when needed.
     pub fn new() -> Self {
+        // Load unit information
+        let mut units = HashMap::new();
+        let mut valid_units = HashSet::new();
+
+        let unit_data = create_unit_info();
+        for (name, unit_info) in unit_data {
+            units.insert(name, unit_info);
+            valid_units.insert(name);
+        }
+
+        // Load function information
+        let mut functions = HashMap::new();
+        let mut valid_functions = HashSet::new();
+
+        let function_data = create_function_info();
+        for (name, function_info) in function_data {
+            functions.insert(name, function_info);
+            valid_functions.insert(name);
+        }
+
         // Load pseudo-class information
         let mut pseudo_classes = HashMap::new();
         let mut valid_pseudo_classes = HashSet::new();
@@ -287,39 +482,17 @@ impl UssDefinitions {
         // Load color keywords
         let valid_color_keywords = create_color_keywords();
 
-        let mut valid_functions = HashSet::new();
-        let functions = ["url", "resource", "var", "rgb", "rgba"];
-        for func in functions {
-            valid_functions.insert(func);
-        }
-
         let mut valid_at_rules = HashSet::new();
         let at_rules = [NODE_IMPORT];
         for rule in at_rules {
             valid_at_rules.insert(rule);
         }
 
-        let mut valid_units = HashSet::new();
-        let units = [
-            // Length units
-            UNIT_PX,
-            UNIT_PERCENT,
-            // Angle units
-            UNIT_DEG,
-            UNIT_RAD,
-            UNIT_GRAD,
-            UNIT_TURN,
-            // Time units
-            UNIT_S,
-            UNIT_MS,
-        ];
-        for unit in units {
-            valid_units.insert(unit);
-        }
-
         Self {
             properties: OnceLock::new(),
             keywords: OnceLock::new(),
+            units,
+            functions,
             pseudo_classes,
             valid_pseudo_classes,
             valid_color_keywords,
@@ -410,6 +583,16 @@ impl UssDefinitions {
     /// Get pseudo-class information by name
     pub fn get_pseudo_class_info(&self, pseudo_class_name: &str) -> Option<&PseudoClassInfo> {
         self.pseudo_classes.get(pseudo_class_name)
+    }
+
+    /// Get unit information by name
+    pub fn get_unit_info(&self, unit_name: &str) -> Option<&UnitInfo> {
+        self.units.get(unit_name)
+    }
+
+    /// Get function information by name
+    pub fn get_function_info(&self, function_name: &str) -> Option<&FunctionInfo> {
+        self.functions.get(function_name)
     }
 
     /// Get simple completions strings for property, just keywords, colors or other simple values that will work for the property
