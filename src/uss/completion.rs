@@ -614,7 +614,7 @@ impl UssCompletionProvider {
                     .as_ref()
                     .map(|info| info.create_documentation(name, unity_version));
 
-                CompletionItem {
+                let mut completion_item = CompletionItem {
                     label: name.to_string(),
                     kind: Some(CompletionItemKind::PROPERTY),
                     documentation: documentation.map(|doc| {
@@ -623,11 +623,26 @@ impl UssCompletionProvider {
                             value: doc,
                         })
                     }),
-                    // no colon because if user type the colon
-                    // that will trigger next round of auto completion for value, which is prefered
-                    insert_text: Some(format!("{}", name)),
+
                     ..Default::default()
+                };
+
+                // no colon because if user type the colon
+                // that will trigger next round of auto completion for value, which is prefered
+                // Use text_edit to replace the partial text with the full property name
+                // This prevents duplication issues like "-unity-f" + "-unity-font-style" = "--unity-font-style"
+                if let Some(node) = current_node {
+                    let range = node_to_range(node, content);
+                    completion_item.text_edit = Some(CompletionTextEdit::Edit(TextEdit {
+                        range,
+                        new_text: name.to_string(),
+                    }));
+                } else {
+                    // Fallback to insert_text if no node available
+                    completion_item.insert_text = Some(name.to_string());
                 }
+
+                completion_item
             })
             .collect()
     }
