@@ -120,8 +120,6 @@ fn test_pseudo_class_completion_case_insensitive() {
     let content = ".button:H";
     let tree = parser.parse(content, None).unwrap();
 
-    print_tree_to_stdout(tree.root_node(), content);
-
     // Position after 'H'
     let position = Position {
         line: 0,
@@ -196,8 +194,6 @@ fn test_pseudo_class_completion_with_block_after() {
     let content = ".button: {\n color:red \n}";
     let tree = parser.parse(content, None).unwrap();
 
-    print_tree(tree.root_node(), content, 10);
-
     // Position right after the colon in property declaration
     let position = Position {
         line: 0,
@@ -228,8 +224,6 @@ fn test_pseudo_class_completion_partial_with_block_after() {
     // Test case: colon in property declaration should not trigger pseudo-class completion
     let content = ".button:h {\n color:red \n}";
     let tree = parser.parse(content, None).unwrap();
-
-    print_tree(tree.root_node(), content, 10);
 
     // Position right after the colon in property declaration
     let position = Position {
@@ -641,8 +635,6 @@ fn test_tag_selector_completion() {
     let content = "Button { color: red; }\nLabel { margin: 10px; }\nBu";
     let tree = parser.parse(content, None).unwrap();
 
-    print_tree_to_stdout(tree.root_node(), content);
-
     // Position after 'Bu'
     let position = Position {
         line: 2,
@@ -808,8 +800,6 @@ fn test_class_selector_excludes_self() {
     let content = ".my { color: red; }\n.your .my .your-class.my-class.their-class:hover { margin: 10px; }\n.my";
     let tree = parser.parse(content, None).unwrap();
 
-    print_tree_to_stdout(tree.root_node(), content);
-
     // Position after '.my' (the incomplete selector)
     let position = Position {
         line: 2,
@@ -882,8 +872,6 @@ fn test_url_completion() {
     // Test case: cursor inside url() function pointing to Assets directory
     let content = ".some { \n    background-image: url(\"project:/Assets/\"); \n}";
     let tree = parser.parse(content, None).unwrap();
-
-    print_tree_to_stdout(tree.root_node(), content);
 
     // Position inside the URL string at the end of "Assets/"
     let position = Position {

@@ -74,38 +74,6 @@ fn test_normalize_generic_parameters() {
 }
 
 #[test]
-fn test_normalize_functions_with_tree_sitter() {
-    let mut parser = Parser::new();
-    parser.set_language(&tree_sitter_c_sharp::LANGUAGE.into()).unwrap();
-
-    // Test normalize_type_name with a simple class in a compilation unit
-    let source: &'static str = "namespace Test { public class TestClass { } }";
-    let tree = parser.parse(source, None).unwrap();
-    println!("\n=== Type Name Test Tree ===");
-    print_tree_to_stdout(tree.root_node(), source);
-
-    // Test normalize_member_name with a field in a class context
-    let field_source = "namespace Test { public class TestClass { public int PublicField; } }";
-    let field_tree = parser.parse(field_source, None).unwrap();
-    println!("\n=== Field Test Tree ===");
-    print_tree_to_stdout(field_tree.root_node(), field_source);
-
-    // Test normalize_member_name with a method
-    let method_source =
-        "namespace Test { public class TestClass { public void TestMethod(int param) { } } }";
-    let method_tree = parser.parse(method_source, None).unwrap();
-    println!("\n=== Method Test Tree ===");
-    print_tree_to_stdout(method_tree.root_node(), method_source);
-
-    // Test normalize_member_name with a property
-    let property_source =
-        "namespace Test { public class TestClass { public int TestProperty { get; set; } } }";
-    let property_tree = parser.parse(property_source, None).unwrap();
-    println!("\n=== Property Test Tree ===");
-    print_tree_to_stdout(property_tree.root_node(), property_source);
-}
-
-#[test]
 fn test_method_with_ref_in_out_modifiers() {
     let mut parser = Parser::new();
     parser.set_language(&tree_sitter_c_sharp::LANGUAGE.into()).unwrap();
@@ -121,8 +89,6 @@ fn test_method_with_ref_in_out_modifiers() {
 
     let tree = parser.parse(method_source, None).unwrap();
     let class_node = find_class_by_name(tree.root_node(), "TestClass", method_source).unwrap();
-
-    print_tree_to_stdout(tree.root_node(), method_source);
 
     // Find the method declaration
     let mut cursor = class_node.walk();
@@ -285,8 +251,6 @@ fn test_method_with_attributes_and_comments() {
     }
 }"#;
     let method_tree = parser.parse(method_source, None).unwrap();
-    println!("\n=== Method with Attributes and Comments Test Tree ===");
-    print_tree_to_stdout(method_tree.root_node(), method_source);
 
     // Find the Log method using the helper method
     let class_node = find_class_by_name(method_tree.root_node(), "TestClass", method_source)
@@ -321,9 +285,7 @@ fn test_nested_namespace_normalization() {
     // Test nested namespaces with complex hierarchy
     let nested_source = "namespace Namespace.Hello { namespace World.How.Are.You { public class HelloWorld { public void Method() { } } } }";
     let nested_tree = parser.parse(nested_source, None).unwrap();
-    println!("\n=== Nested Namespace Test Tree ===");
-    print_tree_to_stdout(nested_tree.root_node(), nested_source);
-
+    
     // Find the HelloWorld class using the helper method
     let class_node = find_class_by_name(nested_tree.root_node(), "HelloWorld", nested_source)
         .expect("Could not find HelloWorld class in nested namespace");
