@@ -190,7 +190,7 @@ pub struct UnitInfo {
 impl UnitInfo {
     /// Create markdown documentation for the unit
     pub fn create_documentation(&self) -> String {
-        let mut content = format!("### {}\n{} unit\n\n{}", self.name, self.category, self.description);
+        let mut content = format!("### Unit {}\n{} unit\n\n{}", self.name, self.category, self.description);
         
         if let Some(details) = self.details {
             content.push_str("\n\n");
@@ -219,7 +219,7 @@ pub struct FunctionInfo {
 impl FunctionInfo {
     /// Create markdown documentation for the function
     pub fn create_documentation(&self) -> String {
-        let mut content = format!("### {}()\n {} Function\n\n{}", self.name, self.category, self.description);
+        let mut content = format!("### Function {}()\n {} Function\n\n{}", self.name, self.category, self.description);
         
         content.push_str(&format!("\n\n**Syntax:** `{}`", self.syntax));
         
@@ -248,7 +248,7 @@ impl PseudoClassInfo {
     pub fn create_documentation(&self, unity_version: &str) -> String {
         let doc_url = self.documentation_url.replace("{version}", unity_version);
         format!(
-            "### Pseudo Class: {}\n{}\n\n[Documentation]({})",
+            "### Pseudo Class :{}\n{}\n\n[Documentation]({})",
             self.name, self.description, doc_url
         )
     }
