@@ -29,6 +29,9 @@ pub mod url_function_node;
 pub mod flexible_format;
 pub mod formatter;
 pub mod refactor;
+pub mod unit_data;
+pub mod function_data;
+pub mod pseudo_class_data;
 
 #[cfg(test)]
 mod diagnostics_tests;

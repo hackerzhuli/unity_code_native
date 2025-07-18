@@ -7,8 +7,11 @@
 use crate::uss::color::Color;
 use crate::uss::color_keywords::create_color_keywords;
 use crate::uss::constants::*;
+use crate::uss::function_data::create_function_info;
 use crate::uss::keyword_data::create_keyword_info;
 use crate::uss::property_data::create_standard_properties;
+use crate::uss::pseudo_class_data::create_pseudo_class_info;
+use crate::uss::unit_data::create_unit_info;
 use crate::uss::value_spec::{ValueSpec, ValueType};
 use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
@@ -187,7 +190,7 @@ pub struct UnitInfo {
 impl UnitInfo {
     /// Create markdown documentation for the unit
     pub fn create_documentation(&self) -> String {
-        let mut content = format!("**{}** - {} unit\n\n{}", self.name, self.category, self.description);
+        let mut content = format!("### {}\n{} unit\n\n{}", self.name, self.category, self.description);
         
         if let Some(details) = self.details {
             content.push_str("\n\n");
@@ -216,7 +219,7 @@ pub struct FunctionInfo {
 impl FunctionInfo {
     /// Create markdown documentation for the function
     pub fn create_documentation(&self) -> String {
-        let mut content = format!("**{}()** - {} Function\n\n{}", self.name, self.category, self.description);
+        let mut content = format!("### {}()\n {} Function\n\n{}", self.name, self.category, self.description);
         
         content.push_str(&format!("\n\n**Syntax:** `{}`", self.syntax));
         
@@ -249,174 +252,6 @@ impl PseudoClassInfo {
             self.name, self.description, doc_url
         )
     }
-}
-
-/// Create pseudo-class information with documentation
-fn create_pseudo_class_info() -> HashMap<&'static str, PseudoClassInfo> {
-    let mut pseudo_classes = HashMap::new();
-
-    pseudo_classes.insert("hover", PseudoClassInfo {
-        name: "hover",
-        description: "Matches an element when the cursor is positioned over the element.",
-        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-    });
-
-    pseudo_classes.insert("active", PseudoClassInfo {
-        name: "active",
-        description: "Matches an element when a user interacts with the element.",
-        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-    });
-
-    pseudo_classes.insert("inactive", PseudoClassInfo {
-        name: "inactive",
-        description: "Matches an element when a user stops to interact with the element.",
-        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-    });
-
-    pseudo_classes.insert("focus", PseudoClassInfo {
-        name: "focus",
-        description: "Matches an element when the element has focus.",
-        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-    });
-
-    pseudo_classes.insert("disabled", PseudoClassInfo {
-        name: "disabled",
-        description: "Matches an element when the element is in a disabled state.",
-        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-    });
-
-    pseudo_classes.insert("enabled", PseudoClassInfo {
-        name: "enabled",
-        description: "Matches an element when the element is in an enabled state.",
-        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-    });
-
-    pseudo_classes.insert("checked", PseudoClassInfo {
-        name: "checked",
-        description: "Matches an element when the element is a Toggle or RadioButton element and it's selected.",
-        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-    });
-
-    pseudo_classes.insert("root", PseudoClassInfo {
-        name: "root",
-        description: "Matches an element when the element is the highest-level element in the visual tree that has the stylesheet applied.",
-        documentation_url: "https://docs.unity3d.com/{version}/Documentation/Manual/UIE-USS-Selectors-Pseudo-Classes.html".to_string(),
-    });
-
-    pseudo_classes
-}
-
-/// Create unit information with documentation
-fn create_unit_info() -> HashMap<&'static str, UnitInfo> {
-    let mut units = HashMap::new();
-
-    // Length units
-    units.insert("px", UnitInfo {
-        name: "px",
-        category: "Length",
-        description: "Absolute length unit representing device pixels.",
-        details: None,
-    });
-
-    units.insert("%", UnitInfo {
-        name: "%",
-        category: "Length",
-        description: "Relative unit based on the parent element's corresponding property.",
-        details: None,
-    });
-
-    // Angle units
-    units.insert("deg", UnitInfo {
-        name: "deg",
-        category: "Angle",
-        description: "Angle unit where 360deg = full rotation.",
-        details: None,
-    });
-
-    units.insert("rad", UnitInfo {
-        name: "rad",
-        category: "Angle",
-        description: "Angle unit where 2π rad = full rotation.",
-        details: None,
-    });
-
-    units.insert("grad", UnitInfo {
-        name: "grad",
-        category: "Angle",
-        description: "Angle unit where 400grad = full rotation.",
-        details: None,
-    });
-
-    units.insert("turn", UnitInfo {
-        name: "turn",
-        category: "Angle",
-        description: "Angle unit where 1turn = full rotation.",
-        details: None,
-    });
-
-    // Time units
-    units.insert("s", UnitInfo {
-        name: "s",
-        category: "Time",
-        description: "Time unit for durations and delays.",
-        details: None,
-    });
-
-    units.insert("ms", UnitInfo {
-        name: "ms",
-        category: "Time",
-        description: "Time unit for durations and delays.",
-        details: Some("1s = 1000ms"),
-    });
-
-    units
-}
-
-/// Create function information with documentation
-fn create_function_info() -> HashMap<&'static str, FunctionInfo> {
-    let mut functions = HashMap::new();
-
-    functions.insert("url", FunctionInfo {
-        name: "url",
-        category: "Resource",
-        description: "References an external resource by URL or file path.",
-        syntax: "url(\"path/to/resource\")",
-        details: Some("Supports project:// URLs and relative paths."),
-    });
-
-    functions.insert("resource", FunctionInfo {
-        name: "resource",
-        category: "Resource",
-        description: "References a Unity resource from the Resources folder.",
-        syntax: "resource(\"path/to/resource\")",
-        details: Some("The path should be relative to any Resources folder in your project."),
-    });
-
-    functions.insert("rgb", FunctionInfo {
-        name: "rgb",
-        category: "Color",
-        description: "Defines a color using red, green, and blue values.",
-        syntax: "rgb(red, green, blue)",
-        details: Some("Each component can be a number (0-255) or percentage (0%-100%)."),
-    });
-
-    functions.insert("rgba", FunctionInfo {
-        name: "rgba",
-        category: "Color",
-        description: "Defines a color using red, green, blue, and alpha values.",
-        syntax: "rgba(red, green, blue, alpha)",
-        details: Some("RGB components can be numbers (0-255) or percentages (0%-100%). Alpha is a decimal from 0.0 (transparent) to 1.0 (opaque)."),
-    });
-
-    functions.insert("var", FunctionInfo {
-        name: "var",
-        category: "Variable",
-        description: "References a custom CSS property (variable).",
-        syntax: "var(--property-name, fallback)",
-        details: Some("The fallback value is optional and used when the variable is not defined."),
-    });
-
-    functions
 }
 
 /// USS language definitions and validation data
