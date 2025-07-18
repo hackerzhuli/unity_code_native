@@ -5,7 +5,7 @@
 
 use tower_lsp::lsp_types::*;
 use tree_sitter::Node;
-use crate::language::asset_url::validate_url;
+use crate::language::asset_url::{validate_url, validate_url_complete};
 use crate::language::tree_utils::node_to_range;
 use crate::uss::function_node::FunctionNode;
 use crate::uss::uss_utils::convert_uss_string;
@@ -49,7 +49,8 @@ impl<'a> UrlFunctionNode<'a> {
         content: &str,
         mut diagnostics: Option<&mut Vec<Diagnostic>>,
         source_url: Option<&Url>,
-        url_references: Option<&mut Vec<UrlReference>>
+        url_references: Option<&mut Vec<UrlReference>>,
+        allow_theme_scheme: bool,
     ) -> Option<UrlFunctionNode<'a>> {
         // First validate as a general function
         let function_node = FunctionNode::from_node(node, content, diagnostics.as_deref_mut())?;
@@ -142,7 +143,7 @@ impl<'a> UrlFunctionNode<'a> {
         };
 
         if url_references.is_some(){
-            if let Ok(validation_result) =  validate_url(url_string.as_str(), source_url) {
+            if let Ok(validation_result) =  validate_url_complete(url_string.as_str(), source_url, allow_theme_scheme) {
                 let arg_range = node_to_range(arg_node, content);
                 url_references.unwrap().push(UrlReference {
                     url: validation_result.url.clone(),

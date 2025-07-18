@@ -14,8 +14,7 @@ fn test_valid_url_function() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
-
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
         assert!(result.is_some(), "Expected valid UrlFunctionNode");
 
@@ -38,7 +37,7 @@ fn test_url_function_with_single_quotes() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -64,7 +63,7 @@ fn test_url_function_with_escapes() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
         assert!(
             result.is_some(),
@@ -89,7 +88,7 @@ fn test_url_function_empty_string() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -116,7 +115,7 @@ fn test_non_url_function_rejected() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(result.is_none(), "Expected None for rgb() function");
@@ -135,7 +134,7 @@ fn test_url_function_no_arguments() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -163,7 +162,7 @@ fn test_url_function_too_many_arguments() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -191,7 +190,7 @@ fn test_url_function_non_string_argument() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -220,7 +219,7 @@ fn test_url_function_with_hex_escapes() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -246,7 +245,7 @@ fn test_url_function_with_plain_value() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -273,7 +272,7 @@ fn test_url_function_with_plain_value_path() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -301,7 +300,7 @@ fn test_url_function_with_plain_value_escapes() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         // This should fail because the parser treats escaped spaces as separate tokens
@@ -338,7 +337,7 @@ fn test_url_function_with_quoted_string_escapes() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -370,7 +369,7 @@ fn test_url_function_with_plain_value_simple_escapes() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
 
         assert!(
@@ -402,7 +401,7 @@ fn test_url_function_with_plain_value_dot_escapes() {
 
     if let Some(call_node) = find_node_by_type(root, NODE_CALL_EXPRESSION) {
         let mut diagnostics = Vec::new();
-        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None);
+        let result = UrlFunctionNode::from_node(call_node, source, Some(&mut diagnostics), None, None, false);
 
         assert!(
             result.is_some(),

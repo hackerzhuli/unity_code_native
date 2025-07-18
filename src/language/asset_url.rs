@@ -106,6 +106,16 @@ impl AssetValidationResult {
 /// assert!(validate_url("https://example.com/image.png", None).is_err());
 /// ```
 pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<AssetValidationResult, AssetValidationError> {
+    validate_url_complete(url, base_url, false)
+}
+
+/// Similar to validate url but allows the theme scheme, used in import url validations
+pub fn validate_url_import(url: &str, base_url: Option<&Url>) -> Result<AssetValidationResult, AssetValidationError> {
+    validate_url_complete(url, base_url, true)
+}
+
+/// validate url
+pub fn validate_url_complete(url: &str, base_url: Option<&Url>, allow_theme_scheme: bool) -> Result<AssetValidationResult, AssetValidationError> {
     // Check if the URL path is empty
     if url.is_empty() {
         return Err(AssetValidationError::new("URL cannot be empty"));
@@ -131,7 +141,7 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<AssetValidation
         Ok(parsed_url) => {
             // Check for additional issues that might be errors or warnings
             let mut warnings = Vec::new();
-            
+        
             // Check for errors first
             if let Some(additional_result) = additional_error(url, &effective_base) {
                 match additional_result {
@@ -168,6 +178,8 @@ pub fn validate_url(url: &str, base_url: Option<&Url>) -> Result<AssetValidation
                 //     return Err(AssetValidationError::new(format!("Asset path should start with `/Assets/` or `/Packages/` :`{}`, this is likely an error", path)));
                 // }
 
+                Ok(AssetValidationResult::with_warnings(parsed_url, warnings))
+            } else if allow_theme_scheme && scheme == "theme" {
                 Ok(AssetValidationResult::with_warnings(parsed_url, warnings))
             } else {
                 Err(AssetValidationError::new(format!(

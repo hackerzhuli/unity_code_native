@@ -124,7 +124,7 @@ impl UssHoverProvider {
         unity_manager: &UnityProjectManager,
         source_url: Option<&Url>,
     ) -> Option<Hover> {
-        let url_function = UrlFunctionNode::from_node(call_node, source, None, source_url, None)?;
+        let url_function = UrlFunctionNode::from_node(call_node, source, None, source_url, None, false)?;
         
         let mut content = format!("**url()**\n\n");
 
@@ -164,7 +164,7 @@ impl UssHoverProvider {
             }
             NODE_CALL_EXPRESSION => {
                 // This should be a url() function
-                let url_function = UrlFunctionNode::from_node(node, source, None, None, None)?;
+                let url_function = UrlFunctionNode::from_node(node, source, None, None, None, false)?;
                 Some(url_function.url().to_string())
             }
             _ => None,

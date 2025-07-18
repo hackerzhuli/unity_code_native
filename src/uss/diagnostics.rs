@@ -938,6 +938,7 @@ impl UssDiagnostics {
             Some(diagnostics),
             source_url,
             Some(url_references),
+            true
         ) {
             // Validate the URL and add to references
             match validate_url(url_function_node.url(), source_url) {
@@ -1136,20 +1137,8 @@ impl UssDiagnostics {
                                 }
 
                                 // Check for .uss extension warning
-                                if !validation_result.url.path().ends_with(".uss") {
-                                    let range = node_to_range(value_node, content);
-                                    diagnostics.push(Diagnostic {
-                                        range,
-                                        severity: Some(DiagnosticSeverity::WARNING),
-                                        code: Some(NumberOrString::String(
-                                            "missing-uss-extension".to_string(),
-                                        )),
-                                        source: Some("uss".to_string()),
-                                        message: "Import path should have .uss extension"
-                                            .to_string(),
-                                        ..Default::default()
-                                    });
-                                }
+                                let path = validation_result.url.path();
+                                check_extension(content, diagnostics, value_node, path);
                             }
                         }
                     }
@@ -1208,6 +1197,24 @@ impl UssDiagnostics {
                 });
             }
         }
+    }
+}
+
+fn check_extension(content: &str, diagnostics: &mut Vec<Diagnostic>, value_node: Node<'_>, path: &str) {
+    let lower_path = path.to_lowercase();
+    if !lower_path.ends_with(".uss") && !lower_path.ends_with(".tss") {
+        let range = node_to_range(value_node, content);
+        diagnostics.push(Diagnostic {
+            range,
+            severity: Some(DiagnosticSeverity::WARNING),
+            code: Some(NumberOrString::String(
+                "missing-uss-extension".to_string(),
+            )),
+            source: Some("uss".to_string()),
+            message: "Import path should have .uss or .tss extension"
+                .to_string(),
+            ..Default::default()
+        });
     }
 }
 
