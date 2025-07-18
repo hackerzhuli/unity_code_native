@@ -390,6 +390,12 @@ impl UssDefinitions {
         Color::from_hex(hex_value).map(|color| color.rgb())
     }
 
+    /// Get hex value for a color keyword
+    /// Returns the hex string (e.g., "#ff0000" for "red")
+    pub fn get_color_hex(&self, color: &str) -> Option<&'static str> {
+        self.valid_color_keywords.get(color).copied()
+    }
+
     /// Check if a unit is valid
     pub fn is_valid_unit(&self, unit: &str) -> bool {
         self.valid_units.contains(unit)

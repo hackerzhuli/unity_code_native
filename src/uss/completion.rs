@@ -458,16 +458,11 @@ impl UssCompletionProvider {
                 };
 
                 // Add color information for VS Code color preview
-                if let Some((r, g, b)) = self.definitions.get_color_rgb(value) {
-                    // Set the color information that VS Code can use for color preview
-                    item.data = Some(serde_json::json!({
-                        "color": {
-                            "red": r as f64 / 255.0,
-                            "green": g as f64 / 255.0,
-                            "blue": b as f64 / 255.0,
-                            "alpha": 1.0
-                        }
-                    }));
+                // VS Code looks at the detail property for hex values to show color preview
+                if kind == CompletionItemKind::COLOR {
+                    if let Some(hex_value) = self.definitions.get_color_hex(value) {
+                        item.detail = Some(hex_value.to_string());
+                    }
                 }
                 items.push(item);
             }
