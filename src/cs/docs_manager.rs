@@ -7,7 +7,6 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
-use anyhow::{Result, Context, anyhow};
 use tokio::fs;
 use regex::Regex;
 
@@ -21,6 +20,7 @@ use crate::cs::{
     docs_compiler::{DocsCompiler, DocsAssembly, DOCS_ASSEMBLY_VERSION}
 };
 use crate::cs::compile_utils::normalize_symbol_name;
+use crate::cs::error::{CsResult, CsError, IoContext, JsonContext};
 
 /// Cached documentation assembly with timestamp
 #[derive(Debug, Clone)]
@@ -73,7 +73,7 @@ pub struct CsDocsManager {
 
 impl CsDocsManager {
     /// Create a new CS documentation manager for the given Unity project
-    pub fn new(unity_project_root: PathBuf) -> Result<Self> {
+    pub fn new(unity_project_root: PathBuf) -> CsResult<Self> {
         let package_manager = UnityPackageManager::new(unity_project_root.clone());
         let assembly_manager = AssemblyManager::new(unity_project_root.clone());
         let docs_compiler = DocsCompiler::new()?;
@@ -104,7 +104,7 @@ impl CsDocsManager {
         symbol_name: &str,
         assembly_name: Option<&str>,
         source_file_path: Option<&Path>,
-    ) -> Result<DocResult> {
+    ) -> CsResult<DocResult> {
         // Determine which assembly to search
         let target_assembly_name = if let Some(name) = assembly_name {
             name.to_string()
@@ -113,10 +113,10 @@ impl CsDocsManager {
             if let Some(assembly_name) = self.find_assembly_for_source_file(source_path).await? {
                 assembly_name
             } else {
-                return Err(anyhow!("Source file not found in any assembly: {:?}", source_path)); // Source file not found in any assembly
+                return Err(CsError::SourceFileNotFound { path: source_path.to_path_buf() });
             }
         } else {
-            return Err(anyhow!("No assembly or source file specified")); // No assembly or source file specified
+            return Err(CsError::NoAssemblySpecified);
         };
         
         // Get documentation for the assembly
@@ -126,14 +126,17 @@ impl CsDocsManager {
         if let Some(docs) = docs_assembly {
             let normalized_symbol_name = normalize_symbol_name(symbol_name);
             self.find_symbol_with_inheritdoc(&docs, normalized_symbol_name.as_str())
-                .ok_or_else(|| anyhow!("Symbol '{}' not found in assembly '{}'", normalized_symbol_name, target_assembly_name))
+                .ok_or_else(|| CsError::SymbolNotFound { 
+                    symbol: normalized_symbol_name.clone(), 
+                    assembly: target_assembly_name.clone() 
+                })
         } else {
-            Err(anyhow!("No documentation available for assembly '{}'", target_assembly_name))
+            Err(CsError::NoDocumentationAvailable { assembly: target_assembly_name })
         }
     }
     
     /// Find assembly name that contains the given source file path
-    async fn find_assembly_for_source_file(&mut self, source_file_path: &Path) -> Result<Option<String>> {
+    async fn find_assembly_for_source_file(&mut self, source_file_path: &Path) -> CsResult<Option<String>> {
         // Ensure assemblies are discovered
         self.discover_assemblies().await?;
         
@@ -154,7 +157,7 @@ impl CsDocsManager {
 
     
     /// Get documentation for a specific assembly, using cache when possible
-    async fn get_docs_for_assembly(&mut self, assembly_name: &str) -> Result<Option<DocsAssembly>> {
+    async fn get_docs_for_assembly(&mut self, assembly_name: &str) -> CsResult<Option<DocsAssembly>> {
         // Check if we need to update assemblies
         self.discover_assemblies().await?;
         self.assembly_manager.update().await?;
@@ -185,7 +188,7 @@ impl CsDocsManager {
     }
     
     /// Check if cached documentation is available and up-to-date
-    async fn get_cached_docs(&mut self, assembly_name: &str) -> Result<Option<DocsAssembly>> {
+    async fn get_cached_docs(&mut self, assembly_name: &str) -> CsResult<Option<DocsAssembly>> {
         // First check in-memory cache
         let cached_time = if let Some(cached) = self.docs_cache.get(assembly_name) {
             Some((cached.docs.clone(), cached.cached_at))
@@ -205,12 +208,18 @@ impl CsDocsManager {
         // Check JSON file cache
         let json_path = self.get_docs_json_path(assembly_name);
         if json_path.exists() {
-            let json_metadata = fs::metadata(&json_path).await?;
-            let json_modified = json_metadata.modified()?;
+            let json_metadata = fs::metadata(&json_path).await
+                .with_io_context("Failed to get JSON metadata")?;
+            let json_modified = json_metadata.modified()
+                .map_err(|e| CsError::Metadata {
+                    file: json_path.clone(),
+                    message: format!("Failed to get JSON modified time: {}", e),
+                })?;
             
             if self.is_cache_valid(assembly_name, json_modified).await? {
                 // Load from JSON file
-                let content = fs::read_to_string(&json_path).await?;
+                let content = fs::read_to_string(&json_path).await
+                    .with_io_context("Failed to read JSON file")?;
                 match serde_json::from_str::<DocsAssembly>(&content) {
                     Ok(docs_assembly) => {
                         // Check version compatibility
@@ -241,7 +250,7 @@ impl CsDocsManager {
     }
     
     /// Check if cache is valid by comparing with compiled assembly modification time
-    async fn is_cache_valid(&mut self, assembly_name: &str, cache_time: SystemTime) -> Result<bool> {
+    async fn is_cache_valid(&mut self, assembly_name: &str, cache_time: SystemTime) -> CsResult<bool> {
         // Find the compiled assembly
         let compiled_assemblies = self.assembly_manager.get_assemblies();
         if let Some(compiled_assembly) = compiled_assemblies.iter().find(|a| a.name == assembly_name) {
@@ -253,7 +262,7 @@ impl CsDocsManager {
     }
     
     /// Cache documentation assembly to both memory and JSON file
-    async fn cache_docs(&mut self, docs_assembly: &DocsAssembly) -> Result<()> {
+    async fn cache_docs(&mut self, docs_assembly: &DocsAssembly) -> CsResult<()> {
         let now = SystemTime::now();
         
         // Cache in memory
@@ -263,14 +272,15 @@ impl CsDocsManager {
         });
         
         // Ensure docs directory exists
-        fs::create_dir_all(&self.docs_assemblies_dir).await?;
+        fs::create_dir_all(&self.docs_assemblies_dir).await
+            .with_io_context("Failed to create docs directory")?;
         
         // Save to JSON file
         let json_path = self.get_docs_json_path(&docs_assembly.assembly_name);
         let json_content = serde_json::to_string_pretty(docs_assembly)
-            .context("Failed to serialize docs assembly")?;
+            .with_json_context("Failed to serialize docs assembly")?;
         fs::write(&json_path, json_content).await
-            .context("Failed to write docs assembly JSON")?;
+            .with_io_context("Failed to write docs assembly JSON")?;
         
         Ok(())
     }
@@ -427,21 +437,19 @@ impl CsDocsManager {
     }
 
     /// Find all assemblies and their source files
-    async fn discover_assemblies(&mut self) -> Result<()> {
+    async fn discover_assemblies(&mut self) -> CsResult<()> {
         // Clear existing assemblies
         self.assemblies.clear();
 
         // Find user code assemblies from .csproj files
-        let user_assemblies = self.find_user_assemblies().await
-            .context("Failed to find user assemblies")?;
+        let user_assemblies = self.find_user_assemblies().await?;
         
         for assembly in user_assemblies {
             self.assemblies.insert(assembly.name.clone(), assembly);
         }
 
         // Find package assemblies using the package manager
-        self.package_manager.update().await
-            .context("Failed to find package assemblies")?;
+        self.package_manager.update().await?;
         
         for package in self.package_manager.get_packages() {
             for assembly in package.assemblies {
@@ -453,21 +461,24 @@ impl CsDocsManager {
     }
     
     /// Find user code assemblies from .csproj files in the project root with efficient caching
-    async fn find_user_assemblies(&mut self) -> Result<Vec<SourceAssembly>> {
+    async fn find_user_assemblies(&mut self) -> CsResult<Vec<SourceAssembly>> {
         let mut all_assemblies = Vec::new();
         
         // Read all .csproj files in the project root
         let mut entries = fs::read_dir(&self.unity_project_root).await
-            .context("Failed to read Unity project directory")?;
+            .with_io_context("Failed to read Unity project directory")?;
         
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("csproj") {
                 // Check if we can use cached data
                 let metadata = fs::metadata(&path).await
-                    .context("Failed to get .csproj file metadata")?;
+                    .with_io_context("Failed to get .csproj file metadata")?;
                 let last_modified = metadata.modified()
-                    .context("Failed to get .csproj file modification time")?;
+                    .map_err(|e| CsError::Metadata {
+                        file: path.clone(),
+                        message: format!("Failed to get .csproj file modification time: {}", e),
+                    })?;
                 
                 // Check cache for this file
                 let use_cache = if let Some(cached_entry) = self.csproj_cache.get(&path) {

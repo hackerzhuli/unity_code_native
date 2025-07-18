@@ -4,7 +4,6 @@
 //! It uses tree-sitter to parse C# source files and extract XML documentation comments.
 
 use std::path::{Path, PathBuf};
-use anyhow::{Result, Context, anyhow};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tree_sitter::{Parser, Node};
@@ -14,6 +13,7 @@ use crate::language::tree_utils::has_error_nodes;
 use super::source_assembly::SourceAssembly;
 use super::compile_utils::{normalize_type_name, normalize_member_name};
 use super::constants::*;
+use super::error::{CsResult, CsError, IoContext};
 
 /// Current version of the DocsAssembly data structure
 pub const DOCS_ASSEMBLY_VERSION: u32 = 1;
@@ -72,17 +72,20 @@ impl std::fmt::Debug for DocsCompiler {
 
 impl DocsCompiler {
     /// Create a new documentation compiler
-    pub fn new() -> Result<Self> {
+    pub fn new() -> CsResult<Self> {
         let mut parser = Parser::new();
         let language = tree_sitter_c_sharp::language();
         parser.set_language(language)
-            .map_err(|e| anyhow!("Failed to set C# language: {}", e))?;
+            .map_err(|e| CsError::Parse {
+                file: PathBuf::from("<unknown>"),
+                message: format!("Failed to set C# language: {}", e),
+            })?;
         
         Ok(Self { parser })
     }
     
     /// Compile documentation for a source assembly
-    pub async fn compile_assembly(&mut self, assembly: &SourceAssembly, unity_project_root: &Path, include_non_public: bool) -> Result<DocsAssembly> {
+    pub async fn compile_assembly(&mut self, assembly: &SourceAssembly, unity_project_root: &Path, include_non_public: bool) -> CsResult<DocsAssembly> {
         let source_files = self.get_assembly_source_files(assembly, unity_project_root).await?;
         let mut merged_types: std::collections::HashMap<String, TypeDoc> = std::collections::HashMap::new();
         
@@ -133,15 +136,21 @@ impl DocsCompiler {
     }
     
     /// Extract documentation from a single C# source file
-    async fn extract_docs_from_file(&mut self, file_path: &Path, include_non_public: bool) -> Result<Vec<TypeDoc>> {
+    async fn extract_docs_from_file(&mut self, file_path: &Path, include_non_public: bool) -> CsResult<Vec<TypeDoc>> {
         let content = fs::read_to_string(file_path).await
-            .context("Failed to read source file")?;
+            .with_io_context("Failed to read source file")?;
         
         let tree = self.parser.parse(&content, None)
-            .ok_or_else(|| anyhow!("Failed to parse C# file: {:?}", file_path))?;
+            .ok_or_else(|| CsError::Parse {
+                file: file_path.to_path_buf(),
+                message: "Failed to parse C# file".to_string(),
+            })?;
 
         if has_error_nodes(tree.root_node()){
-            return Err(anyhow!("There are syntax erros in C# file: {:?}", file_path));
+            return Err(CsError::Parse {
+                file: file_path.to_path_buf(),
+                message: "There are syntax errors in C# file".to_string(),
+            });
         }
         
         // Extract using directives from the file
@@ -162,12 +171,16 @@ impl DocsCompiler {
         types: &mut Vec<TypeDoc>,
         namespace_prefix: String,
         using_namespaces: &[String],
-    ) -> Result<()> {
+    ) -> CsResult<()> {
         match node.kind() {
             NAMESPACE_DECLARATION => {
                 // Extract namespace name and recurse into it
                 if let Some(name_node) = node.child_by_field_name(NAME_FIELD) {
-                    let namespace_name = name_node.utf8_text(source.as_bytes())?;
+                    let namespace_name = name_node.utf8_text(source.as_bytes())
+                        .map_err(|e| CsError::Parse {
+                            file: PathBuf::from("<unknown>"),
+                            message: format!("Failed to extract namespace name: {}", e),
+                        })?;
                     let new_prefix = if namespace_prefix.is_empty() {
                         namespace_name.to_string()
                     } else {
@@ -207,11 +220,18 @@ impl DocsCompiler {
         include_non_public: bool,
         namespace_prefix: &str,
         using_namespaces: &[String],
-    ) -> Result<Option<TypeDoc>> {
+    ) -> CsResult<Option<TypeDoc>> {
         // Get type name
         let name_node = node.child_by_field_name(NAME_FIELD)
-            .ok_or_else(|| anyhow!("Type declaration missing name"))?;
-        let type_name = name_node.utf8_text(source.as_bytes())?;
+            .ok_or_else(|| CsError::Parse {
+                file: PathBuf::from("<unknown>"),
+                message: "Type declaration missing name".to_string(),
+            })?;
+        let type_name = name_node.utf8_text(source.as_bytes())
+            .map_err(|e| CsError::Parse {
+                file: PathBuf::from("<unknown>"),
+                message: format!("Failed to extract type name: {}", e),
+            })?;
         
         // Check if type is public
         let is_public = self.is_public_declaration(node, source)?;
@@ -259,7 +279,7 @@ impl DocsCompiler {
         node: Node,
         source: &str,
         include_non_public: bool,
-    ) -> Result<Option<MemberDoc>> {
+    ) -> CsResult<Option<MemberDoc>> {
         match node.kind() {
             METHOD_DECLARATION | PROPERTY_DECLARATION | FIELD_DECLARATION | EVENT_DECLARATION => {
                 let is_public = self.is_public_declaration(node, source)?;
@@ -271,7 +291,10 @@ impl DocsCompiler {
                 
                 // Get member name and normalize it
                 let name = normalize_member_name(node, source)
-                    .ok_or_else(|| anyhow!("Failed to normalize member name for node at {}", node.start_position().row))?;
+                    .ok_or_else(|| CsError::Parse {
+                        file: PathBuf::from("<unknown>"),
+                        message: format!("Failed to normalize member name for node at {}", node.start_position().row),
+                    })?;
                 let xml_doc = self.extract_xml_doc_comment(node, source)?;
                 
                 // Skip members without XML documentation
@@ -290,11 +313,15 @@ impl DocsCompiler {
     }
     
     /// Check if a declaration is public
-    fn is_public_declaration(&self, node: Node, source: &str) -> Result<bool> {
+    fn is_public_declaration(&self, node: Node, source: &str) -> CsResult<bool> {
         // Look for modifier children (Tree-sitter C# uses "modifier" not "modifiers")
         for child in node.children(&mut node.walk()) {
             if child.kind() == MODIFIER {
-                let modifier_text = child.utf8_text(source.as_bytes())?;
+                let modifier_text = child.utf8_text(source.as_bytes())
+                    .map_err(|e| CsError::Parse {
+                        file: PathBuf::from("<unknown>"),
+                        message: format!("Failed to extract modifier text: {}", e),
+                    })?;
                 if modifier_text.trim() == PUBLIC_MODIFIER {
                     return Ok(true);
                 }
@@ -306,7 +333,7 @@ impl DocsCompiler {
     }
     
     /// Extract using directives from the compilation unit
-    fn extract_using_directives(&self, root_node: Node, source: &str) -> Result<Vec<String>> {
+    fn extract_using_directives(&self, root_node: Node, source: &str) -> CsResult<Vec<String>> {
         let mut using_namespaces = Vec::new();
         
         // Walk through all children of the root node to find using directives
@@ -316,7 +343,11 @@ impl DocsCompiler {
                 // The tree-sitter C# grammar uses child nodes like 'identifier' and 'qualified_name'
                 for grandchild in child.children(&mut child.walk()) {
                     if grandchild.kind() == QUALIFIED_NAME || grandchild.kind() == IDENTIFIER {
-                        let namespace_name = grandchild.utf8_text(source.as_bytes())?;
+                        let namespace_name = grandchild.utf8_text(source.as_bytes())
+                            .map_err(|e| CsError::Parse {
+                                file: PathBuf::from("<unknown>"),
+                                message: format!("Failed to extract using directive: {}", e),
+                            })?;
                         using_namespaces.push(namespace_name.to_string());
                         break;
                     }
@@ -328,14 +359,18 @@ impl DocsCompiler {
     }
     
     /// Extract XML documentation comment preceding a node
-    fn extract_xml_doc_comment(&self, node: Node, source: &str) -> Result<String> {
+    fn extract_xml_doc_comment(&self, node: Node, source: &str) -> CsResult<String> {
         let mut xml_doc = String::new();
         
         // Look for preceding comment nodes
         let mut current = node;
         while let Some(prev) = current.prev_sibling() {
             if prev.kind() == COMMENT {
-                let comment_text = prev.utf8_text(source.as_bytes())?;
+                let comment_text = prev.utf8_text(source.as_bytes())
+                    .map_err(|e| CsError::Parse {
+                        file: PathBuf::from("<unknown>"),
+                        message: format!("Failed to extract comment text: {}", e),
+                    })?;
                 if comment_text.trim_start().starts_with("///") {
                     // This is an XML doc comment
                     let doc_line = comment_text.trim_start().strip_prefix("///")
@@ -359,7 +394,7 @@ impl DocsCompiler {
     }
     
     /// Get source files for an assembly on-demand based on its source_location
-    pub async fn get_assembly_source_files(&self, assembly: &SourceAssembly, unity_project_root: &Path) -> Result<Vec<PathBuf>> {
+    pub async fn get_assembly_source_files(&self, assembly: &SourceAssembly, unity_project_root: &Path) -> CsResult<Vec<PathBuf>> {
         let source_location = &assembly.source_location;
         
         if let Some(extension) = source_location.extension().and_then(|s| s.to_str()) {
@@ -367,9 +402,12 @@ impl DocsCompiler {
                 "csproj" => {
                     // Read source files from .csproj file
                     let content = fs::read_to_string(source_location).await
-                        .context("Failed to read .csproj file")?;
+                        .with_io_context("Failed to read .csproj file")?;
                     extract_compile_items(&content, unity_project_root)
-                        .context("Failed to extract compile items from .csproj")
+                        .map_err(|e| CsError::Parse {
+                            file: source_location.to_path_buf(),
+                            message: format!("Failed to extract compile items from .csproj: {}", e),
+                        })
                 },
                 "asmdef" => {
                     // Find .cs files in the directory containing the .asmdef file

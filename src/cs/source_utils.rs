@@ -5,9 +5,9 @@
 //! 2. Package code: .asmdef files in Library/PackageCache
 
 use std::path::{Path, PathBuf};
-use anyhow::{Result, Context, anyhow};
 use tokio::fs;
 use super::source_assembly::SourceAssembly;
+use super::error::{CsResult, CsError, IoContext};
 
 /// Normalize a path for comparison by removing Windows UNC prefix if present
 pub fn normalize_path_for_comparison(path: &Path) -> PathBuf {
@@ -21,13 +21,15 @@ pub fn normalize_path_for_comparison(path: &Path) -> PathBuf {
 }
 
 /// Parse a single .csproj file to extract assembly information
-pub async fn parse_csproj_file(csproj_path: &Path) -> Result<SourceAssembly> {
+pub async fn parse_csproj_file(csproj_path: &Path) -> CsResult<SourceAssembly> {
     let content = fs::read_to_string(csproj_path).await
-        .context("Failed to read .csproj file")?;
+        .with_io_context("Failed to read .csproj file")?;
     
     // Parse XML to extract AssemblyName
     let assembly_name = extract_assembly_name(&content)
-        .ok_or_else(|| anyhow!("Could not find AssemblyName in .csproj file"))?;
+        .ok_or_else(|| CsError::XmlParsing {
+            message: "Could not find AssemblyName in .csproj file".to_string(),
+        })?;
     
     Ok(SourceAssembly {
         name: assembly_name,
@@ -49,12 +51,12 @@ pub fn extract_assembly_name(content: &str) -> Option<String> {
 }
 
 /// Find user assemblies from .csproj files in the Unity project root
-pub async fn find_user_assemblies(unity_project_root: &Path) -> Result<Vec<SourceAssembly>> {
+pub async fn find_user_assemblies(unity_project_root: &Path) -> CsResult<Vec<SourceAssembly>> {
     let mut assemblies = Vec::new();
     
     // Read all .csproj files in the project root
     let mut entries = fs::read_dir(unity_project_root).await
-        .context("Failed to read Unity project directory")?;
+        .with_io_context("Failed to read Unity project directory")?;
     
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
@@ -69,7 +71,7 @@ pub async fn find_user_assemblies(unity_project_root: &Path) -> Result<Vec<Sourc
 }
 
 /// Get source files for an assembly on-demand based on its source_location
-pub async fn get_assembly_source_files(assembly: &SourceAssembly, unity_project_root: &Path) -> Result<Vec<PathBuf>> {
+pub async fn get_assembly_source_files(assembly: &SourceAssembly, unity_project_root: &Path) -> CsResult<Vec<PathBuf>> {
     let source_location = &assembly.source_location;
     
     if let Some(extension) = source_location.extension().and_then(|s| s.to_str()) {
@@ -77,9 +79,8 @@ pub async fn get_assembly_source_files(assembly: &SourceAssembly, unity_project_
             "csproj" => {
                 // Read source files from .csproj file
                 let content = fs::read_to_string(source_location).await
-                    .context("Failed to read .csproj file")?;
+                    .with_io_context("Failed to read .csproj file")?;
                 extract_compile_items(&content, unity_project_root)
-                    .context("Failed to extract compile items from .csproj")
             },
             "asmdef" => {
                 // Find .cs files in the directory containing the .asmdef file
@@ -97,12 +98,12 @@ pub async fn get_assembly_source_files(assembly: &SourceAssembly, unity_project_
 }
 
 /// Recursively find all .cs files in a directory and return absolute paths
-pub fn find_cs_files_in_dir<'a>(dir: &'a Path, unity_project_root: &'a Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<PathBuf>>> + 'a>> {
+pub fn find_cs_files_in_dir<'a>(dir: &'a Path, unity_project_root: &'a Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = CsResult<Vec<PathBuf>>> + 'a>> {
     Box::pin(async move {
         let mut cs_files = Vec::new();
         
         let mut entries = fs::read_dir(dir).await
-            .context("Failed to read directory")?;
+            .with_io_context("Failed to read directory")?;
         
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
@@ -126,7 +127,7 @@ pub fn find_cs_files_in_dir<'a>(dir: &'a Path, unity_project_root: &'a Path) -> 
 }
 
 /// Extract Compile items from .csproj XML content
-pub fn extract_compile_items(content: &str, unity_project_root: &Path) -> Result<Vec<PathBuf>> {
+pub fn extract_compile_items(content: &str, unity_project_root: &Path) -> CsResult<Vec<PathBuf>> {
     let mut source_files = Vec::new();
     
     // Find all <Compile Include="path" /> items

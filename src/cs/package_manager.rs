@@ -5,10 +5,10 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use anyhow::{Result, Context};
 use serde::Deserialize;
 use tokio::fs;
 use super::source_assembly::SourceAssembly;
+use super::error::{CsResult, CsError, IoContext, JsonContext};
 
 /// Package information from packages-lock.json
 #[derive(Debug, Deserialize, Clone)]
@@ -80,7 +80,7 @@ impl UnityPackageManager {
     }
 
     /// Find all package assemblies, using cache when possible
-    pub async fn update(&mut self) -> Result<()> {
+    pub async fn update(&mut self) -> CsResult<()> {
         // Load packages-lock.json to validate packages
         let packages_lock = self.load_packages_lock().await?;
         
@@ -95,7 +95,7 @@ impl UnityPackageManager {
         }
 
         let mut cache_entries = fs::read_dir(&self.package_cache_dir).await
-            .context("Failed to read PackageCache directory")?;
+            .with_io_context("Failed to read PackageCache directory")?;
 
         while let Some(entry) = cache_entries.next_entry().await? {
             let package_dir = entry.path();
@@ -119,34 +119,40 @@ impl UnityPackageManager {
     }
 
     /// Check if packages-lock.json has been modified
-    async fn should_refresh_packages_lock(&self) -> Result<bool> {
+    async fn should_refresh_packages_lock(&self) -> CsResult<bool> {
         if !self.packages_lock_path.exists() {
             return Ok(false);
         }
 
         let metadata = fs::metadata(&self.packages_lock_path).await
-            .context("Failed to get packages-lock.json metadata")?;
+            .with_io_context("Failed to get packages-lock.json metadata")?;
         
         let current_modified = metadata.modified()
-            .context("Failed to get packages-lock.json modified time")?;
+            .map_err(|e| CsError::Metadata {
+                file: self.packages_lock_path.clone(),
+                message: format!("Failed to get packages-lock.json modified time: {}", e),
+            })?;
 
         Ok(self.packages_lock_modified.map_or(true, |last| current_modified > last))
     }
 
     /// Update the stored timestamp for packages-lock.json
-    async fn update_packages_lock_timestamp(&mut self) -> Result<()> {
+    async fn update_packages_lock_timestamp(&mut self) -> CsResult<()> {
         if self.packages_lock_path.exists() {
             let metadata = fs::metadata(&self.packages_lock_path).await
-                .context("Failed to get packages-lock.json metadata")?;
+                .with_io_context("Failed to get packages-lock.json metadata")?;
             
             self.packages_lock_modified = Some(metadata.modified()
-                .context("Failed to get packages-lock.json modified time")?);
+                .map_err(|e| CsError::Metadata {
+                    file: self.packages_lock_path.clone(),
+                    message: format!("Failed to get packages-lock.json modified time: {}", e),
+                })?);
         }
         Ok(())
     }
 
     /// Load packages-lock.json file
-    async fn load_packages_lock(&self) -> Result<PackageLockFile> {
+    async fn load_packages_lock(&self) -> CsResult<PackageLockFile> {
         if !self.packages_lock_path.exists() {
             return Ok(PackageLockFile {
                 dependencies: HashMap::new(),
@@ -154,14 +160,14 @@ impl UnityPackageManager {
         }
 
         let content = fs::read_to_string(&self.packages_lock_path).await
-            .context("Failed to read packages-lock.json")?;
+            .with_io_context("Failed to read packages-lock.json")?;
         
         serde_json::from_str(&content)
-            .context("Failed to parse packages-lock.json")
+            .with_json_context("Failed to parse packages-lock.json")
     }
 
     /// Invalidate cache entries for packages that are no longer in packages-lock.json
-    async fn invalidate_removed_packages(&mut self, packages_lock: &PackageLockFile) -> Result<()> {
+    async fn invalidate_removed_packages(&mut self, packages_lock: &PackageLockFile) -> CsResult<()> {
         let mut packages_to_remove = Vec::new();
         
         // Find cached packages that are no longer in packages-lock.json
@@ -184,7 +190,7 @@ impl UnityPackageManager {
         &mut self,
         package_dir: &Path,
         packages_lock: &PackageLockFile,
-    ) -> Result<()> {
+    ) -> CsResult<()> {
         // Read package.json to get the actual package name and version
         let package_json_path = package_dir.join("package.json");
         if !package_json_path.exists() {
@@ -192,10 +198,10 @@ impl UnityPackageManager {
         }
 
         let package_json_content = fs::read_to_string(&package_json_path).await
-            .context("Failed to read package.json")?;
+            .with_io_context("Failed to read package.json")?;
         
         let package_json: PackageJson = serde_json::from_str(&package_json_content)
-            .context("Failed to parse package.json")?;
+            .with_json_context("Failed to parse package.json")?;
 
         // Check if this package is included in packages-lock.json
         if !packages_lock.dependencies.contains_key(&package_json.name) {
@@ -221,12 +227,12 @@ impl UnityPackageManager {
     }
 
     /// Discover assemblies in a specific package directory
-    async fn discover_assemblies_in_package(&self, package_dir: &Path) -> Result<Vec<SourceAssembly>> {
+    async fn discover_assemblies_in_package(&self, package_dir: &Path) -> CsResult<Vec<SourceAssembly>> {
         let mut assemblies = Vec::new();
         
         // Only look at top-level directories for .asmdef files (not recursive)
         let mut entries = fs::read_dir(package_dir).await
-            .context("Failed to read package directory")?;
+            .with_io_context("Failed to read package directory")?;
         
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
@@ -248,12 +254,12 @@ impl UnityPackageManager {
     }
 
     /// Parse an .asmdef file to extract assembly information
-    async fn parse_asmdef_file(&self, asmdef_path: &Path, _package_dir: &Path) -> Result<SourceAssembly> {
+    async fn parse_asmdef_file(&self, asmdef_path: &Path, _package_dir: &Path) -> CsResult<SourceAssembly> {
         let content = fs::read_to_string(asmdef_path).await
-            .context("Failed to read .asmdef file")?;
+            .with_io_context("Failed to read .asmdef file")?;
         
         let asmdef: AsmDefFile = serde_json::from_str(&content)
-            .context("Failed to parse .asmdef file")?;
+            .with_json_context("Failed to parse .asmdef file")?;
     
         Ok(SourceAssembly {
             name: asmdef.name,

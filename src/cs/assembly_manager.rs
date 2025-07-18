@@ -4,9 +4,9 @@
 //! and tracking changes based on file modification times.
 
 use std::path::{Path, PathBuf};
-use anyhow::{Result, Context};
 use tokio::fs;
 use std::collections::HashMap;
+use super::error::{CsResult, CsError, IoContext};
 
 /// Information about a compiled assembly
 #[derive(Debug, Clone)]
@@ -41,14 +41,14 @@ impl AssemblyManager {
 
     /// Update the assembly cache by scanning for compiled assemblies
     /// This method checks for new or modified assemblies and updates the internal cache
-    pub async fn update(&mut self) -> Result<()> {
+    pub async fn update(&mut self) -> CsResult<()> {
         if !self.script_assemblies_dir.exists() {
             self.cached_assemblies.clear();
             return Ok(());
         }
         
         let mut entries = fs::read_dir(&self.script_assemblies_dir).await
-            .context("Failed to read ScriptAssemblies directory")?;
+            .with_io_context("Failed to read ScriptAssemblies directory")?;
         
         let mut current_assemblies = HashMap::new();
         
@@ -89,16 +89,21 @@ impl AssemblyManager {
     }
 
     /// Create a CompiledAssembly from a .dll file path
-    async fn create_compiled_assembly(&self, dll_path: &Path) -> Result<CompiledAssembly> {
+    async fn create_compiled_assembly(&self, dll_path: &Path) -> CsResult<CompiledAssembly> {
         let metadata = fs::metadata(dll_path).await
-            .context("Failed to get file metadata")?;
+            .with_io_context("Failed to get file metadata")?;
         
         let last_modified = metadata.modified()
-            .context("Failed to get last modified time")?;
+            .map_err(|e| CsError::Metadata {
+                file: dll_path.to_path_buf(),
+                message: format!("Failed to get last modified time: {}", e),
+            })?;
         
         let name = dll_path.file_stem()
             .and_then(|s| s.to_str())
-            .ok_or_else(|| anyhow::anyhow!("Could not extract assembly name from path"))?
+            .ok_or_else(|| CsError::Assembly {
+                message: format!("Could not extract assembly name from path: {:?}", dll_path),
+            })?
             .to_string();
         
         Ok(CompiledAssembly {
