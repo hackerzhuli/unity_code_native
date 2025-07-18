@@ -395,6 +395,39 @@ fn test_property_name_completion_bug_after_property() {
 
 
 #[test]
+fn test_property_name_completion_bug_after_custom_property() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: reproducing the bug where 'co' after a custom property doesn't trigger completions
+    let content = ".a {\n    --a: red;\n    co\n    background-color:aqua;\n    flex-direction: column-reverse;\n    display: flex;\n}";
+    let tree = parser.parse(content, None).unwrap();
+
+    println!("=== Tree structure for custom property bug reproduction ===");
+    print_tree_to_stdout(tree.root_node(), content);
+
+    // Position at the end of "co" (line 2, character 6)
+    let position = Position {
+        line: 2,
+        character: 6,
+    };
+
+    let completions = provider.complete(&tree, content, position, None, None, None);
+
+    println!("Completions found: {}", completions.len());
+    for completion in &completions {
+        println!("  - {}", completion.label);
+    }
+
+    // Bug fix: Should now have completions including "color"
+    assert!(completions.len() > 0, "Should have completions after the fix");
+    
+    let completion_labels: Vec<String> = completions.iter().map(|c| c.label.clone()).collect();
+    assert!(completion_labels.contains(&"color".to_string()), "Should include 'color' completion");
+    assert!(!completion_labels.contains(&"width".to_string()), "Should not include 'width' completion for 'co'");
+}
+
+#[test]
 fn test_property_name_completion_case_insensitive() {
     let mut parser = UssParser::new().unwrap();
     let provider = UssCompletionProvider::new();

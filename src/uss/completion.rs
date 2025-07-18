@@ -276,6 +276,15 @@ impl UssCompletionProvider {
                         current_node: Some(current_node)
                     });
                 }
+                
+                // Handle case where incomplete property name is parsed as tag_name in descendant_selector
+                // directly inside a selectors node within a block (e.g., "co" after a custom property)
+                if Self::is_incomplete_property_in_selectors_block(current_node) {
+                    return Some(CompletionContext {
+                        t: CompletionType::Property,
+                        current_node: Some(current_node)
+                    });
+                }
             }
         }
 
@@ -299,10 +308,16 @@ impl UssCompletionProvider {
                 if parent.kind() == NODE_DESCENDANT_SELECTOR {
                     if let Some(parent_parent) = parent.parent() {
                         if parent_parent.kind() == NODE_SELECTORS {
+                            // Check if directly after opening brace
                             if let Some(parent_parent_sibling) = parent_parent.prev_sibling() {
                                 if parent_parent_sibling.kind() == "{" {
                                     return true;
                                 }
+                            }
+                            
+                            // Also check if there are previous declarations (e.g., after custom properties)
+                            if Self::has_previous_declaration_sibling(parent_parent) {
+                                return true;
                             }
                         }
                     }
@@ -357,6 +372,46 @@ impl UssCompletionProvider {
     fn has_previous_declaration_sibling(node: Node) -> bool {
         if let Some(prev_sibling) = node.prev_sibling() {
             return prev_sibling.kind() == NODE_DECLARATION;
+        }
+        false
+    }
+
+    /// Check if current node is an incomplete property name parsed as tag_name within a selectors node inside a block
+    /// This handles cases like "co" after a custom property that gets parsed as a selector
+    fn is_incomplete_property_in_selectors_block(current_node: Node) -> bool {
+        if current_node.kind() != NODE_TAG_NAME {
+            return false;
+        }
+
+        // Check if we're inside a descendant_selector within a selectors node
+        if let Some(parent) = current_node.parent() {
+            if parent.kind() == NODE_DESCENDANT_SELECTOR {
+                if let Some(grandparent) = parent.parent() {
+                    if grandparent.kind() == NODE_SELECTORS {
+                        // Check if we have a previous declaration sibling to confirm we're after a property
+                        if Self::has_previous_declaration_sibling(grandparent) {
+                            return true;
+                        }
+                        
+                        // Alternative check: look for a previous opening brace to confirm we're inside a rule
+                        if Self::has_previous_opening_brace(grandparent) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+    
+    /// Check if there's a previous opening brace indicating we're inside a CSS rule
+    fn has_previous_opening_brace(node: Node) -> bool {
+        let mut current = node;
+        while let Some(prev_sibling) = current.prev_sibling() {
+            if prev_sibling.kind() == "{" {
+                return true;
+            }
+            current = prev_sibling;
         }
         false
     }

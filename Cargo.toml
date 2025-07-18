@@ -15,7 +15,9 @@ serde_yaml = "0.9"
 tokio = { version = "1.46", features = ["macros", "rt", "net", "io-util", "io-std", "time", "fs"] }
 tower-lsp = "0.20"
 tree-sitter = "0.25"
-tree-sitter-css = "0.23"
+# Don't upadte this package `tree-sitter-css` for no reason
+# It can cause many bugs, any change in syntax tree structure can break our code
+tree-sitter-css = "0.23" 
 tree-sitter-c-sharp = "0.23"
 malva = "0.13.1"
 log = { version = "0.4", features = ["std"] }
