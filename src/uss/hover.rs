@@ -41,6 +41,8 @@ impl UssHoverProvider {
         }
     }
 
+
+
     /// Provides hover information for a specific position in USS code.
     /// 
     /// This method analyzes the syntax tree at the given position and returns appropriate
@@ -82,6 +84,7 @@ impl UssHoverProvider {
         // Find the deepest node at the position
         let node = find_node_at_position(tree.root_node(), position)?;
         
+        
         // Check if the node or any parent has errors - if so, don't show hover
         if has_error_nodes(node) {
             return None;
@@ -122,12 +125,9 @@ impl UssHoverProvider {
         }
 
         // Priority 5: Pseudo-class selectors
-        if let Some(pseudo_node) = find_node_of_type_at_position(tree.root_node(), source, position, NODE_PSEUDO_CLASS_SELECTOR) {
-            if !has_error_nodes(pseudo_node) {
-                if let Some(hover) = self.hover_for_pseudo_class(pseudo_node, source, unity_manager) {
-                    return Some(hover);
-                }
-            }
+        // Check if we're specifically hovering over a pseudo-class identifier
+        if let Some(hover) = self.check_for_pseudo_class_hover(node, source, unity_manager) {
+            return Some(hover);
         }
 
         // Priority 6: Declaration nodes (properties and their values)
@@ -353,6 +353,36 @@ impl UssHoverProvider {
         })
     }
 
+    /// Checks if the current position is hovering over a pseudo-class identifier
+    /// and returns appropriate hover information.
+    /// 
+    /// This method ensures we only show pseudo-class hover when the cursor is actually
+    /// positioned on the pseudo-class part (like `:hover`, `:active`) rather than
+    /// anywhere within a pseudo-class selector tree.
+    fn check_for_pseudo_class_hover(&self, node: Node, source: &str, unity_manager: &UnityProjectManager) -> Option<Hover> {
+        // Check if the deepest node is an identifier that could be a pseudo-class
+        if node.kind() == NODE_IDENTIFIER {
+            // Check if this identifier is a child of a class_name node
+            if let Some(parent) = node.parent() {
+                if parent.kind() == NODE_CLASS_NAME {
+                    // Check if the class_name's parent is a pseudo_class_selector
+                    if let Some(grandparent) = parent.parent() {
+                        if grandparent.kind() == NODE_PSEUDO_CLASS_SELECTOR {
+                            // Get the identifier text and check if it's a valid pseudo-class
+                            if let Ok(identifier_text) = node.utf8_text(source.as_bytes()) {
+                                if self.definitions.is_valid_pseudo_class(identifier_text) {
+                                    return self.hover_for_pseudo_class(grandparent, source, unity_manager);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        None
+    }
+
     /// Provides hover information for pseudo-class selectors.
     /// 
     /// Analyzes pseudo-class selectors (:hover, :focus, :active, etc.) and provides
@@ -513,3 +543,7 @@ impl Default for UssHoverProvider {
 #[cfg(test)]
 #[path ="hover_tests.rs"]
 mod hover_tests;
+
+#[cfg(test)]
+#[path ="hover_pseudo_class_test.rs"]
+mod hover_pseudo_class_test;

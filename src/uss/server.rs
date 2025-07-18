@@ -2,7 +2,7 @@
 //!
 //! Provides Language Server Protocol features for USS files using tower-lsp.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
@@ -253,7 +253,7 @@ impl LanguageServer for UssLanguageServer {
             }
             manager.get_all_elements().iter().map(|element| {
                 (element.name.clone(), element.fully_qualified_name.clone())
-            }).collect::<std::collections::HashMap<String, String>>()
+            }).collect::<HashMap<String, String>>()
         };
 
         let state = self.state.lock().ok();
