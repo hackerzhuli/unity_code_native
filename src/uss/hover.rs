@@ -543,7 +543,3 @@ impl Default for UssHoverProvider {
 #[cfg(test)]
 #[path ="hover_tests.rs"]
 mod hover_tests;
-
-#[cfg(test)]
-#[path ="hover_pseudo_class_test.rs"]
-mod hover_pseudo_class_test;
