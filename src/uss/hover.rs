@@ -333,15 +333,15 @@ impl UssHoverProvider {
         let content = if let Some(elements) = uxml_elements {
             if let Some(fully_qualified_name) = elements.get(tag_text) {
                 format!(
-                    "**{}** - Unity UI Element\n\n**Full Name:** `{}`\n\nThis selector targets all `{}` elements in the UI hierarchy.",
+                    "### UXML Element {}\n**Full Name:** `{}`\n\nThis selector targets all `{}` elements in the UI hierarchy.",
                     tag_text, fully_qualified_name, tag_text
                 )
             } else {
-                format!("**{}** - Unity UI Element\n\nThis selector targets all `{}` elements in the UI hierarchy.\n\n⚠️ Element not found in UXML schema.", tag_text, tag_text)
+                format!("### UXML Element {}\n⚠️ Element not found in UXML schema.", tag_text)
             }
         } else {
             // Fallback when elements map is not available
-            format!("**{}** - Unity UI Element\n\nThis selector targets all `{}` elements in the UI hierarchy.", tag_text, tag_text)
+            format!("### UXML Element {}\nThis selector targets all `{}` elements in the UI hierarchy.", tag_text, tag_text)
         };
         
         Some(Hover {

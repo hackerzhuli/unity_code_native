@@ -11,7 +11,7 @@ pub fn create_unit_info() -> HashMap<&'static str, UnitInfo> {
     units.insert("px", UnitInfo {
         name: "px",
         category: "Length",
-        description: "Absolute length unit representing device pixels.",
+        description: "Absolute length unit representing screen pixels.",
         details: None,
     });
 
@@ -55,14 +55,14 @@ pub fn create_unit_info() -> HashMap<&'static str, UnitInfo> {
     units.insert("s", UnitInfo {
         name: "s",
         category: "Time",
-        description: "Time unit for durations and delays.",
+        description: "Seconds, time unit for durations and delays.",
         details: None,
     });
 
     units.insert("ms", UnitInfo {
         name: "ms",
         category: "Time",
-        description: "Time unit for durations and delays.",
+        description: "Milliseconds, time unit for durations and delays.",
         details: Some("1s = 1000ms"),
     });
 
