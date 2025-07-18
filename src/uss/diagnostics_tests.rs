@@ -91,6 +91,32 @@ fn test_import_statement_validation() {
 }
 
 #[test]
+fn test_allow_theme_scheme() {
+    let diagnostics = UssDiagnostics::new();
+    let mut parser = UssParser::new().unwrap();
+    
+    // Test case with valid import statement using url() function
+    // This is a special url that unity does allow
+    let valid_url_content = r#"@import url("unity-theme://default");"#;
+    
+    let tree = parser.parse(valid_url_content, None).unwrap();
+    let results = diagnostics.analyze(&tree, valid_url_content);
+    
+    // Should not have any errors for valid url() import
+    let import_errors: Vec<_> = results.iter()
+        .filter(|d| d.message.contains("import") || d.code.as_ref().map_or(false, |c| {
+            if let tower_lsp::lsp_types::NumberOrString::String(s) = c {
+                s.contains("import")
+            } else { false }
+        }))
+        .collect();
+    
+    assert!(import_errors.is_empty(), "Valid url() import statement should not produce errors. Found: {:?}", 
+        import_errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+}
+
+
+#[test]
 fn test_precise_syntax_error_range() {
     let diagnostics = UssDiagnostics::new();
     let mut parser = UssParser::new().unwrap();

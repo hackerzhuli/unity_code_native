@@ -179,7 +179,7 @@ pub fn validate_url_complete(url: &str, base_url: Option<&Url>, allow_theme_sche
                 // }
 
                 Ok(AssetValidationResult::with_warnings(parsed_url, warnings))
-            } else if allow_theme_scheme && scheme == "theme" {
+            } else if allow_theme_scheme && scheme == "unity-theme" {
                 Ok(AssetValidationResult::with_warnings(parsed_url, warnings))
             } else {
                 Err(AssetValidationError::new(format!(

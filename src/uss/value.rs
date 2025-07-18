@@ -1,7 +1,7 @@
 use tree_sitter::Node;
 use url::Url;
 
-use crate::language::asset_url::{validate_url};
+use crate::language::asset_url::{validate_url, validate_url_complete};
 use crate::uss::uss_utils::convert_uss_string;
 use crate::uss::definitions::UssDefinitions;
 use crate::uss::color::Color;
@@ -253,7 +253,7 @@ impl UssValue {
                             .ok_or_else(|| UssValueError::new(node, content, "Invalid url() function structure".to_string()))?;
                         
                         // Validate and parse the URL
-                        let result = validate_url(&url_function.url_string, source_url)
+                        let result = validate_url_complete(&url_function.url_string, source_url, true)
                             .map_err(|e| UssValueError::new(node, content, e.message))?;
                         
                         Ok(UssValue::Url(result.url))
