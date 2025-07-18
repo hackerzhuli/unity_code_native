@@ -20,6 +20,9 @@ pub const NODE_DECLARATION: &str = "declaration";
 /// Container for one or more selectors
 pub const NODE_SELECTORS: &str = "selectors";
 
+/// Identifier, eg. class name in a class selector without the dot, child of class name
+pub const NODE_IDENTIFIER: &str = "identifier";
+
 // Property and value nodes
 /// USS property name (e.g., `color`, `-unity-font`)
 pub const NODE_PROPERTY_NAME: &str = "property_name";
@@ -49,7 +52,8 @@ pub const NODE_FUNCTION_NAME: &str = "function_name";
 pub const NODE_ARGUMENTS: &str = "arguments";
 
 // Selector types
-/// USS class selector (e.g., `.my-class`)
+/// USS class selector(one or multiple chained, no spaces, no pseudo classes) (e.g., `.my-class` `.my-class.your-class`)
+/// Their will be multiple layers of class selectors if they are chained
 pub const NODE_CLASS_SELECTOR: &str = "class_selector";
 /// Descendant selector, eg. `.a .b c`
 pub const NODE_DESCENDANT_SELECTOR:&str= "descendant_selector";

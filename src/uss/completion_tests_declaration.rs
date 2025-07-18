@@ -1,5 +1,6 @@
 use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
 use tower_lsp::lsp_types::Position;
+use crate::language::tree_printer::print_tree_to_stdout;
 
 #[test]
 fn test_property_value_simple_completion_after_colon() {
@@ -122,8 +123,10 @@ fn test_property_name_completion() {
     let provider = UssCompletionProvider::new();
 
     // Test case: typing property name
-    let content = ".some { \n    col\n}";
+    let content = ".some { \n    col\n} .other{width:10px;}";
     let tree = parser.parse(content, None).unwrap();
+
+    print_tree_to_stdout(tree.root_node(), content);
 
     // Position at the end of "col" (line 1, character 7)
     let position = Position {
@@ -314,6 +317,8 @@ fn test_property_name_completion_partial_match_before_2() {
 } "#;
 
     let tree = parser.parse(content, None).unwrap();
+
+    print_tree_to_stdout(tree.root_node(), content);
 
     // Position at the end of "back"
     let position = Position {

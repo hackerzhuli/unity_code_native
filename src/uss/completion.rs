@@ -8,9 +8,7 @@ use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use url::Url;
 
-use crate::language::tree_utils::{
-    find_node_at_position, find_node_of_type_at_position, get_node_depth, node_to_range,
-};
+use crate::language::tree_utils::{find_node_at_position, find_node_by_type, find_node_of_type_at_position, get_node_depth, node_to_range};
 use crate::language::url_completion::UrlCompletionProvider;
 use crate::uss::constants::*;
 use crate::uss::definitions::UssDefinitions;
@@ -147,6 +145,8 @@ impl UssCompletionProvider {
             let last_pos = Position::new(position.line, position.character - 1);
 
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
+                // Note: order is important, otherwise we may get the wrong context
+
                 // Check for incomplete @import statements first
                 if let Some(import_context) =
                     self.analyze_incomplete_import_context(current_node, content)
@@ -154,18 +154,17 @@ impl UssCompletionProvider {
                     return import_context;
                 }
 
-                // Check for selector completion context first
-                if let Some(selector_context) =
-                    self.analyze_selector_context(tree, content, current_node, position)
-                {
-                    return selector_context;
-                }
-
                 // Check if we're inside an import statement
                 if let Some(import_context) =
                     self.analyze_import_context(tree, content, current_node, position)
                 {
                     return import_context;
+                }
+
+                if let Some(selector_context) =
+                    self.analyze_selector_context(tree, content, current_node, position)
+                {
+                    return selector_context;
                 }
 
                 if let Some(declaration_node) = find_node_of_type_at_position(
@@ -182,103 +181,10 @@ impl UssCompletionProvider {
                     );
                 }
 
-                // Check if we're typing a property name within a block
-                if let Some(_block_node) =
-                    find_node_of_type_at_position(tree.root_node(), content, last_pos, NODE_BLOCK)
-                {
-                    // Check if current node is a property name being typed
-                    // Note: incomplete property names are parsed as "attribute_name" in ERROR nodes
-                    let current_node_kind = current_node.kind();
-                    let parent_node_kind = match current_node.parent() {
-                        None => "",
-                        Some(p) => p.kind(),
-                    };
-                    if current_node_kind == NODE_ATTRIBUTE_NAME && parent_node_kind == NODE_ERROR {
-                        return CompletionContext {
-                            t: CompletionType::Property,
-                            current_node: Some(current_node),
-                        };
-                    } else if current_node_kind == NODE_COMMA && parent_node_kind == NODE_ERROR {
-                        // user just typed a comma after a comma seperated list (without semicolon yet)
-                        if let Some(parent) = current_node.parent() {
-                            if let Some(parent_prev) = parent.prev_sibling() {
-                                if parent_prev.kind() == NODE_DECLARATION {
-                                    if let Some(dec_last_node) =
-                                        parent_prev.child(parent_prev.child_count() - 1)
-                                    {
-                                        if dec_last_node.kind() != NODE_SEMICOLON {
-                                            if let Some(property_name_node) = parent_prev.child(0) {
-                                                if let Ok(property_name) =
-                                                    property_name_node.utf8_text(content.as_bytes())
-                                                {
-                                                    if let Some(property_info) = self
-                                                        .definitions
-                                                        .get_property_info(property_name)
-                                                    {
-                                                        if property_info
-                                                            .value_spec
-                                                            .allows_multiple_values
-                                                        {
-                                                            return CompletionContext {
-                                                                t: CompletionType::PropertyValue {
-                                                                    property_name: property_name
-                                                                        .to_string(),
-                                                                },
-                                                                current_node: Some(current_node),
-                                                            };
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    else if current_node_kind == NODE_TAG_NAME && parent_node_kind == NODE_DESCENDANT_SELECTOR {
-                        // Tag name inside of block, is actually user typing another property name before another property
-                        // uss doesn't support nested rules, we're in a block, so it can't be a selector
-                        // tree sitter css parser thinks it is a selector, but it's not
-                        let parent = current_node.parent().unwrap();
-                        if parent.child_count() == 2 {
-                            if let Some(next_sib) = current_node.next_sibling() {
-                                if next_sib.kind() == NODE_TAG_NAME{
-                                    if let Some(parent_next_sib) = parent.next_sibling(){
-                                        if parent_next_sib.kind() == NODE_COLON {
-                                            // now we know user is typing a property name
-                                            return CompletionContext{
-                                                t: CompletionType::Property,
-                                                current_node: Some(current_node)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // another case is parent's next node becomes an error node with a tag name child and a colon after that
-                        // similar, rarer, but does happen
-                        if let Some(next_sib) = current_node.next_sibling() {
-                            if next_sib.kind() == NODE_ERROR{
-                                if let Some(next_sib_child) = next_sib.child(0) {
-                                    if next_sib_child.kind() == NODE_TAG_NAME {
-                                        if let Some(next_sib_second_child) = next_sib.child(1){
-                                            if next_sib_second_child.kind() == NODE_COLON{
-                                                // now we know user is typing a property name
-                                                return CompletionContext{
-                                                    t: CompletionType::Property,
-                                                    current_node: Some(current_node)
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                    }
+                if let Some(value) = self.analyze_property_name_context(tree, content, last_pos, current_node) {
+                    return value;
                 }
+
             }
         }
 
@@ -286,6 +192,144 @@ impl UssCompletionProvider {
             t: CompletionType::Unknown,
             current_node: None,
         };
+    }
+
+    fn analyze_property_name_context<'a>(&self, tree: &Tree, content: &str, last_pos: Position, current_node: Node<'a>) -> Option<CompletionContext<'a>> {
+        // Check if we're typing a property name within a block
+        if let Some(_block_node) =
+            find_node_of_type_at_position(tree.root_node(), content, last_pos, NODE_BLOCK)
+        {
+            // Check if current node is a property name being typed
+            // Note: incomplete property names are parsed as "attribute_name" in ERROR nodes
+            // New version css parser 0.23
+            // incomplete property names are parsed as identifier name in error nodes
+            let current_node_kind = current_node.kind();
+            let parent_node_kind = match current_node.parent() {
+                None => "",
+                Some(p) => p.kind(),
+            };
+
+            if current_node_kind == NODE_ATTRIBUTE_NAME && parent_node_kind == NODE_ERROR {
+                return Some(CompletionContext {
+                    t: CompletionType::Property,
+                    current_node: Some(current_node),
+                });
+            } else if current_node_kind == NODE_IDENTIFIER && parent_node_kind == NODE_ERROR {
+                return Some(CompletionContext {
+                    t: CompletionType::Property,
+                    current_node: Some(current_node),
+                });
+            } else if current_node_kind == NODE_COMMA && parent_node_kind == NODE_ERROR {
+                // user just typed a comma after a comma seperated list (without semicolon yet)
+                if let Some(parent) = current_node.parent() {
+                    if let Some(parent_prev) = parent.prev_sibling() {
+                        if parent_prev.kind() == NODE_DECLARATION {
+                            if let Some(dec_last_node) =
+                                parent_prev.child(parent_prev.child_count() - 1)
+                            {
+                                if dec_last_node.kind() != NODE_SEMICOLON {
+                                    if let Some(property_name_node) = parent_prev.child(0) {
+                                        if let Ok(property_name) =
+                                            property_name_node.utf8_text(content.as_bytes())
+                                        {
+                                            if let Some(property_info) = self
+                                                .definitions
+                                                .get_property_info(property_name)
+                                            {
+                                                if property_info
+                                                    .value_spec
+                                                    .allows_multiple_values
+                                                {
+                                                    return Some(CompletionContext {
+                                                        t: CompletionType::PropertyValue {
+                                                            property_name: property_name
+                                                                .to_string(),
+                                                        },
+                                                        current_node: Some(current_node),
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if current_node_kind == NODE_TAG_NAME && parent_node_kind == NODE_DESCENDANT_SELECTOR {
+                // Tag name inside of block, is actually user typing another property name before another property
+                // uss doesn't support nested rules, we're in a block, so it can't be a selector
+                // tree sitter css parser thinks it is a selector, but it's not
+                let parent = current_node.parent().unwrap();
+                if parent.child_count() == 2 {
+                    if let Some(next_sib) = current_node.next_sibling() {
+                        if next_sib.kind() == NODE_TAG_NAME {
+                            if let Some(parent_next_sib) = parent.next_sibling() {
+                                if parent_next_sib.kind() == NODE_COLON {
+                                    // now we know user is typing a property name
+                                    return Some(CompletionContext {
+                                        t: CompletionType::Property,
+                                        current_node: Some(current_node)
+                                    })
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // another case is parent's next node becomes an error node with a tag name child and a colon after that
+                // similar, rarer, but does happen
+                if let Some(next_sib) = current_node.next_sibling() {
+                    if next_sib.kind() == NODE_ERROR {
+                        if let Some(next_sib_child) = next_sib.child(0) {
+                            if next_sib_child.kind() == NODE_TAG_NAME {
+                                if let Some(next_sib_second_child) = next_sib.child(1) {
+                                    if next_sib_second_child.kind() == NODE_COLON {
+                                        // now we know user is typing a property name
+                                        return Some(CompletionContext {
+                                            t: CompletionType::Property,
+                                            current_node: Some(current_node)
+                                        })
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if Self::is_incomplete_property_name_parsed_as_tag_name(current_node) {
+            return Some(CompletionContext {
+                t: CompletionType::Property,
+                current_node: Some(current_node)
+            })
+        }
+
+        None
+    }
+
+    /// check if current node  a case where it is parsed as tag name, but actually the user typing a property name
+    fn is_incomplete_property_name_parsed_as_tag_name(current_node: Node) -> bool {
+        // another type of incomplete property name in css parser version 0.23
+        // there is no block node
+        // we are the first property name after `{`, and it is not parsed as a block
+        if current_node.kind() == NODE_TAG_NAME {
+            if let Some(parent) = current_node.parent() {
+                if parent.kind() == NODE_DESCENDANT_SELECTOR {
+                    if let Some(parent_parent) = parent.parent() {
+                        if parent_parent.kind() == NODE_SELECTORS {
+                            if let Some(parent_parent_sibling) = parent_parent.prev_sibling() {
+                                if parent_parent_sibling.kind() == "{" {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        false
     }
 
     /// Analyze completion context within a declaration
@@ -596,9 +640,7 @@ impl UssCompletionProvider {
         }
 
         // Check if current node is a class selector being typed
-        if current_node.kind() == NODE_CLASS_SELECTOR
-            || (current_node.kind() == NODE_CLASS_NAME
-                && current_node.parent().map(|p| p.kind()) == Some(NODE_CLASS_SELECTOR))
+        if Self::is_class_selector_being_typed(current_node)
         {
             return Some(CompletionContext {
                 t: CompletionType::ClassSelector,
@@ -635,10 +677,13 @@ impl UssCompletionProvider {
 
         // Check if current node is a tag selector being typed
         if current_node.kind() == NODE_TAG_NAME {
-            return Some(CompletionContext {
-                t: CompletionType::TagSelector,
-                current_node: Some(current_node),
-            });
+            // make sure this is not a property name
+            if !Self::is_incomplete_property_name_parsed_as_tag_name(current_node){
+                return Some(CompletionContext {
+                    t: CompletionType::TagSelector,
+                    current_node: Some(current_node),
+                });
+            }
         }
 
         // Check if current node is attribute_name that might be a partial pseudo-class FIRST
@@ -672,6 +717,13 @@ impl UssCompletionProvider {
                     });
                 }
             }
+        }
+
+        if Self::is_pseudo_class_being_typed(current_node) {
+            return Some(CompletionContext {
+                t: CompletionType::PseudoClass,
+                current_node: Some(current_node),
+            });
         }
 
         // Check if we're directly on a '.' or '#' token
@@ -727,6 +779,30 @@ impl UssCompletionProvider {
         }
 
         None
+    }
+
+    /// check if current node is a class selector being typed
+    fn is_class_selector_being_typed(current_node: Node) -> bool {
+        let kind = current_node.kind();
+        if kind == NODE_CLASS_SELECTOR {
+            return true;
+        }
+
+        if let Some(parent) = current_node.parent() {
+            let parent_kind = parent.kind();
+            if kind == NODE_CLASS_NAME
+               && parent_kind == NODE_CLASS_SELECTOR{
+                return true;
+            }
+
+            if let Some(parent_parent) = parent.parent() {
+                if kind == NODE_IDENTIFIER && parent_kind == NODE_CLASS_NAME && parent_parent.kind() == NODE_CLASS_SELECTOR{
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     /// Complete class selectors
@@ -859,8 +935,8 @@ impl UssCompletionProvider {
         prefix: char,
     ) -> String {
         let node_text = current_node.utf8_text(content.as_bytes()).unwrap_or("");
-
-        if current_node.kind() == NODE_CLASS_NAME || current_node.kind() == NODE_ID_NAME {
+        // In new version 0.23 the selector names are in identifier node
+        if current_node.kind() == NODE_CLASS_NAME || current_node.kind() == NODE_ID_NAME || current_node.kind() == NODE_IDENTIFIER {
             // We're in the name part of the selector
             return node_text.to_string();
         }
@@ -1242,6 +1318,21 @@ impl UssCompletionProvider {
         for child in node.children(&mut node.walk()) {
             self.collect_selectors_recursive(child, content, class_collector, id_collector);
         }
+    }
+
+    /// if current node is a pseudo class being typed
+    fn is_pseudo_class_being_typed(current_node:Node) -> bool {
+        if current_node.kind() == NODE_IDENTIFIER {
+            if let Some(parent) = current_node.parent(){
+                if parent.kind() == NODE_CLASS_NAME {
+                    if let Some(parent_prev) = parent.prev_sibling() {
+                        return parent_prev.kind() == NODE_COLON
+                    }
+                }
+            }
+        }
+
+        false
     }
 }
 

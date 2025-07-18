@@ -1,5 +1,5 @@
 use tower_lsp::lsp_types::{CompletionItemKind, Position};
-use crate::language::tree_printer::print_tree;
+use crate::language::tree_printer::{print_tree, print_tree_to_stdout};
 use crate::test_utils::get_unity_project_root;
 use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
 
@@ -119,6 +119,8 @@ fn test_pseudo_class_completion_case_insensitive() {
     // Test case: uppercase partial pseudo-class name
     let content = ".button:H";
     let tree = parser.parse(content, None).unwrap();
+
+    print_tree_to_stdout(tree.root_node(), content);
 
     // Position after 'H'
     let position = Position {
@@ -801,8 +803,10 @@ fn test_class_selector_excludes_self() {
     let provider = UssCompletionProvider::new();
 
     // Test case: when typing ".my" and there's a class ".my", it should not suggest itself
-    let content = ".my { color: red; }\n.my-class { margin: 10px; }\n.my";
+    let content = ".my { color: red; }\n.your .my .your-class.my-class.their-class:hover { margin: 10px; }\n.my";
     let tree = parser.parse(content, None).unwrap();
+
+    print_tree_to_stdout(tree.root_node(), content);
 
     // Position after '.my' (the incomplete selector)
     let position = Position {
