@@ -1,5 +1,4 @@
-use crate::test_utils::{get_project_root, get_unity_project_root};
-use crate::uss::constants::*;
+use crate::test_utils::get_project_root;
 use crate::uss::definitions::{PropertyAnimation, UssDefinitions};
 use scraper::{Html, Selector};
 use std::fs;
@@ -700,7 +699,7 @@ fn test_keyword_completeness() {
     // Step 1: Extract all keywords from all property ValueSpecs
     let mut keywords_from_value_specs = std::collections::HashSet::new();
     
-    for (property_name, property_info) in definitions.get_all_properties() {
+    for (_, property_info) in definitions.get_all_properties() {
         for format in &property_info.value_spec.formats {
             for entry in &format.entries {
                 for option in &entry.options {

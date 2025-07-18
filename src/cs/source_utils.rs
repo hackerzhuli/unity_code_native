@@ -6,7 +6,6 @@
 
 use std::path::{Path, PathBuf};
 use anyhow::{Result, Context, anyhow};
-use serde::Deserialize;
 use tokio::fs;
 use super::source_assembly::SourceAssembly;
 
@@ -22,7 +21,7 @@ pub fn normalize_path_for_comparison(path: &Path) -> PathBuf {
 }
 
 /// Parse a single .csproj file to extract assembly information
-pub async fn parse_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Result<SourceAssembly> {
+pub async fn parse_csproj_file(csproj_path: &Path) -> Result<SourceAssembly> {
     let content = fs::read_to_string(csproj_path).await
         .context("Failed to read .csproj file")?;
     
@@ -60,7 +59,7 @@ pub async fn find_user_assemblies(unity_project_root: &Path) -> Result<Vec<Sourc
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("csproj") {
-            if let Ok(assembly_info) = parse_csproj_file(&path, unity_project_root).await {
+            if let Ok(assembly_info) = parse_csproj_file(&path).await {
                 assemblies.push(assembly_info);
             }
         }

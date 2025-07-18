@@ -1,10 +1,8 @@
 //! Tests for USS diagnostics functionality
 use super::diagnostics::*;
 use super::parser::UssParser;
-use crate::uss::constants::*;
 use tower_lsp::lsp_types::NumberOrString;
 use url::Url;
-use crate::language::tree_printer::print_tree;
 
 #[test]
 fn test_import_statement_validation() {

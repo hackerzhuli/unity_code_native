@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use anyhow::{Result, Context, anyhow};
+use anyhow::{Result, Context};
 use serde::Deserialize;
 use tokio::fs;
 use super::source_assembly::SourceAssembly;
@@ -17,6 +17,7 @@ struct PackageLockFile {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[allow(dead_code)]
 struct PackageInfoInPackageLock {
     version: String,
     depth: u32,
@@ -38,6 +39,7 @@ struct AsmDefFile {
 
 /// Cached package data
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct PackageInfo {
     pub name: String,
     pub version: String,
@@ -48,7 +50,6 @@ pub struct PackageInfo {
 /// Unity Package Manager for handling package discovery and caching, note this only includes packages in `Library/PackageCache`
 #[derive(Debug)]
 pub struct UnityPackageManager {
-    unity_project_root: PathBuf,
     package_cache_dir: PathBuf,
     packages_lock_path: PathBuf,
     /// Cache of package assemblies by package name
@@ -66,7 +67,6 @@ impl UnityPackageManager {
         let packages_lock_path = unity_project_root.join("Packages").join("packages-lock.json");
         
         Self {
-            unity_project_root,
             package_cache_dir,
             packages_lock_path,
             cache: HashMap::new(),
@@ -111,27 +111,11 @@ impl UnityPackageManager {
                 
                 self.processed_dirs.insert(dir_name.to_string());
                 
-                self.process_package_directory(&package_dir, &packages_lock).await;
+                let _ = self.process_package_directory(&package_dir, &packages_lock).await;
             }
         }
 
         Ok(())
-    }
-
-    /// Clear the package cache
-    fn clear_cache(&mut self) {
-        self.cache.clear();
-        self.packages_lock_modified = None;
-        self.processed_dirs.clear();
-    }
-
-    /// Get cache statistics
-    fn get_cache_stats(&self) -> (usize, usize) {
-        let cached_packages = self.cache.len();
-        let total_assemblies = self.cache.values()
-            .map(|c| c.assemblies.len())
-            .sum();
-        (cached_packages, total_assemblies)
     }
 
     /// Check if packages-lock.json has been modified
@@ -219,7 +203,7 @@ impl UnityPackageManager {
         }
 
         // Check if we have cached data for this package
-        if let Some(cached) = self.cache.get(&package_json.name) {
+        if let Some(_) = self.cache.get(&package_json.name) {
             return Ok(());
         }
 
@@ -290,7 +274,7 @@ mod tests {
         let mut manager = UnityPackageManager::new(unity_root);
         
         // First call - should populate cache
-        manager.update().await;
+        let _ = manager.update().await;
 
         let packages = manager.get_packages();
         

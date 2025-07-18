@@ -36,7 +36,6 @@ pub struct VisualElementInfo {
 
 #[derive(Debug)]
 struct SchemaFileInfo {
-    path: PathBuf,
     last_modified: SystemTime,
     namespace: String,
     elements: Vec<String>,
@@ -210,7 +209,6 @@ impl UxmlSchemaManager {
         
         // Update file info cache
         let file_info = SchemaFileInfo {
-            path: path.to_path_buf(),
             last_modified,
             namespace,
             elements,

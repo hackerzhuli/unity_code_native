@@ -1,6 +1,5 @@
-use crate::{cs::compile_utils::*, cs::constants::*, language::tree_printer::print_tree_to_stdout};
-use tree_sitter::{Language, Node, Parser};
-use crate::cs::constants::*;
+use crate::{cs::compile_utils::*, language::tree_printer::print_tree_to_stdout};
+use tree_sitter::{Node, Parser};
 
 /// Helper function to find a class declaration node by name in a Tree-sitter AST
 fn find_class_by_name<'a>(root: Node<'a>, class_name: &str, source: &str) -> Option<Node<'a>> {

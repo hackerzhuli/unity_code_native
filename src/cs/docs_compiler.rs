@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Result, Context, anyhow};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
-use tree_sitter::{Parser, Language, Node, Tree};
+use tree_sitter::{Parser, Node};
 use crate::cs::source_utils::{extract_compile_items, find_cs_files_in_dir};
 use crate::language::tree_utils::has_error_nodes;
 

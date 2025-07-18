@@ -95,15 +95,6 @@ pub const BODY_FIELD: &str = "body";
 /// Public access modifier
 pub const PUBLIC_MODIFIER: &str = "public";
 
-/// File extension for C# project files
-pub const CSPROJ_EXTENSION: &str = "csproj";
-
-/// File extension for Unity assembly definition files
-pub const ASMDEF_EXTENSION: &str = "asmdef";
-
-/// Prefix for XML documentation comments
-pub const XML_DOC_COMMENT_PREFIX: &str = "///";
-
 // Additional Tree-sitter node kinds for C# parsing
 
 /// Tree-sitter node kind for constructor declarations

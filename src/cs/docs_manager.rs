@@ -17,9 +17,8 @@ use crate::cs::{
     assembly_manager::AssemblyManager, 
     package_manager::UnityPackageManager, 
     source_assembly::SourceAssembly, 
-    source_utils::{find_user_assemblies, get_assembly_source_files},
-    docs_compiler::{DocsCompiler, DocsAssembly, DOCS_ASSEMBLY_VERSION},
-    xml_doc_utils
+    source_utils::get_assembly_source_files,
+    docs_compiler::{DocsCompiler, DocsAssembly, DOCS_ASSEMBLY_VERSION}
 };
 use crate::cs::compile_utils::normalize_symbol_name;
 
@@ -141,7 +140,7 @@ impl CsDocsManager {
         let normalized_search = normalize_path_for_comparison(source_file_path);
         
         // Check cached .csproj files for the source file
-        for (csproj_path, cache_entry) in &self.csproj_cache {
+        for (_, cache_entry) in &self.csproj_cache {
             // O(1) lookup in HashSet instead of O(n) iteration
             if cache_entry.source_files.contains(&normalized_search) {
                 log::info!("Found source file {} in assembly {}", source_file_path.to_string_lossy(), cache_entry.assembly.name);
@@ -364,7 +363,7 @@ impl CsDocsManager {
             if self.contains_inheritdoc(&result.xml_doc) {
                 // Extract cref and resolve
                 if let Some(cref) = self.extract_cref(&result.xml_doc) {
-                    return self.resolve_inheritdoc_with_merge(&cref, symbol_name, docs_assembly, &result.xml_doc, &result);
+                    return self.resolve_inheritdoc_with_merge(&cref, docs_assembly, &result.xml_doc, &result);
                 }
             }
             return Some(result);
@@ -373,7 +372,7 @@ impl CsDocsManager {
     }
     
     /// Resolve inheritdoc by finding target documentation and merging with original
-    fn resolve_inheritdoc_with_merge(&self, cref: &str, original_symbol: &str, docs_assembly: &DocsAssembly, original_xml: &str, original_result: &DocResult) -> Option<DocResult> {
+    fn resolve_inheritdoc_with_merge(&self, cref: &str, docs_assembly: &DocsAssembly, original_xml: &str, original_result: &DocResult) -> Option<DocResult> {
         let candidates = self.generate_inheritdoc_candidates(cref, original_result.source_type_name.as_str(), docs_assembly);
         
         for candidate in candidates {
@@ -399,12 +398,6 @@ impl CsDocsManager {
     /// Check if XML documentation contains any inheritdoc tag
     fn contains_inheritdoc(&self, xml_doc: &str) -> bool {
         xml_doc.contains("<inheritdoc")
-    }
-    
-    /// Check if XML documentation is just an inheritdoc tag (kept for backward compatibility)
-    fn is_inheritdoc(&self, xml_doc: &str) -> bool {
-        let trimmed = xml_doc.trim();
-        trimmed.starts_with("<inheritdoc") && trimmed.ends_with("/>")
     }
     
     /// Extract cref attribute from the first inheritdoc tag found
@@ -490,7 +483,7 @@ impl CsDocsManager {
                     }
                 } else {
                     // Parse this specific .csproj file and get source files
-                    match parse_csproj_file(&path, &self.unity_project_root).await {
+                    match parse_csproj_file(&path).await {
                         Ok(assembly) => {
                             // Get source files for this assembly
                             let source_files = get_assembly_source_files(&assembly, &self.unity_project_root).await

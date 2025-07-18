@@ -1,6 +1,6 @@
 // Allow warnings, so we don't see so many warnings everytime we run tests or build
 // We will clean up warnings once in a while
-#![allow(warnings)] 
+//#![allow(warnings)] 
 mod logging;
 mod monitor;
 mod server;

@@ -30,11 +30,6 @@ pub struct KeywordInfo {
 
 impl KeywordInfo {
     /// Create a new KeywordInfo
-    pub fn new(name: &'static str, doc: &'static str) -> Self {
-        Self { name, doc, used_by_properties: Vec::new(), docs_for_property: HashMap::new() }
-    }
-
-    /// Create a new KeywordInfo
     pub fn new_with_property_docs(name: &'static str, doc: &'static str, used_by_properties: Vec<&'static str>, docs_for_property: HashMap<&'static str, &'static str>) -> Self {
         Self { name, doc, used_by_properties, docs_for_property}
     }
@@ -392,39 +387,6 @@ impl UssDefinitions {
         self.valid_units.contains(unit)
     }
 
-    /// Check if a unit is a length unit
-    pub fn is_length_unit(&self, unit: &str) -> bool {
-        matches!(unit, UNIT_PX | UNIT_PERCENT)
-    }
-
-    /// Check if a unit is an angle unit
-    pub fn is_angle_unit(&self, unit: &str) -> bool {
-        matches!(unit, UNIT_DEG | UNIT_RAD | UNIT_GRAD | UNIT_TURN)
-    }
-
-    /// Check if a unit is a time unit
-    pub fn is_time_unit(&self, unit: &str) -> bool {
-        matches!(unit, UNIT_S | UNIT_MS)
-    }
-
-    /// Get all valid units
-    pub fn get_all_units(&self) -> Vec<&str> {
-        self.valid_units.iter().copied().collect()
-    }
-
-    /// Get units by category
-    pub fn get_length_units(&self) -> Vec<&str> {
-        vec![UNIT_PX, UNIT_PERCENT]
-    }
-
-    pub fn get_angle_units(&self) -> Vec<&str> {
-        vec![UNIT_DEG, UNIT_RAD, UNIT_GRAD, UNIT_TURN]
-    }
-
-    pub fn get_time_units(&self) -> Vec<&str> {
-        vec![UNIT_S, UNIT_MS]
-    }
-
     /// Get property information including description and metadata
     pub fn get_property_info(&self, property_name: &str) -> Option<&PropertyInfo> {
         self.get_properties().get(property_name)
@@ -462,7 +424,7 @@ impl UssDefinitions {
             return Vec::new();
         }
 
-        let (property_name, property_info) = properties.get_key_value(property).unwrap();
+        let (_, property_info) = properties.get_key_value(property).unwrap();
 
         let mut set: HashSet<&'static str> = HashSet::new();
         // see if a single value entry would work

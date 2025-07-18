@@ -1,6 +1,5 @@
 use crate::uss::{completion::UssCompletionProvider, parser::UssParser};
 use tower_lsp::lsp_types::Position;
-use crate::language::tree_printer::print_tree_to_stdout;
 
 #[test]
 fn test_property_value_simple_completion_after_colon() {

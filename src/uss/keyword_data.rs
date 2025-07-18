@@ -5,8 +5,7 @@
 //! that can be used in USS properties.
 
 use std::collections::HashMap;
-use crate::uss::definitions::{KeywordInfo, PropertyInfo};
-use crate::uss::value_spec::ValueType;
+use crate::uss::definitions::KeywordInfo;
 
 /// Helper function to create a KeywordInfo with specified properties
 fn create(name: &'static str, doc: &'static str, properties: &[&'static str]) -> KeywordInfo {

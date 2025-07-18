@@ -24,7 +24,6 @@ pub struct CompiledAssembly {
 /// Assembly manager for Unity compiled assemblies
 #[derive(Debug)]
 pub struct AssemblyManager {
-    unity_project_root: PathBuf,
     script_assemblies_dir: PathBuf,
     /// Cache of compiled assemblies
     cached_assemblies: HashMap<String, CompiledAssembly>,
@@ -35,7 +34,6 @@ impl AssemblyManager {
     pub fn new(unity_project_root: PathBuf) -> Self {
         let script_assemblies_dir = unity_project_root.join("Library").join("ScriptAssemblies");
         Self {
-            unity_project_root,
             script_assemblies_dir,
             cached_assemblies: HashMap::new(),
         }

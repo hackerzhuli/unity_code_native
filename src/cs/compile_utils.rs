@@ -3,7 +3,6 @@
 //! This module contains standalone functions for normalizing C# type and member names
 //! when processing syntax trees for documentation compilation.
 
-use tokio::net::windows::named_pipe::NamedPipeClient;
 use tree_sitter::Node;
 use super::constants::*;
 
@@ -110,7 +109,6 @@ pub fn normalize_method_name(node: Node, source: &str) -> Option<String> {
     
     // Add parameters
     if let Some(params_node) = node.child_by_field_name(PARAMETERS_FIELD) {
-        let params_text = params_node.utf8_text(source.as_bytes()).ok()?;
         let normalized_params = normalize_parameter_type(params_node, source)?;
         result.push('(');
         result.push_str(&normalized_params);
@@ -238,11 +236,6 @@ pub fn split_parameters(params: &str) -> Vec<String> {
     }
     
     result
-}
-
-/// Normalize parameter type from string (for backward compatibility)
-pub fn normalize_parameter_type_string(param_type: &str) -> String {
-    get_simple_type_name(param_type)
 }
 
 /// Normalize a symbol name(can be a method name) from string

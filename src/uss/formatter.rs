@@ -7,7 +7,6 @@ use malva::{config::FormatOptions, format_text, Syntax};
 use tower_lsp::lsp_types::*;
 use tree_sitter::{Node, Tree};
 use crate::language::tree_utils::{byte_to_position, position_to_byte_offset, node_to_range, has_error_nodes};
-use crate::uss::constants::NODE_ERROR;
 
 /// USS Formatter that handles formatting requests
 pub struct UssFormatter {
@@ -88,7 +87,6 @@ impl UssFormatter {
         tree: &Tree,
         requested_range: Range,
     ) -> Result<Option<Range>, String> {
-        let lines: Vec<&str> = content.lines().collect();
         let root = tree.root_node();
 
         // Convert LSP positions to byte offsets
@@ -215,14 +213,6 @@ impl UssFormatter {
     fn position_to_offset(&self, content: &str, position: Position) -> Result<usize, String> {
         position_to_byte_offset(content, position)
             .ok_or_else(|| format!("Invalid position: line {}, character {}", position.line, position.character))
-    }
-
-    /// Convert byte offset to LSP position
-    fn offset_to_position(&self, content: &str, offset: usize) -> Result<Position, String> {
-        if offset > content.len() {
-            return Err(format!("Offset {} is out of bounds", offset));
-        }
-        Ok(byte_to_position(offset, content))
     }
 
     /// Get the end position of the document using the tree's end byte position

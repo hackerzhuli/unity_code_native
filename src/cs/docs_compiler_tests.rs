@@ -1,7 +1,6 @@
 use crate::{cs::{docs_compiler::DocsCompiler, package_manager::UnityPackageManager, source_utils::find_user_assemblies, constants::*}, test_utils::get_unity_project_root};
 
-use crate::cs::compile_utils::{split_parameters, get_simple_type_name, normalize_generic_parameters, normalize_member_name, normalize_type_name};
-use tree_sitter::{Parser, Language};
+use crate::cs::compile_utils::{split_parameters, get_simple_type_name, normalize_generic_parameters};
 
 #[test]
 fn test_split_parameters() {
@@ -788,6 +787,7 @@ async fn test_using_statements_extraction() {
 // test will take a few seconds, too slow, so comment out
 // add back only when needed, and comment out when not needed
 // #[tokio::test]
+#[allow(dead_code)]
 async fn test_compile_unity_mathematics_package() {
     let mut compiler = DocsCompiler::new().unwrap();
     let unity_root = get_unity_project_root();

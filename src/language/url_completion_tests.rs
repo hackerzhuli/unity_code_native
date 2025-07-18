@@ -1,6 +1,5 @@
 use crate::language::url_completion::*;
 use crate::test_utils::get_unity_project_root;
-use std::env;
 use std::fs::{self, File};
 use tempfile::TempDir;
 
