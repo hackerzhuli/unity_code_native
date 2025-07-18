@@ -532,3 +532,63 @@ fn test_non_keyword_property_no_completion() {
         }
     }
 }
+
+#[test]
+fn test_color_keyword_completion_item_kind() {
+    let mut parser = UssParser::new().unwrap();
+    let provider = UssCompletionProvider::new();
+
+    // Test case: color property value completion
+    let content = ".some { \n    color: \n}";
+    let tree = parser.parse(content, None).unwrap();
+
+    // Position right after colon and space
+    let position = Position {
+        line: 1,
+        character: 10,
+    };
+
+    let completions = provider.complete(&tree, content, position, None, None, None);
+
+    // Should have completions for color values
+    assert!(
+        !completions.is_empty(),
+        "Should have color value completions"
+    );
+
+    // Find color keyword completions
+    let red_completion = completions.iter().find(|c| c.label == "red");
+    let blue_completion = completions.iter().find(|c| c.label == "blue");
+    let transparent_completion = completions.iter().find(|c| c.label == "transparent");
+
+    // Verify that color keywords have COLOR kind
+    if let Some(red) = red_completion {
+        assert_eq!(
+            red.kind,
+            Some(tower_lsp::lsp_types::CompletionItemKind::COLOR),
+            "Red should be marked as COLOR kind"
+        );
+    }
+
+    if let Some(blue) = blue_completion {
+        assert_eq!(
+            blue.kind,
+            Some(tower_lsp::lsp_types::CompletionItemKind::COLOR),
+            "Blue should be marked as COLOR kind"
+        );
+    }
+
+    if let Some(transparent) = transparent_completion {
+        assert_eq!(
+            transparent.kind,
+            Some(tower_lsp::lsp_types::CompletionItemKind::COLOR),
+            "Transparent should be marked as COLOR kind"
+        );
+    }
+
+    // Verify that at least one color keyword was found
+    assert!(
+        red_completion.is_some() || blue_completion.is_some() || transparent_completion.is_some(),
+        "Should find at least one color keyword completion"
+    );
+}

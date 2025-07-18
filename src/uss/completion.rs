@@ -349,10 +349,6 @@ impl UssCompletionProvider {
         content: &str,
         unity_version: &str,
     ) -> Vec<CompletionItem> {
-        // Implement simple auto-completion logic:
-        // 1. If current node is colon, show all common values
-        // 2. If current node is the first value node after property and the property is keyword-only or is color, we try to show a list of keywords that still matches what is already in the node
-
         // value just started, with colon or comma
         let mut is_colon_or_comma = false;
         if current_node.kind() == NODE_COLON || current_node.kind() == NODE_COMMA {
@@ -445,14 +441,34 @@ impl UssCompletionProvider {
                         })
                 }
 
-                let item = CompletionItem {
+                // Check if this value is a color keyword to provide color preview
+                let kind = if self.definitions.is_valid_color_keyword(value) {
+                    CompletionItemKind::COLOR
+                } else {
+                    CompletionItemKind::VALUE
+                };
+
+                let mut item = CompletionItem {
                     label: value.to_string(),
-                    kind: Some(CompletionItemKind::VALUE),
+                    kind: Some(kind),
                     documentation,
                     insert_text: Some(text),
                     insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
                     ..Default::default()
                 };
+
+                // Add color information for VS Code color preview
+                if let Some((r, g, b)) = self.definitions.get_color_rgb(value) {
+                    // Set the color information that VS Code can use for color preview
+                    item.data = Some(serde_json::json!({
+                        "color": {
+                            "red": r as f64 / 255.0,
+                            "green": g as f64 / 255.0,
+                            "blue": b as f64 / 255.0,
+                            "alpha": 1.0
+                        }
+                    }));
+                }
                 items.push(item);
             }
         }
@@ -736,7 +752,7 @@ impl UssCompletionProvider {
             })
             .map(|class_name| CompletionItem {
                 label: class_name.clone(),
-                kind: Some(CompletionItemKind::COLOR),
+                kind: Some(CompletionItemKind::CLASS),
                 detail: Some("Class selector".to_string()),
                 insert_text: Some(class_name),
                 insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
