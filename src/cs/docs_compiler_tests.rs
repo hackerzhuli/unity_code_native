@@ -1,4 +1,4 @@
-use crate::{cs::{docs_compiler::DocsCompiler, package_manager::UnityPackageManager, source_utils::find_user_assemblies}, test_utils::get_unity_project_root};
+use crate::{cs::{docs_compiler::DocsCompiler, package_manager::UnityPackageManager, source_utils::find_user_assemblies, constants::*}, test_utils::get_unity_project_root};
 
 use crate::cs::compile_utils::{split_parameters, get_simple_type_name, normalize_generic_parameters, normalize_member_name, normalize_type_name};
 use tree_sitter::{Parser, Language};
@@ -40,8 +40,8 @@ fn test_get_simple_type_name() {
     
     // Type with namespace
     assert_eq!(
-        get_simple_type_name("System.String"),
-        "string"
+        get_simple_type_name(SYSTEM_STRING_TYPE),
+        STRING_TYPE
     );
     
     // Nested type

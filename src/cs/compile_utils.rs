@@ -5,6 +5,7 @@
 
 use tokio::net::windows::named_pipe::NamedPipeClient;
 use tree_sitter::Node;
+use super::constants::*;
 
 /// Normalize a type name from a tree-sitter node
 /// Returns the fully qualified type name including namespace
@@ -15,14 +16,14 @@ pub fn normalize_type_name(node: Node, source: &str) -> Option<String> {
     // Find the class declaration that contains this name node
     let mut current = node.parent();
     while let Some(parent) = current {
-        if parent.kind() == "class_declaration" {
+        if parent.kind() == CLASS_DECLARATION {
             // Found the class, now traverse up to collect namespace hierarchy
             let mut namespaces = Vec::new();
             let mut namespace_parent = parent.parent();
             
             while let Some(ns_parent) = namespace_parent {
-                if ns_parent.kind() == "namespace_declaration" {
-                    if let Some(ns_name_node) = ns_parent.child_by_field_name("name") {
+                if ns_parent.kind() == NAMESPACE_DECLARATION {
+                    if let Some(ns_name_node) = ns_parent.child_by_field_name(NAME_FIELD) {
                         if let Ok(ns_name) = ns_name_node.utf8_text(source.as_bytes()) {
                             namespaces.push(ns_name.to_string());
                         }
@@ -51,21 +52,21 @@ pub fn normalize_type_name(node: Node, source: &str) -> Option<String> {
 /// Normalize a member name from a tree-sitter node
 pub fn normalize_member_name(node: Node, source: &str) -> Option<String> {
     match node.kind() {
-        "method_declaration" | "constructor_declaration" | "destructor_declaration" => {
+        METHOD_DECLARATION | CONSTRUCTOR_DECLARATION | DESTRUCTOR_DECLARATION => {
             normalize_method_name(node, source)
         }
-        "field_declaration" => {
+        FIELD_DECLARATION => {
             // For field declarations, we need to find the variable_declarator
             let mut cursor = node.walk();
             for child in node.children(&mut cursor) {
-                if child.kind() == "variable_declaration" {
+                if child.kind() == VARIABLE_DECLARATION {
                     let mut var_cursor = child.walk();
                     for var_child in child.children(&mut var_cursor) {
-                        if var_child.kind() == "variable_declarator" {
+                        if var_child.kind() == VARIABLE_DECLARATOR {
                             // The identifier is a direct child of variable_declarator
                             let mut declarator_cursor = var_child.walk();
                             for declarator_child in var_child.children(&mut declarator_cursor) {
-                                if declarator_child.kind() == "identifier" {
+                                if declarator_child.kind() == IDENTIFIER {
                                     return declarator_child.utf8_text(source.as_bytes()).ok().map(|s| s.to_string());
                                 }
                             }
@@ -77,13 +78,13 @@ pub fn normalize_member_name(node: Node, source: &str) -> Option<String> {
         }
         _ => {
             // For other types (properties, events, etc.), look for the name field or identifier
-            if let Some(name_node) = node.child_by_field_name("name") {
+            if let Some(name_node) = node.child_by_field_name(NAME_FIELD) {
                 name_node.utf8_text(source.as_bytes()).ok().map(|s| s.to_string())
             } else {
                 // Fallback: find first identifier
                 let mut cursor = node.walk();
                 for child in node.children(&mut cursor) {
-                    if child.kind() == "identifier" {
+                    if child.kind() == IDENTIFIER {
                         return child.utf8_text(source.as_bytes()).ok().map(|s| s.to_string());
                     }
                 }
@@ -95,20 +96,20 @@ pub fn normalize_member_name(node: Node, source: &str) -> Option<String> {
 
 /// Normalize a method name with parameters from a tree-sitter node
 pub fn normalize_method_name(node: Node, source: &str) -> Option<String> {
-    let name_node = node.child_by_field_name("name")?;
+    let name_node = node.child_by_field_name(NAME_FIELD)?;
     let base_name = name_node.utf8_text(source.as_bytes()).ok()?;
     
     let mut result = base_name.to_string();
     
     // Add generic parameters if present
-    if let Some(type_params) = node.child_by_field_name("type_parameters") {
+    if let Some(type_params) = node.child_by_field_name(TYPE_PARAMETERS_FIELD) {
         let generic_text = type_params.utf8_text(source.as_bytes()).ok()?;
         let normalized_generics = normalize_generic_parameters(generic_text);
         result.push_str(&normalized_generics);
     }
     
     // Add parameters
-    if let Some(params_node) = node.child_by_field_name("parameters") {
+    if let Some(params_node) = node.child_by_field_name(PARAMETERS_FIELD) {
         let params_text = params_node.utf8_text(source.as_bytes()).ok()?;
         let normalized_params = normalize_parameter_type(params_node, source)?;
         result.push('(');
@@ -127,13 +128,13 @@ pub fn normalize_parameter_type(node: Node, source: &str) -> Option<String> {
     let mut cursor = node.walk();
     
     for child in node.children(&mut cursor) {
-        if child.kind() == "parameter" {
+        if child.kind() == PARAMETER {
             let mut param_parts = Vec::new();
             
             // Check for parameter modifiers (ref, in, out)
             let mut param_cursor = child.walk();
             for param_child in child.children(&mut param_cursor) {
-                if param_child.kind() == "parameter_modifier" {
+                if param_child.kind() == PARAMETER_MODIFIER {
                     if let Ok(modifier_text) = param_child.utf8_text(source.as_bytes()) {
                         param_parts.push(modifier_text.to_string());
                     }
@@ -141,7 +142,7 @@ pub fn normalize_parameter_type(node: Node, source: &str) -> Option<String> {
             }
             
             // Get the type
-            if let Some(type_node) = child.child_by_field_name("type") {
+            if let Some(type_node) = child.child_by_field_name(TYPE_FIELD) {
                 let type_text = type_node.utf8_text(source.as_bytes()).ok()?;
                 let simple_type = get_simple_type_name(type_text);
                 param_parts.push(simple_type);
@@ -174,15 +175,15 @@ pub fn get_simple_type_name(type_name: &str) -> String {
 fn get_simple_name(name: &str) -> String {
     // Handle C# primitive types with exact equality checks
     match name {
-        "System.Int32" => "int".to_string(),
-        "System.String" => "string".to_string(),
-        "System.Boolean" => "bool".to_string(),
-        "System.Double" => "double".to_string(),
-        "System.Single" => "float".to_string(),
-        "System.Int64" => "long".to_string(),
-        "System.Int16" => "short".to_string(),
-        "System.Byte" => "byte".to_string(),
-        "System.Object" => "object".to_string(),
+        SYSTEM_INT32_TYPE => INT_TYPE.to_string(),
+        SYSTEM_STRING_TYPE => STRING_TYPE.to_string(),
+        SYSTEM_BOOLEAN_TYPE => BOOL_TYPE.to_string(),
+        SYSTEM_DOUBLE_TYPE => DOUBLE_TYPE.to_string(),
+        SYSTEM_SINGLE_TYPE => FLOAT_TYPE.to_string(),
+        SYSTEM_INT64_TYPE => LONG_TYPE.to_string(),
+        SYSTEM_INT16_TYPE => SHORT_TYPE.to_string(),
+        SYSTEM_BYTE_TYPE => BYTE_TYPE.to_string(),
+        SYSTEM_OBJECT_TYPE => OBJECT_TYPE.to_string(),
         _ => name.split('.').last().unwrap_or(name).to_string(),
     }
 }
@@ -310,11 +311,11 @@ pub fn normalize_symbol_name(named: &str) -> String {
                      .map(|param| {
                          let trimmed = param.trim();
                          // Handle ref, in, out modifiers
-                         if trimmed.starts_with("ref ") {
+                         if trimmed.starts_with(REF_MODIFIER_WITH_SPACE) {
                              format!("ref {}", get_simple_type_name(&trimmed[4..]))
-                         } else if trimmed.starts_with("in ") {
+                         } else if trimmed.starts_with(IN_MODIFIER_WITH_SPACE) {
                              format!("in {}", get_simple_type_name(&trimmed[3..]))
-                         } else if trimmed.starts_with("out ") {
+                         } else if trimmed.starts_with(OUT_MODIFIER_WITH_SPACE) {
                              format!("out {}", get_simple_type_name(&trimmed[4..]))
                          } else {
                              get_simple_type_name(trimmed)
@@ -332,302 +333,5 @@ pub fn normalize_symbol_name(named: &str) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use tree_sitter::{Parser, Language, Node};
-    use crate::language::tree_printer::print_tree_to_stdout;
-    
-    /// Helper function to find a class declaration node by name in a Tree-sitter AST
-    fn find_class_by_name<'a>(root: Node<'a>, class_name: &str, source: &str) -> Option<Node<'a>> {
-        fn search_node<'a>(node: Node<'a>, class_name: &str, source: &str) -> Option<Node<'a>> {
-            // Check if this is a class_declaration with the target name
-            if node.kind() == "class_declaration" {
-                if let Some(name_node) = node.child_by_field_name("name") {
-                    if let Ok(name_text) = name_node.utf8_text(source.as_bytes()) {
-                        if name_text == class_name {
-                            return Some(node);
-                        }
-                    }
-                }
-            }
-            
-            // Recursively search children
-            let mut cursor = node.walk();
-            for child in node.children(&mut cursor) {
-                if let Some(found) = search_node(child, class_name, source) {
-                    return Some(found);
-                }
-            }
-            
-            None
-        }
-        
-        search_node(root, class_name, source)
-    }
-
-    #[test]
-    fn test_get_simple_type_name() {
-        assert_eq!(get_simple_type_name("int"), "int");
-        assert_eq!(get_simple_type_name("System.String"), "string");
-        assert_eq!(get_simple_type_name("List<int>"), "List<int>");
-        assert_eq!(get_simple_type_name("Dictionary<string, int>"), "Dictionary<string, int>");
-        assert_eq!(get_simple_type_name("System.Collections.Generic.List<System.String>"), "List<string>");
-    }
-
-    #[test]
-    fn test_split_parameters() {
-        assert_eq!(split_parameters(""), Vec::<String>::new());
-        assert_eq!(split_parameters("int"), vec!["int"]);
-        assert_eq!(split_parameters("int, string"), vec!["int", "string"]);
-        assert_eq!(split_parameters("List<int>, Dictionary<string, int>"), vec!["List<int>", "Dictionary<string, int>"]);
-        assert_eq!(split_parameters("Dictionary<string, List<int>>"), vec!["Dictionary<string, List<int>>"]);
-    }
-
-    #[test]
-    fn test_normalize_generic_parameters() {
-        assert_eq!(normalize_generic_parameters("<int>"), "<int>");
-        assert_eq!(normalize_generic_parameters("<System.String>"), "<string>");
-        assert_eq!(normalize_generic_parameters("<int, string>"), "<int, string>");
-        assert_eq!(normalize_generic_parameters("<System.Collections.Generic.List<System.String>>"), "<List<string>>");
-    }
-
-    #[test]
-    fn test_normalize_functions_with_tree_sitter() {
-        let mut parser = Parser::new();
-        let language = tree_sitter_c_sharp::language();
-        parser.set_language(language).unwrap();
-        
-        // Test normalize_type_name with a simple class in a compilation unit
-        let source: &'static str = "namespace Test { public class TestClass { } }";
-        let tree = parser.parse(source, None).unwrap();
-        println!("\n=== Type Name Test Tree ===");
-        print_tree_to_stdout(tree.root_node(), source);
-        
-        // Test normalize_member_name with a field in a class context
-        let field_source = "namespace Test { public class TestClass { public int PublicField; } }";
-        let field_tree = parser.parse(field_source, None).unwrap();
-        println!("\n=== Field Test Tree ===");
-        print_tree_to_stdout(field_tree.root_node(), field_source);
-        
-        // Test normalize_member_name with a method
-        let method_source = "namespace Test { public class TestClass { public void TestMethod(int param) { } } }";
-        let method_tree = parser.parse(method_source, None).unwrap();
-        println!("\n=== Method Test Tree ===");
-        print_tree_to_stdout(method_tree.root_node(), method_source);
-        
-        // Test normalize_member_name with a property
-        let property_source = "namespace Test { public class TestClass { public int TestProperty { get; set; } } }";
-        let property_tree = parser.parse(property_source, None).unwrap();
-        println!("\n=== Property Test Tree ===");
-        print_tree_to_stdout(property_tree.root_node(), property_source);
-    }
-    
-    #[test]
-    fn test_method_with_ref_in_out_modifiers() {
-        let mut parser = Parser::new();
-        let language = tree_sitter_c_sharp::language();
-        parser.set_language(language).unwrap();
-        
-        // Test method with ref, in, out modifiers
-        let method_source = r#"namespace Test {
-    public class TestClass {
-        public void ProcessData(ref int refParam, in string inParam, out bool outParam) {
-            outParam = true;
-        }
-    }
-}"#;
-        
-        let tree = parser.parse(method_source, None).unwrap();
-        let class_node = find_class_by_name(tree.root_node(), "TestClass", method_source).unwrap();
-        
-        // Find the method declaration
-        let mut cursor = class_node.walk();
-        let mut method_node = None;
-        for child in class_node.children(&mut cursor) {
-            if child.kind() == "method_declaration" {
-                method_node = Some(child);
-                break;
-            } else if child.kind() == "declaration_list" {
-                // Methods might be inside a declaration_list
-                let mut decl_cursor = child.walk();
-                for decl_child in child.children(&mut decl_cursor) {
-                    if decl_child.kind() == "method_declaration" {
-                        method_node = Some(decl_child);
-                        break;
-                    }
-                }
-                if method_node.is_some() {
-                    break;
-                }
-            }
-        }
-        
-        let method_node = method_node.unwrap();
-        let normalized_name = normalize_method_name(method_node, method_source).unwrap();
-        
-        // Should preserve ref, in, out modifiers
-        assert_eq!(normalized_name, "ProcessData(ref int, in string, out bool)");
-    }
-    
-    #[test]
-    fn test_normalize_method_name_string() {
-        // Test basic method normalization
-        assert_eq!(normalize_symbol_name("A.B.Method()"), "A.B.Method()");
-        assert_eq!(normalize_symbol_name("Method(int)"), "Method(int)");
-        assert_eq!(normalize_symbol_name("Method(int, string)"), "Method(int, string)");
-        
-        // Test space normalization
-        assert_eq!(normalize_symbol_name("C.D.Method ( int , string )"), "C.D.Method(int, string)");
-        assert_eq!(normalize_symbol_name("Method(  int  ,  string  )"), "Method(int, string)");
-        assert_eq!(normalize_symbol_name("Method( int,string )"), "Method(int, string)");
-        
-        // Test C# primitive type normalization
-        assert_eq!(normalize_symbol_name("Method(System.Int32)"), "Method(int)");
-        assert_eq!(normalize_symbol_name("Method(System.String, System.Boolean)"), "Method(string, bool)");
-        assert_eq!(normalize_symbol_name("Method(System.Double, System.Single)"), "Method(double, float)");
-        assert_eq!(normalize_symbol_name("Method(System.Int64, System.Int16, System.Byte)"), "Method(long, short, byte)");
-        assert_eq!(normalize_symbol_name("Method(System.Object)"), "Method(object)");
-        
-        // Test generic bracket normalization
-        assert_eq!(normalize_symbol_name("GenericMethod{T}(T)"), "GenericMethod<T>(T)");
-        assert_eq!(normalize_symbol_name("Method(List{int})"), "Method(List<int>)");
-        assert_eq!(normalize_symbol_name("Method(Dictionary{string, int})"), "Method(Dictionary<string, int>)");
-        
-        // Test ref, in, out modifiers
-        assert_eq!(normalize_symbol_name("Method(ref int)"), "Method(ref int)");
-        assert_eq!(normalize_symbol_name("Method(in string)"), "Method(in string)");
-        assert_eq!(normalize_symbol_name("Method(out bool)"), "Method(out bool)");
-        assert_eq!(normalize_symbol_name("Method(ref System.Int32, in System.String, out System.Boolean)"), "Method(ref int, in string, out bool)");
-        
-        // Test namespace stripping for parameter types
-        assert_eq!(normalize_symbol_name("Method(System.Collections.Generic.List<T>)"), "Method(List<T>)");
-        assert_eq!(normalize_symbol_name("Method(System.Collections.Generic.Dictionary<string, int>)"), "Method(Dictionary<string, int>)");
-        assert_eq!(normalize_symbol_name("Method(UnityEngine.GameObject, UnityEngine.Transform)"), "Method(GameObject, Transform)");
-        
-        // Test complex combinations
-        assert_eq!(
-            normalize_symbol_name("ProcessData( ref System.Collections.Generic.List{System.String} , in UnityEngine.GameObject,out System.Boolean )"),
-            "ProcessData(ref List<string>, in GameObject, out bool)"
-        );
-        
-        // Test generic methods with complex parameters
-        assert_eq!(
-            normalize_symbol_name("GenericMethod{T, U}(System.Collections.Generic.Dictionary{T, System.Collections.Generic.List{U}}, System.Int32)"),
-            "GenericMethod<T, U>(Dictionary<T, List<U>>, int)"
-        );
-        
-        // Test methods without parameters
-        assert_eq!(normalize_symbol_name("GetValue()"), "GetValue()");
-        assert_eq!(normalize_symbol_name("GetValue( )"), "GetValue()");
-        
-        // Test edge cases
-        assert_eq!(normalize_symbol_name("Method"), "Method"); // No parentheses
-        assert_eq!(normalize_symbol_name("Method()"), "Method()"); // Empty parameters
-    }
-    
-    #[test]
-    fn test_method_with_attributes_and_comments() {
-        let mut parser = Parser::new();
-        let language = tree_sitter_c_sharp::language();
-        parser.set_language(language).unwrap();
-        
-        // Test method with attributes and comments in parameters
-        let method_source = r#"namespace Test {
-    public class TestClass {
-        public void Log(
-            [CallerLineNumber] int line = -1, // this is some comments
-            [CallerFilePath] string path = null, /*some other comment*/
-            [CallerMemberName] string name = null
-        )
-        {
-            Console.WriteLine((line < 0) ? "No line" : "Line "+ line);
-            Console.WriteLine((path == null) ? "No file path" : path);
-            Console.WriteLine((name == null) ? "No member name" : name);
-        }
-    }
-}"#;
-        let method_tree = parser.parse(method_source, None).unwrap();
-        println!("\n=== Method with Attributes and Comments Test Tree ===");
-        print_tree_to_stdout(method_tree.root_node(), method_source);
-        
-        // Find the Log method using the helper method
-        let class_node = find_class_by_name(method_tree.root_node(), "TestClass", method_source)
-            .expect("Could not find TestClass");
-        
-        let class_body = class_node.child_by_field_name("body").unwrap();
-        
-        // Find the method in the class body
-        let mut method_node = None;
-        let mut cursor = class_body.walk();
-        for child in class_body.children(&mut cursor) {
-            if child.kind() == "method_declaration" {
-                method_node = Some(child);
-                break;
-            }
-        }
-        
-        if let Some(method_node) = method_node {
-            let method_name = normalize_member_name(method_node, method_source).unwrap();
-            // Should extract parameter types correctly, ignoring attributes and comments
-            assert_eq!(method_name, "Log(int, string, string)");
-        } else {
-            panic!("Could not find method node");
-        }
-    }
-
-    #[test]
-    fn test_nested_namespace_normalization() {
-        let mut parser = Parser::new();
-        let language = tree_sitter_c_sharp::language();
-        parser.set_language(language).unwrap();
-        
-        // Test nested namespaces with complex hierarchy
-        let nested_source = "namespace Namespace.Hello { namespace World.How.Are.You { public class HelloWorld { public void Method() { } } } }";
-        let nested_tree = parser.parse(nested_source, None).unwrap();
-        println!("\n=== Nested Namespace Test Tree ===");
-        print_tree_to_stdout(nested_tree.root_node(), nested_source);
-        
-        // Find the HelloWorld class using the helper method
-        let class_node = find_class_by_name(nested_tree.root_node(), "HelloWorld", nested_source)
-            .expect("Could not find HelloWorld class in nested namespace");
-        
-        // Test class name normalization
-        let class_name_node = class_node.child_by_field_name("name").or_else(|| {
-            // Fallback: find identifier child directly
-            let mut cursor = class_node.walk();
-            for child in class_node.children(&mut cursor) {
-                if child.kind() == "identifier" {
-                    return Some(child);
-                }
-            }
-            None
-        });
-        
-        if let Some(name_node) = class_name_node {
-            let class_name = normalize_type_name(name_node, nested_source).unwrap();
-            assert_eq!(class_name, "Namespace.Hello.World.How.Are.You.HelloWorld");
-        } else {
-            panic!("Could not find class name node");
-        }
-        
-        // Test method name normalization
-        let class_body = class_node.child_by_field_name("body").unwrap();
-        
-        // Find the method in the class body
-        let mut method_node = None;
-        let mut cursor = class_body.walk();
-        for child in class_body.children(&mut cursor) {
-            if child.kind() == "method_declaration" {
-                method_node = Some(child);
-                break;
-            }
-        }
-        
-        if let Some(method_node) = method_node {
-            let method_name = normalize_member_name(method_node, nested_source).unwrap();
-            assert_eq!(method_name, "Method()");
-        } else {
-            panic!("Could not find method node");
-        }
-    }
-}
+#[path="compile_utils_tests.rs"]
+mod tests;

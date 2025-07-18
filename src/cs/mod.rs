@@ -15,3 +15,4 @@ pub mod compile_utils;
 pub mod docs_compiler;
 pub mod source_assembly;
 pub mod xml_doc_utils;
+pub mod constants;

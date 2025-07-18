@@ -9,9 +9,11 @@ use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tree_sitter::{Parser, Language, Node, Tree};
 use crate::cs::source_utils::{extract_compile_items, find_cs_files_in_dir};
+use crate::language::tree_utils::has_error_nodes;
 
 use super::source_assembly::SourceAssembly;
 use super::compile_utils::{normalize_type_name, normalize_member_name};
+use super::constants::*;
 
 /// Current version of the DocsAssembly data structure
 pub const DOCS_ASSEMBLY_VERSION: u32 = 1;
@@ -86,36 +88,38 @@ impl DocsCompiler {
         
         for source_file in source_files {
             let full_path = unity_project_root.join(&source_file);
-            let file_types = self.extract_docs_from_file(&full_path, include_non_public).await?;
-            
-            // Incrementally merge types from this file
-            for type_doc in file_types {
-                if let Some(existing_type) = merged_types.get_mut(&type_doc.name) {
-                    // Merge members from this partial class into the existing one
-                    existing_type.members.extend(type_doc.members);
-                    
-                    // Merge XML documentation (combine if both exist)
-                    if !type_doc.xml_doc.is_empty() {
-                        if existing_type.xml_doc.is_empty() {
-                            existing_type.xml_doc = type_doc.xml_doc;
-                        } else {
-                            // Combine XML docs with a separator
-                            existing_type.xml_doc = format!("{} {}", existing_type.xml_doc, type_doc.xml_doc);
+            // If any error occured in a file, we can ignore that
+            // We're compiling docs, not an executable, so it doesn't matter, just extract the correct stuff
+            if let Ok(file_types) = self.extract_docs_from_file(&full_path, include_non_public).await{
+                // Incrementally merge types from this file
+                for type_doc in file_types {
+                    if let Some(existing_type) = merged_types.get_mut(&type_doc.name) {
+                        // Merge members from this partial class into the existing one
+                        existing_type.members.extend(type_doc.members);
+                        
+                        // Merge XML documentation (combine if both exist)
+                        if !type_doc.xml_doc.is_empty() {
+                            if existing_type.xml_doc.is_empty() {
+                                existing_type.xml_doc = type_doc.xml_doc;
+                            } else {
+                                // Combine XML docs with a separator
+                                existing_type.xml_doc = format!("{} {}", existing_type.xml_doc, type_doc.xml_doc);
+                            }
                         }
-                    }
-                    
-                    // Keep the most permissive visibility (if any part is public, the whole type is public)
-                    existing_type.is_public = existing_type.is_public || type_doc.is_public;
-                    
-                    // Merge using namespaces (combine and deduplicate)
-                    for using_ns in type_doc.using_namespaces {
-                        if !existing_type.using_namespaces.contains(&using_ns) {
-                            existing_type.using_namespaces.push(using_ns);
+                        
+                        // Keep the most permissive visibility (if any part is public, the whole type is public)
+                        existing_type.is_public = existing_type.is_public || type_doc.is_public;
+                        
+                        // Merge using namespaces (combine and deduplicate)
+                        for using_ns in type_doc.using_namespaces {
+                            if !existing_type.using_namespaces.contains(&using_ns) {
+                                existing_type.using_namespaces.push(using_ns);
+                            }
                         }
+                    } else {
+                        // First occurrence of this type
+                        merged_types.insert(type_doc.name.clone(), type_doc);
                     }
-                } else {
-                    // First occurrence of this type
-                    merged_types.insert(type_doc.name.clone(), type_doc);
                 }
             }
         }
@@ -135,6 +139,10 @@ impl DocsCompiler {
         
         let tree = self.parser.parse(&content, None)
             .ok_or_else(|| anyhow!("Failed to parse C# file: {:?}", file_path))?;
+
+        if has_error_nodes(tree.root_node()){
+            return Err(anyhow!("There are syntax erros in C# file: {:?}", file_path));
+        }
         
         // Extract using directives from the file
         let using_namespaces = self.extract_using_directives(tree.root_node(), &content)?;
@@ -156,9 +164,9 @@ impl DocsCompiler {
         using_namespaces: &[String],
     ) -> Result<()> {
         match node.kind() {
-            "namespace_declaration" => {
+            NAMESPACE_DECLARATION => {
                 // Extract namespace name and recurse into it
-                if let Some(name_node) = node.child_by_field_name("name") {
+                if let Some(name_node) = node.child_by_field_name(NAME_FIELD) {
                     let namespace_name = name_node.utf8_text(source.as_bytes())?;
                     let new_prefix = if namespace_prefix.is_empty() {
                         namespace_name.to_string()
@@ -167,14 +175,14 @@ impl DocsCompiler {
                     };
                     
                     // Recurse into namespace body
-                    if let Some(body) = node.child_by_field_name("body") {
+                    if let Some(body) = node.child_by_field_name(BODY_FIELD) {
                         for child in body.children(&mut body.walk()) {
                             self.extract_types_from_node(child, source, include_non_public, types, new_prefix.clone(), using_namespaces)?;
                         }
                     }
                 }
             },
-            "class_declaration" | "interface_declaration" | "struct_declaration" | "enum_declaration" => {
+            CLASS_DECLARATION | INTERFACE_DECLARATION | STRUCT_DECLARATION | ENUM_DECLARATION => {
                 // Extract type documentation
                 if let Some(type_doc) = self.extract_type_doc(node, source, include_non_public, &namespace_prefix, using_namespaces)? {
                     types.push(type_doc);
@@ -201,7 +209,7 @@ impl DocsCompiler {
         using_namespaces: &[String],
     ) -> Result<Option<TypeDoc>> {
         // Get type name
-        let name_node = node.child_by_field_name("name")
+        let name_node = node.child_by_field_name(NAME_FIELD)
             .ok_or_else(|| anyhow!("Type declaration missing name"))?;
         let type_name = name_node.utf8_text(source.as_bytes())?;
         
@@ -228,7 +236,7 @@ impl DocsCompiler {
         
         // Extract member documentation
         let mut members = std::collections::HashMap::new();
-        if let Some(body) = node.child_by_field_name("body") {
+        if let Some(body) = node.child_by_field_name(BODY_FIELD) {
             for child in body.children(&mut body.walk()) {
                 if let Some(member_doc) = self.extract_member_doc(child, source, include_non_public)? {
                     members.insert(member_doc.name.clone(), member_doc);
@@ -253,7 +261,7 @@ impl DocsCompiler {
         include_non_public: bool,
     ) -> Result<Option<MemberDoc>> {
         match node.kind() {
-            "method_declaration" | "property_declaration" | "field_declaration" | "event_declaration" => {
+            METHOD_DECLARATION | PROPERTY_DECLARATION | FIELD_DECLARATION | EVENT_DECLARATION => {
                 let is_public = self.is_public_declaration(node, source)?;
                 
                 // Skip non-public members if not including them
@@ -285,9 +293,9 @@ impl DocsCompiler {
     fn is_public_declaration(&self, node: Node, source: &str) -> Result<bool> {
         // Look for modifier children (Tree-sitter C# uses "modifier" not "modifiers")
         for child in node.children(&mut node.walk()) {
-            if child.kind() == "modifier" {
+            if child.kind() == MODIFIER {
                 let modifier_text = child.utf8_text(source.as_bytes())?;
-                if modifier_text.trim() == "public" {
+                if modifier_text.trim() == PUBLIC_MODIFIER {
                     return Ok(true);
                 }
             }
@@ -303,11 +311,11 @@ impl DocsCompiler {
         
         // Walk through all children of the root node to find using directives
         for child in root_node.children(&mut root_node.walk()) {
-            if child.kind() == "using_directive" {
+            if child.kind() == USING_DIRECTIVE {
                 // Extract the namespace from the using directive
                 // The tree-sitter C# grammar uses child nodes like 'identifier' and 'qualified_name'
                 for grandchild in child.children(&mut child.walk()) {
-                    if grandchild.kind() == "qualified_name" || grandchild.kind() == "identifier" {
+                    if grandchild.kind() == QUALIFIED_NAME || grandchild.kind() == IDENTIFIER {
                         let namespace_name = grandchild.utf8_text(source.as_bytes())?;
                         using_namespaces.push(namespace_name.to_string());
                         break;
@@ -326,7 +334,7 @@ impl DocsCompiler {
         // Look for preceding comment nodes
         let mut current = node;
         while let Some(prev) = current.prev_sibling() {
-            if prev.kind() == "comment" {
+            if prev.kind() == COMMENT {
                 let comment_text = prev.utf8_text(source.as_bytes())?;
                 if comment_text.trim_start().starts_with("///") {
                     // This is an XML doc comment
@@ -340,7 +348,7 @@ impl DocsCompiler {
                     // Not an XML doc comment, stop looking
                     break;
                 }
-            } else if prev.kind() != "whitespace" {
+            } else if prev.kind() != WHITESPACE {
                 // Non-comment, non-whitespace node, stop looking
                 break;
             }
