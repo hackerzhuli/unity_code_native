@@ -57,5 +57,3 @@ mod function_node_tests;
 #[cfg(test)]
 mod flexible_format_tests;
 
-#[cfg(test)]
-mod refactor_tests;

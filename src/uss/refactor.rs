@@ -21,14 +21,14 @@ impl UssRefactorProvider {
     /// Find all references to a class or id selector in the document
     pub fn find_selector_references(
         &self,
-        tree: &tree_sitter::Tree,
+        root_node: Node,
         content: &str,
         selector_name: &str,
         selector_type: SelectorType,
     ) -> Vec<Range> {
         let mut references = Vec::new();
         self.find_selector_references_recursive(
-            tree.root_node(),
+            root_node,
             content,
             selector_name,
             selector_type,
@@ -109,14 +109,14 @@ impl UssRefactorProvider {
     /// Generate workspace edit for renaming a selector
     pub fn rename_selector(
         &self,
-        tree: &tree_sitter::Tree,
+        root_node: Node,
         content: &str,
         uri: &Url,
         old_name: &str,
         new_name: &str,
         selector_type: SelectorType,
     ) -> Option<WorkspaceEdit> {
-        let references = self.find_selector_references(tree, content, old_name, selector_type);
+        let references = self.find_selector_references(root_node, content, old_name, selector_type);
         
         if references.is_empty() {
             return None;
@@ -143,82 +143,81 @@ impl UssRefactorProvider {
     /// Generate code actions for the given range
     pub fn get_code_actions(
         &self,
-        document: &UssDocument,
+        tree: &tree_sitter::Tree,
+        content: &str,
         uri: &Url,
         range: Range,
     ) -> Option<Vec<CodeActionOrCommand>> {
         let mut actions = Vec::new();
         
-        if let Some(tree) = document.tree() {
-            // Find selector at the current position
-            let start_position = range.start;
+        // Find selector at the current position
+        let start_position = range.start;
+        
+        if let Some(node) = find_node_at_position(tree.root_node(), start_position) {
+            let mut current = node;
             
-            if let Some(node) = find_node_at_position(tree.root_node(), start_position) {
-                let mut current = node;
+            // Walk up the tree to find a selector
+            loop {
+                let node_kind = current.kind();
                 
-                // Walk up the tree to find a selector
-                loop {
-                    let node_kind = current.kind();
-                    
-                    if node_kind == "class_selector" || node_kind == "id_selector" {
-                        // Extract the selector name
-                        let selector_text = if let Ok(text) = current.utf8_text(document.content().as_bytes()) {
-                            text.to_string()
-                        } else {
-                            break;
-                        };
-                        
-                        let (selector_type, selector_name) = if node_kind == "class_selector" {
-                            if selector_text.starts_with('.') {
-                                (SelectorType::Class, &selector_text[1..])
-                            } else {
-                                break;
-                            }
-                        } else if node_kind == "id_selector" {
-                            if selector_text.starts_with('#') {
-                                (SelectorType::Id, &selector_text[1..])
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        };
-                        
-                        // Create rename action
-                        let action = CodeActionOrCommand::CodeAction(CodeAction {
-                            title: format!("Rename {} '{}'", 
-                                if matches!(selector_type, SelectorType::Class) { "class" } else { "id" },
-                                selector_name
-                            ),
-                            kind: Some(CodeActionKind::REFACTOR),
-                            diagnostics: None,
-                            edit: None,
-                            command: Some(Command {
-                                title: "Rename Selector".to_string(),
-                                command: "uss.renameSelector".to_string(),
-                                arguments: Some(vec![
-                                    serde_json::to_value(&uri).unwrap(),
-                                    serde_json::to_value(selector_name).unwrap(),
-                                    serde_json::to_value(match selector_type {
-                                        SelectorType::Class => "class",
-                                        SelectorType::Id => "id",
-                                    }).unwrap(),
-                                ]),
-                            }),
-                            is_preferred: Some(true),
-                            disabled: None,
-                            data: None,
-                        });
-                        
-                        actions.push(action);
-                        break;
-                    }
-                    
-                    if let Some(parent) = current.parent() {
-                        current = parent;
+                if node_kind == "class_selector" || node_kind == "id_selector" {
+                    // Extract the selector name
+                    let selector_text = if let Ok(text) = current.utf8_text(content.as_bytes()) {
+                        text.to_string()
                     } else {
                         break;
-                    }
+                    };
+                    
+                    let (selector_type, selector_name) = if node_kind == "class_selector" {
+                        if selector_text.starts_with('.') {
+                            (SelectorType::Class, &selector_text[1..])
+                        } else {
+                            break;
+                        }
+                    } else if node_kind == "id_selector" {
+                        if selector_text.starts_with('#') {
+                            (SelectorType::Id, &selector_text[1..])
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    };
+                    
+                    // Create rename action
+                    let action = CodeActionOrCommand::CodeAction(CodeAction {
+                        title: format!("Rename {} '{}'", 
+                            if matches!(selector_type, SelectorType::Class) { "class" } else { "id" },
+                            selector_name
+                        ),
+                        kind: Some(CodeActionKind::REFACTOR),
+                        diagnostics: None,
+                        edit: None,
+                        command: Some(Command {
+                            title: "Rename Selector".to_string(),
+                            command: "uss.renameSelector".to_string(),
+                            arguments: Some(vec![
+                                serde_json::to_value(&uri).unwrap(),
+                                serde_json::to_value(selector_name).unwrap(),
+                                serde_json::to_value(match selector_type {
+                                    SelectorType::Class => "class",
+                                    SelectorType::Id => "id",
+                                }).unwrap(),
+                            ]),
+                        }),
+                        is_preferred: Some(true),
+                        disabled: None,
+                        data: None,
+                    });
+                    
+                    actions.push(action);
+                    break;
+                }
+                
+                if let Some(parent) = current.parent() {
+                    current = parent;
+                } else {
+                    break;
                 }
             }
         }
@@ -233,59 +232,95 @@ impl UssRefactorProvider {
     /// Prepare rename operation by finding the selector at the given position
     pub fn prepare_rename(
         &self,
-        document: &UssDocument,
+        root_node: Node,
+        content: &str,
         position: Position,
     ) -> Option<PrepareRenameResponse> {
-        if let Some(tree) = document.tree() {
-            // Find selector at the current position
-            if let Some(node) = find_node_at_position(tree.root_node(), position) {
-                let mut current = node;
+        // Find selector at the current position
+        if let Some(node) = find_node_at_position(root_node, position) {
+            let mut current = node;
+            
+            // Walk up the tree to find a selector
+            loop {
+                let node_kind = current.kind();
                 
-                // Walk up the tree to find a selector
-                loop {
-                    let node_kind = current.kind();
-                    
-                    if node_kind == "class_selector" || node_kind == "id_selector" {
-                        // Extract the selector name and range
-                        let selector_text = if let Ok(text) = current.utf8_text(document.content().as_bytes()) {
-                            text.to_string()
-                        } else {
-                            break;
-                        };
-                        
-                        let (_, selector_name) = if node_kind == "class_selector" {
-                            if selector_text.starts_with('.') {
-                                (SelectorType::Class, &selector_text[1..])
-                            } else {
-                                break;
-                            }
-                        } else if node_kind == "id_selector" {
-                            if selector_text.starts_with('#') {
-                                (SelectorType::Id, &selector_text[1..])
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        };
-                        
-                        // Get the range of the selector name (without the . or # prefix)
-                        let mut range = node_to_range(current, document.content());
-                        
-                        // Adjust range to exclude the prefix (. or #)
-                        range.start.character += 1;
-                        
-                        return Some(PrepareRenameResponse::RangeWithPlaceholder {
-                            range,
-                            placeholder: selector_name.to_string(),
-                        });
-                    }
-                    
+                // Handle identifier nodes that might be part of class_name or id_name
+                if node_kind == "identifier" {
+                    // Check if this identifier is part of a class_name or id_name
                     if let Some(parent) = current.parent() {
-                        current = parent;
+                        let parent_kind = parent.kind();
+                        if parent_kind == "class_name" {
+                            // Find the class_selector parent
+                            if let Some(class_selector) = parent.parent() {
+                                if class_selector.kind() == "class_selector" {
+                                    // Get the range of just the identifier (class name without .)
+                                    let range = node_to_range(current, content);
+                                    if let Ok(identifier_text) = current.utf8_text(content.as_bytes()) {
+                                        return Some(PrepareRenameResponse::RangeWithPlaceholder {
+                                            range,
+                                            placeholder: identifier_text.to_string(),
+                                        });
+                                    }
+                                }
+                            }
+                        } else if parent_kind == "id_name" {
+                            // Find the id_selector parent
+                            if let Some(id_selector) = parent.parent() {
+                                if id_selector.kind() == "id_selector" {
+                                    // Get the range of just the identifier (id name without #)
+                                    let range = node_to_range(current, content);
+                                    if let Ok(identifier_text) = current.utf8_text(content.as_bytes()) {
+                                        return Some(PrepareRenameResponse::RangeWithPlaceholder {
+                                            range,
+                                            placeholder: identifier_text.to_string(),
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if node_kind == "class_selector" || node_kind == "id_selector" {
+                    // Extract the selector name and range
+                    let selector_text = if let Ok(text) = current.utf8_text(content.as_bytes()) {
+                        text.to_string()
                     } else {
                         break;
-                    }
+                    };
+                    
+                    let (_, selector_name) = if node_kind == "class_selector" {
+                        if selector_text.starts_with('.') {
+                            (SelectorType::Class, &selector_text[1..])
+                        } else {
+                            break;
+                        }
+                    } else if node_kind == "id_selector" {
+                        if selector_text.starts_with('#') {
+                            (SelectorType::Id, &selector_text[1..])
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    };
+                    
+                    // Get the range of the selector name (without the . or # prefix)
+                    let mut range = node_to_range(current, content);
+                    
+                    // Adjust range to exclude the prefix (. or #)
+                    range.start.character += 1;
+                    
+                    return Some(PrepareRenameResponse::RangeWithPlaceholder {
+                        range,
+                        placeholder: selector_name.to_string(),
+                    });
+                }
+                
+                if let Some(parent) = current.parent() {
+                    current = parent;
+                } else {
+                    break;
                 }
             }
         }
@@ -294,62 +329,102 @@ impl UssRefactorProvider {
     }
 
     /// Handle rename operation by finding the selector and generating workspace edit
-    pub fn handle_rename(
+    pub fn handle_rename<'a>(
         &self,
-        document: &UssDocument,
+        root_node: Node<'a>,
+        content: &str,
         uri: &Url,
         position: Position,
         new_name: &str,
     ) -> Option<WorkspaceEdit> {
-        if let Some(tree) = document.tree() {
-            // Find selector at the current position
-            if let Some(node) = find_node_at_position(tree.root_node(), position) {
-                let mut current = node;
+        // Find selector at the current position
+        if let Some(node) = find_node_at_position(root_node, position) {
+            let mut current = node;
+            
+            // Walk up the tree to find a selector
+            loop {
+                let node_kind = current.kind();
                 
-                // Walk up the tree to find a selector
-                loop {
-                    let node_kind = current.kind();
-                    
-                    if node_kind == "class_selector" || node_kind == "id_selector" {
-                        // Extract the selector name
-                        let selector_text = if let Ok(text) = current.utf8_text(document.content().as_bytes()) {
-                            text.to_string()
-                        } else {
-                            break;
-                        };
-                        
-                        let (selector_type, old_name) = if node_kind == "class_selector" {
-                            if selector_text.starts_with('.') {
-                                (SelectorType::Class, &selector_text[1..])
-                            } else {
-                                break;
-                            }
-                        } else if node_kind == "id_selector" {
-                            if selector_text.starts_with('#') {
-                                (SelectorType::Id, &selector_text[1..])
-                            } else {
-                                break;
-                            }
-                        } else {
-                            break;
-                        };
-                        
-                        // Generate workspace edit for renaming
-                        return self.rename_selector(
-                            tree,
-                            document.content(),
-                            uri,
-                            old_name,
-                            new_name,
-                            selector_type,
-                        );
-                    }
-                    
+                // Handle identifier nodes that might be part of class_name or id_name
+                if node_kind == "identifier" {
+                    // Check if this identifier is part of a class_name or id_name
                     if let Some(parent) = current.parent() {
-                        current = parent;
+                        let parent_kind = parent.kind();
+                        if parent_kind == "class_name" {
+                            // Find the class_selector parent
+                            if let Some(class_selector) = parent.parent() {
+                                if class_selector.kind() == "class_selector" {
+                                    if let Ok(identifier_text) = current.utf8_text(content.as_bytes()) {
+                                        return self.rename_selector(
+                                            root_node,
+                                            content,
+                                            uri,
+                                            identifier_text,
+                                            new_name,
+                                            SelectorType::Class,
+                                        );
+                                    }
+                                }
+                            }
+                        } else if parent_kind == "id_name" {
+                            // Find the id_selector parent
+                            if let Some(id_selector) = parent.parent() {
+                                if id_selector.kind() == "id_selector" {
+                                    if let Ok(identifier_text) = current.utf8_text(content.as_bytes()) {
+                                        return self.rename_selector(
+                                            root_node,
+                                            content,
+                                            uri,
+                                            identifier_text,
+                                            new_name,
+                                            SelectorType::Id,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if node_kind == "class_selector" || node_kind == "id_selector" {
+                    // Extract the selector name
+                    let selector_text = if let Ok(text) = current.utf8_text(content.as_bytes()) {
+                        text.to_string()
                     } else {
                         break;
-                    }
+                    };
+                    
+                    let (selector_type, old_name) = if node_kind == "class_selector" {
+                        if selector_text.starts_with('.') {
+                            (SelectorType::Class, &selector_text[1..])
+                        } else {
+                            break;
+                        }
+                    } else if node_kind == "id_selector" {
+                        if selector_text.starts_with('#') {
+                            (SelectorType::Id, &selector_text[1..])
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    };
+                    
+                    // Generate workspace edit for renaming
+                    return self.rename_selector(
+                        root_node,
+                        content,
+                        uri,
+                        old_name,
+                        new_name,
+                        selector_type,
+                    );
+                }
+                
+                if let Some(parent) = current.parent() {
+                    current = parent;
+                } else {
+                    break;
                 }
             }
         }
@@ -372,3 +447,7 @@ impl Default for UssRefactorProvider {
         Self::new()
     }
 }
+
+#[cfg(test)]
+#[path ="refactor_rename_tests.rs"]
+mod refactor_rename_tests;

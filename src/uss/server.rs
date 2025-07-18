@@ -587,8 +587,10 @@ impl LanguageServer for UssLanguageServer {
         
         if let Ok(state) = self.state.lock() {
             if let Some(document) = state.document_manager.get_document(&uri) {
-                if let Some(actions) = state.refactor_provider.get_code_actions(document, &uri, range) {
-                    return Ok(Some(CodeActionResponse::from(actions)));
+                if let Some(tree) = document.tree() {
+                    if let Some(actions) = state.refactor_provider.get_code_actions(tree, document.content(), &uri, range) {
+                        return Ok(Some(CodeActionResponse::from(actions)));
+                    }
                 }
             }
         }
@@ -602,7 +604,10 @@ impl LanguageServer for UssLanguageServer {
         
         if let Ok(state) = self.state.lock() {
             if let Some(document) = state.document_manager.get_document(&uri) {
-                return Ok(state.refactor_provider.prepare_rename(document, position));
+                if let Some(tree) = document.tree() {
+                    return Ok(state.refactor_provider.prepare_rename(tree.root_node(), document.content(), position));
+
+                }
             }
         }
         
@@ -616,7 +621,9 @@ impl LanguageServer for UssLanguageServer {
         
         if let Ok(state) = self.state.lock() {
             if let Some(document) = state.document_manager.get_document(&uri) {
-                return Ok(state.refactor_provider.handle_rename(document, &uri, position, &new_name));
+                if let Some(tree) = document.tree() {
+                    return Ok(state.refactor_provider.handle_rename(tree.root_node(), document.content(), &uri, position, &new_name));
+                }
             }
         }
         
