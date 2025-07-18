@@ -8,6 +8,8 @@ use anyhow::{Result, Context, anyhow};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use tree_sitter::{Parser, Language, Node, Tree};
+use crate::cs::source_utils::{extract_compile_items, find_cs_files_in_dir};
+
 use super::source_assembly::SourceAssembly;
 use super::compile_utils::{normalize_type_name, normalize_member_name};
 
@@ -80,16 +82,43 @@ impl DocsCompiler {
     /// Compile documentation for a source assembly
     pub async fn compile_assembly(&mut self, assembly: &SourceAssembly, unity_project_root: &Path, include_non_public: bool) -> Result<DocsAssembly> {
         let source_files = self.get_assembly_source_files(assembly, unity_project_root).await?;
-        let mut types = Vec::new();
+        let mut merged_types: std::collections::HashMap<String, TypeDoc> = std::collections::HashMap::new();
         
         for source_file in source_files {
             let full_path = unity_project_root.join(&source_file);
             let file_types = self.extract_docs_from_file(&full_path, include_non_public).await?;
-            types.extend(file_types);
+            
+            // Incrementally merge types from this file
+            for type_doc in file_types {
+                if let Some(existing_type) = merged_types.get_mut(&type_doc.name) {
+                    // Merge members from this partial class into the existing one
+                    existing_type.members.extend(type_doc.members);
+                    
+                    // Merge XML documentation (combine if both exist)
+                    if !type_doc.xml_doc.is_empty() {
+                        if existing_type.xml_doc.is_empty() {
+                            existing_type.xml_doc = type_doc.xml_doc;
+                        } else {
+                            // Combine XML docs with a separator
+                            existing_type.xml_doc = format!("{} {}", existing_type.xml_doc, type_doc.xml_doc);
+                        }
+                    }
+                    
+                    // Keep the most permissive visibility (if any part is public, the whole type is public)
+                    existing_type.is_public = existing_type.is_public || type_doc.is_public;
+                    
+                    // Merge using namespaces (combine and deduplicate)
+                    for using_ns in type_doc.using_namespaces {
+                        if !existing_type.using_namespaces.contains(&using_ns) {
+                            existing_type.using_namespaces.push(using_ns);
+                        }
+                    }
+                } else {
+                    // First occurrence of this type
+                    merged_types.insert(type_doc.name.clone(), type_doc);
+                }
+            }
         }
-        
-        // Merge partial classes
-        let merged_types = self.merge_partial_classes(types);
         
         Ok(DocsAssembly {
             version: DOCS_ASSEMBLY_VERSION,
@@ -97,43 +126,6 @@ impl DocsCompiler {
             is_user_code: assembly.is_user_code,
             types: merged_types,
         })
-    }
-    
-    /// Merge partial classes with the same name
-    fn merge_partial_classes(&self, types: Vec<TypeDoc>) -> std::collections::HashMap<String, TypeDoc> {
-        let mut merged_types: std::collections::HashMap<String, TypeDoc> = std::collections::HashMap::new();
-        
-        for type_doc in types {
-            if let Some(existing_type) = merged_types.get_mut(&type_doc.name) {
-                // Merge members from this partial class into the existing one
-                existing_type.members.extend(type_doc.members);
-                
-                // Merge XML documentation (combine if both exist)
-                if !type_doc.xml_doc.is_empty() {
-                    if existing_type.xml_doc.is_empty() {
-                        existing_type.xml_doc = type_doc.xml_doc;
-                    } else {
-                        // Combine XML docs with a separator
-                        existing_type.xml_doc = format!("{} {}", existing_type.xml_doc, type_doc.xml_doc);
-                    }
-                }
-                
-                // Keep the most permissive visibility (if any part is public, the whole type is public)
-                existing_type.is_public = existing_type.is_public || type_doc.is_public;
-                
-                // Merge using namespaces (combine and deduplicate)
-                for using_ns in type_doc.using_namespaces {
-                    if !existing_type.using_namespaces.contains(&using_ns) {
-                        existing_type.using_namespaces.push(using_ns);
-                    }
-                }
-            } else {
-                // First occurrence of this type
-                merged_types.insert(type_doc.name.clone(), type_doc);
-            }
-        }
-        
-        merged_types
     }
     
     /// Extract documentation from a single C# source file
@@ -199,7 +191,7 @@ impl DocsCompiler {
         Ok(())
     }
     
-    /// Extract documentation for a specific type
+    /// Extract documentation for a specific type from a syntax tree parsed from a source file
     fn extract_type_doc(
         &self,
         node: Node,
@@ -305,8 +297,6 @@ impl DocsCompiler {
         Ok(false)
     }
     
-
-    
     /// Extract using directives from the compilation unit
     fn extract_using_directives(&self, root_node: Node, source: &str) -> Result<Vec<String>> {
         let mut using_namespaces = Vec::new();
@@ -360,8 +350,6 @@ impl DocsCompiler {
         Ok(xml_doc)
     }
     
-
-
     /// Get source files for an assembly on-demand based on its source_location
     pub async fn get_assembly_source_files(&self, assembly: &SourceAssembly, unity_project_root: &Path) -> Result<Vec<PathBuf>> {
         let source_location = &assembly.source_location;
@@ -372,13 +360,13 @@ impl DocsCompiler {
                     // Read source files from .csproj file
                     let content = fs::read_to_string(source_location).await
                         .context("Failed to read .csproj file")?;
-                    self.extract_compile_items(&content, unity_project_root)
+                    extract_compile_items(&content, unity_project_root)
                         .context("Failed to extract compile items from .csproj")
                 },
                 "asmdef" => {
                     // Find .cs files in the directory containing the .asmdef file
                     if let Some(asmdef_dir) = source_location.parent() {
-                        self.find_cs_files_in_dir(asmdef_dir, unity_project_root).await
+                        find_cs_files_in_dir(asmdef_dir, unity_project_root).await
                     } else {
                         Ok(Vec::new())
                     }
@@ -388,109 +376,6 @@ impl DocsCompiler {
         } else {
             Ok(Vec::new())
         }
-    }
-    
-    /// Recursively find all .cs files in a directory and return paths relative to Unity project root
-    pub fn find_cs_files_in_dir<'a>(&'a self, dir: &'a Path, unity_project_root: &'a Path) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<PathBuf>>> + 'a>> {
-        Box::pin(async move {
-            let mut cs_files = Vec::new();
-            
-            let mut entries = fs::read_dir(dir).await
-                .context("Failed to read directory")?;
-            
-            while let Some(entry) = entries.next_entry().await? {
-                let path = entry.path();
-                if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("cs") {
-                    // Convert to relative path from Unity project root
-                    if let Ok(relative_path) = path.strip_prefix(unity_project_root) {
-                        cs_files.push(relative_path.to_path_buf());
-                    }
-                } else if path.is_dir() {
-                    // Recursively search subdirectories
-                    let mut sub_files = self.find_cs_files_in_dir(&path, unity_project_root).await?;
-                    cs_files.append(&mut sub_files);
-                }
-            }
-            
-            Ok(cs_files)
-        })
-    }
-    
-    /// Extract Compile items from .csproj XML content
-    fn extract_compile_items(&self, content: &str, unity_project_root: &Path) -> Result<Vec<PathBuf>> {
-        let mut source_files = Vec::new();
-        
-        // Find all <Compile Include="path" /> items
-        let mut search_pos = 0;
-        while let Some(compile_start) = content[search_pos..].find("<Compile Include=\"") {
-            let absolute_start = search_pos + compile_start + "<Compile Include=\"".len();
-            if let Some(quote_end) = content[absolute_start..].find('"') {
-                let file_path = &content[absolute_start..absolute_start + quote_end];
-                
-                // Convert to PathBuf and make it relative to unity project root
-                let path_buf = PathBuf::from(file_path);
-                
-                // Ensure the file exists and is a .cs file
-                let full_path = unity_project_root.join(&path_buf);
-                if full_path.exists() && path_buf.extension().and_then(|s| s.to_str()) == Some("cs") {
-                    source_files.push(path_buf);
-                }
-                
-                search_pos = absolute_start + quote_end;
-            } else {
-                break;
-            }
-        }
-        
-        Ok(source_files)
-    }
-    
-    /// Find user assemblies from .csproj files in the Unity project root
-    pub async fn find_user_assemblies(&self, unity_project_root: &Path) -> Result<Vec<SourceAssembly>> {
-        let mut assemblies = Vec::new();
-        
-        // Read all .csproj files in the project root
-        let mut entries = fs::read_dir(unity_project_root).await
-            .context("Failed to read Unity project directory")?;
-        
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if path.extension().and_then(|s| s.to_str()) == Some("csproj") {
-                if let Ok(assembly_info) = self.parse_csproj_file(&path, unity_project_root).await {
-                    assemblies.push(assembly_info);
-                }
-            }
-        }
-        
-        Ok(assemblies)
-    }
-    
-    /// Parse a .csproj file to extract assembly information
-    async fn parse_csproj_file(&self, csproj_path: &Path, unity_project_root: &Path) -> Result<SourceAssembly> {
-        let content = fs::read_to_string(csproj_path).await
-            .context("Failed to read .csproj file")?;
-        
-        // Parse XML to extract AssemblyName and Compile items
-        let assembly_name = self.extract_assembly_name(&content)
-            .ok_or_else(|| anyhow!("Could not find AssemblyName in .csproj file"))?;
-        
-        Ok(SourceAssembly {
-            name: assembly_name,
-            is_user_code: true,
-            source_location: csproj_path.to_path_buf(),
-        })
-    }
-    
-    /// Extract AssemblyName from .csproj XML content
-    fn extract_assembly_name(&self, content: &str) -> Option<String> {
-        // Simple XML parsing to find <AssemblyName>value</AssemblyName>
-        if let Some(start) = content.find("<AssemblyName>") {
-            let start_pos = start + "<AssemblyName>".len();
-            if let Some(end) = content[start_pos..].find("</AssemblyName>") {
-                return Some(content[start_pos..start_pos + end].trim().to_string());
-            }
-        }
-        None
     }
 }
 

@@ -22,7 +22,7 @@ pub fn normalize_path_for_comparison(path: &Path) -> PathBuf {
 }
 
 /// Parse a single .csproj file to extract assembly information
-pub async fn parse_single_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Result<SourceAssembly> {
+pub async fn parse_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Result<SourceAssembly> {
     let content = fs::read_to_string(csproj_path).await
         .context("Failed to read .csproj file")?;
     
@@ -126,26 +126,8 @@ pub fn find_cs_files_in_dir<'a>(dir: &'a Path, unity_project_root: &'a Path) -> 
     })
 }
 
-
-
-/// Parse a .csproj file to extract assembly information
-async fn parse_csproj_file(csproj_path: &Path, unity_project_root: &Path) -> Result<SourceAssembly> {
-    let content = fs::read_to_string(csproj_path).await
-        .context("Failed to read .csproj file")?;
-    
-    // Parse XML to extract AssemblyName and Compile items
-    let assembly_name = extract_assembly_name(&content)
-        .ok_or_else(|| anyhow!("Could not find AssemblyName in .csproj file"))?;
-    
-    Ok(SourceAssembly {
-        name: assembly_name,
-        is_user_code: true,
-        source_location: csproj_path.to_path_buf(),
-    })
-}
-
 /// Extract Compile items from .csproj XML content
-fn extract_compile_items(content: &str, unity_project_root: &Path) -> Result<Vec<PathBuf>> {
+pub fn extract_compile_items(content: &str, unity_project_root: &Path) -> Result<Vec<PathBuf>> {
     let mut source_files = Vec::new();
     
     // Find all <Compile Include="path" /> items
@@ -173,8 +155,6 @@ fn extract_compile_items(content: &str, unity_project_root: &Path) -> Result<Vec
     
     Ok(source_files)
 }
-
-
 
 #[cfg(test)]
 mod tests {

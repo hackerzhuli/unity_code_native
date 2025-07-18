@@ -1,4 +1,4 @@
-use crate::{cs::{docs_compiler::DocsCompiler, package_manager::UnityPackageManager}, test_utils::get_unity_project_root};
+use crate::{cs::{docs_compiler::DocsCompiler, package_manager::UnityPackageManager, source_utils::find_user_assemblies}, test_utils::get_unity_project_root};
 
 use crate::cs::compile_utils::{split_parameters, get_simple_type_name, normalize_generic_parameters, normalize_member_name, normalize_type_name};
 use tree_sitter::{Parser, Language};
@@ -78,7 +78,7 @@ async fn test_compile_assembly_csharp() {
     let unity_root = get_unity_project_root();
 
     // Find Assembly-CSharp
-    let assemblies = compiler.find_user_assemblies(&unity_root).await.unwrap();
+    let assemblies = find_user_assemblies(&unity_root).await.unwrap();
     let assembly_csharp = assemblies
         .iter()
         .find(|a| a.name == "Assembly-CSharp")
@@ -278,7 +278,7 @@ async fn test_partial_class_merging() {
     let unity_root = get_unity_project_root();
 
     // Find Assembly-CSharp
-    let assemblies = compiler.find_user_assemblies(&unity_root).await.unwrap();
+    let assemblies = find_user_assemblies(&unity_root).await.unwrap();
     let assembly_csharp = assemblies
         .iter()
         .find(|a| a.name == "Assembly-CSharp")
@@ -486,7 +486,7 @@ async fn test_exclude_non_public_types_and_members() {
     let unity_root = get_unity_project_root();
 
     // Find Assembly-CSharp
-    let assemblies = compiler.find_user_assemblies(&unity_root).await.unwrap();
+    let assemblies = find_user_assemblies(&unity_root).await.unwrap();
     let assembly_csharp = assemblies
         .iter()
         .find(|a| a.name == "Assembly-CSharp")
@@ -645,7 +645,7 @@ async fn test_using_statements_extraction() {
     let unity_root = get_unity_project_root();
 
     // Find Assembly-CSharp
-    let assemblies = compiler.find_user_assemblies(&unity_root).await.unwrap();
+    let assemblies = find_user_assemblies(&unity_root).await.unwrap();
     let assembly_csharp = assemblies
         .iter()
         .find(|a| a.name == "Assembly-CSharp")

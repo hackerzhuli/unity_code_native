@@ -11,7 +11,7 @@ use anyhow::{Result, Context, anyhow};
 use tokio::fs;
 use regex::Regex;
 
-use crate::cs::source_utils::{normalize_path_for_comparison, parse_single_csproj_file};
+use crate::cs::source_utils::{normalize_path_for_comparison, parse_csproj_file};
 use crate::cs::xml_doc_utils::merge_xml_docs;
 use crate::cs::{
     assembly_manager::AssemblyManager, 
@@ -490,7 +490,7 @@ impl CsDocsManager {
                     }
                 } else {
                     // Parse this specific .csproj file and get source files
-                    match parse_single_csproj_file(&path, &self.unity_project_root).await {
+                    match parse_csproj_file(&path, &self.unity_project_root).await {
                         Ok(assembly) => {
                             // Get source files for this assembly
                             let source_files = get_assembly_source_files(&assembly, &self.unity_project_root).await
