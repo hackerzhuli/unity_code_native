@@ -28,6 +28,7 @@ pub mod function_node;
 pub mod url_function_node;
 pub mod flexible_format;
 pub mod formatter;
+pub mod refactor;
 
 #[cfg(test)]
 mod diagnostics_tests;
@@ -55,3 +56,6 @@ mod function_node_tests;
 
 #[cfg(test)]
 mod flexible_format_tests;
+
+#[cfg(test)]
+mod refactor_tests;

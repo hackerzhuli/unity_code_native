@@ -19,6 +19,7 @@ use crate::uss::document_manager::UssDocumentManager;
 use crate::uss::formatter::UssFormatter;
 use crate::uss::highlighting::UssHighlighter;
 use crate::uss::hover::UssHoverProvider;
+use crate::uss::refactor::UssRefactorProvider;
 use crate::uxml_schema_manager::UxmlSchemaManager;
 
 /// USS Language Server
@@ -41,6 +42,7 @@ struct UssServerState {
     color_provider: UssColorProvider,
     completion_provider: UssCompletionProvider,
     formatter: UssFormatter,
+    refactor_provider: UssRefactorProvider,
     unity_manager: UnityProjectManager,
 }
 
@@ -56,6 +58,7 @@ impl UssLanguageServer {
             color_provider: UssColorProvider::new(),
             completion_provider: UssCompletionProvider::new_with_project_root(&project_path),
             formatter: UssFormatter::new(),
+            refactor_provider: UssRefactorProvider::new(),
             unity_manager: UnityProjectManager::new(project_path.clone()),
         };
 
@@ -183,6 +186,11 @@ impl LanguageServer for UssLanguageServer {
                 }),
                 document_formatting_provider: Some(OneOf::Left(true)),
                 document_range_formatting_provider: Some(OneOf::Left(true)),
+                code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
+                rename_provider: Some(OneOf::Right(RenameOptions {
+                    prepare_provider: Some(true),
+                    work_done_progress_options: WorkDoneProgressOptions::default(),
+                })),
                 ..Default::default()
             },
             ..Default::default()
@@ -571,6 +579,48 @@ impl LanguageServer for UssLanguageServer {
         };
 
         Ok(result)
+    }
+
+    async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
+        let uri = params.text_document.uri;
+        let range = params.range;
+        
+        if let Ok(state) = self.state.lock() {
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                if let Some(actions) = state.refactor_provider.get_code_actions(document, &uri, range) {
+                    return Ok(Some(CodeActionResponse::from(actions)));
+                }
+            }
+        }
+        
+        Ok(None)
+    }
+
+    async fn prepare_rename(&self, params: TextDocumentPositionParams) -> Result<Option<PrepareRenameResponse>> {
+        let uri = params.text_document.uri;
+        let position = params.position;
+        
+        if let Ok(state) = self.state.lock() {
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                return Ok(state.refactor_provider.prepare_rename(document, position));
+            }
+        }
+        
+        Ok(None)
+    }
+
+    async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
+        let uri = params.text_document_position.text_document.uri;
+        let position = params.text_document_position.position;
+        let new_name = params.new_name;
+        
+        if let Ok(state) = self.state.lock() {
+            if let Some(document) = state.document_manager.get_document(&uri) {
+                return Ok(state.refactor_provider.handle_rename(document, &uri, position, &new_name));
+            }
+        }
+        
+        Ok(None)
     }
 }
 
