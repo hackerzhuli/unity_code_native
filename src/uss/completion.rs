@@ -145,16 +145,12 @@ impl UssCompletionProvider {
             let last_pos = Position::new(position.line, position.character - 1);
 
             if let Some(current_node) = find_node_at_position(tree.root_node(), last_pos) {
-                // Note: order is important, otherwise we may get the wrong context
-
-                // Check for incomplete @import statements first
                 if let Some(import_context) =
                     self.analyze_incomplete_import_context(current_node, content)
                 {
                     return import_context;
                 }
 
-                // Check if we're inside an import statement
                 if let Some(import_context) =
                     self.analyze_import_context(tree, content, current_node, position)
                 {
@@ -675,15 +671,11 @@ impl UssCompletionProvider {
             });
         }
 
-        // Check if current node is a tag selector being typed
-        if current_node.kind() == NODE_TAG_NAME {
-            // make sure this is not a property name
-            if !Self::is_incomplete_property_name_parsed_as_tag_name(current_node){
-                return Some(CompletionContext {
-                    t: CompletionType::TagSelector,
-                    current_node: Some(current_node),
-                });
-            }
+        if Self::is_tag_selector_being_typed(current_node){
+            return Some(CompletionContext {
+                t: CompletionType::TagSelector,
+                current_node: Some(current_node),
+            });
         }
 
         // Check if current node is attribute_name that might be a partial pseudo-class FIRST
@@ -992,21 +984,25 @@ impl UssCompletionProvider {
             }
 
             // Check if we're inside a string node (direct import path)
-            if current_node.kind() == NODE_STRING_VALUE {
-                // Ensure the string node is a direct child of the import statement
+            if current_node.kind() == NODE_STRING_CONTENT {
                 if let Some(parent) = current_node.parent() {
-                    if parent.kind() == NODE_IMPORT_STATEMENT {
-                        // Use the safer string extraction method
-                        if let Some((url_string, cursor_offset)) = self
-                            .extract_url_string_from_current_node(current_node, content, position)
-                        {
-                            return Some(CompletionContext {
-                                t: CompletionType::UrlString {
-                                    url_string,
-                                    cursor_position: cursor_offset,
-                                },
-                                current_node: Some(current_node),
-                            });
+                    if parent.kind() == NODE_STRING_VALUE{
+                        // Ensure the string node is a direct child of the import statement
+                        if let Some(parent_parent) = parent.parent() {
+                            if parent_parent.kind() == NODE_IMPORT_STATEMENT {
+                                // Use the safer string extraction method
+                                if let Some((url_string, cursor_offset)) = self
+                                    .extract_url_string_from_current_node(current_node, content, position)
+                                {
+                                    return Some(CompletionContext {
+                                        t: CompletionType::UrlString {
+                                            url_string,
+                                            cursor_position: cursor_offset,
+                                        },
+                                        current_node: Some(current_node),
+                                    });
+                                }
+                            }
                         }
                     }
                 }
@@ -1055,12 +1051,14 @@ impl UssCompletionProvider {
         position: Position,
     ) -> Option<CompletionContext<'a>> {
         // Only offer completions if current node is a string value
-        if current_node.kind() != NODE_STRING_VALUE {
+        if current_node.kind() != NODE_STRING_CONTENT {
             return None;
         }
 
+        let string_value_node = current_node.parent()?;
+
         // Validate the hierarchy: string_node -> arguments -> call_expression (url function)
-        if !self.is_string_in_url_function_arguments(current_node, content) {
+        if !self.is_string_in_url_function_arguments(string_value_node, content) {
             return None;
         }
 
@@ -1090,37 +1088,14 @@ impl UssCompletionProvider {
         let string_content = string_node.utf8_text(content.as_bytes()).unwrap_or("");
 
         // Check if string has proper quotes and extract content safely
-        let url_string = if string_content.len() >= 2 {
-            let first_char = string_content.chars().next()?;
-            let last_char = string_content.chars().last()?;
-
-            // Verify the string starts and ends with matching quotes
-            if (first_char == '"' && last_char == '"') || (first_char == '\'' && last_char == '\'')
-            {
-                let inner_content = &string_content[1..string_content.len() - 1];
-
-                // Don't provide completions if the string contains backslashes (escape sequences)
-                if inner_content.contains('\\') {
-                    return None;
-                }
-
-                inner_content.to_string()
-            } else {
-                // Malformed string, don't provide completions
-                return None;
-            }
-        } else {
-            // String too short to have quotes, don't provide completions
-            return None;
-        };
+        let url_string = string_content.to_string();
 
         // Calculate cursor position within the URL string
         let string_start = string_node.start_position();
 
         let cursor_offset = if position.line as usize == string_start.row {
-            if position.character as usize > string_start.column + 1 {
-                // +1 for opening quote
-                position.character as usize - string_start.column - 1
+            if position.character as usize >= string_start.column {
+                position.character as usize - string_start.column
             } else {
                 0
             }
@@ -1133,9 +1108,9 @@ impl UssCompletionProvider {
 
     /// Check if the current string node is properly inside URL function arguments
     /// Validates hierarchy: string_node -> arguments -> call_expression (url function)
-    fn is_string_in_url_function_arguments(&self, string_node: Node, content: &str) -> bool {
+    fn is_string_in_url_function_arguments(&self, string_value_node: Node, content: &str) -> bool {
         // Check immediate parent is arguments node
-        let arguments_node = match string_node.parent() {
+        let arguments_node = match string_value_node.parent() {
             Some(parent) if parent.kind() == NODE_ARGUMENTS => parent,
             _ => return false,
         };
@@ -1327,6 +1302,28 @@ impl UssCompletionProvider {
                 if parent.kind() == NODE_CLASS_NAME {
                     if let Some(parent_prev) = parent.prev_sibling() {
                         return parent_prev.kind() == NODE_COLON
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Check if current node is a tag selector being typed
+    fn is_tag_selector_being_typed(current_node: Node) -> bool {
+        if current_node.kind() == NODE_TAG_NAME {
+            // make sure this is not a property name
+            if !Self::is_incomplete_property_name_parsed_as_tag_name(current_node){
+                return true;
+            }
+        }
+        else if current_node.kind() == NODE_IDENTIFIER {
+            if let Some(parent) = current_node.parent() {
+                if let Some(parent_parent) = parent.parent(){
+                    // parent parent is root node
+                    if parent_parent.parent().is_none() && parent.kind() == NODE_ERROR {
+                        return true;
                     }
                 }
             }

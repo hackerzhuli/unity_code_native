@@ -122,6 +122,8 @@ fn test_method_with_ref_in_out_modifiers() {
     let tree = parser.parse(method_source, None).unwrap();
     let class_node = find_class_by_name(tree.root_node(), "TestClass", method_source).unwrap();
 
+    print_tree_to_stdout(tree.root_node(), method_source);
+
     // Find the method declaration
     let mut cursor = class_node.walk();
     let mut method_node = None;

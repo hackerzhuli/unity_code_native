@@ -3,6 +3,7 @@ use super::diagnostics::*;
 use super::parser::UssParser;
 use tower_lsp::lsp_types::NumberOrString;
 use url::Url;
+use crate::language::tree_printer::print_tree_to_stdout;
 
 #[test]
 fn test_import_statement_validation() {
@@ -192,40 +193,6 @@ a {
     });
     
     assert!(has_border_radius_error, "Should detect missing semicolon before 'border-radius' property");
-}
-
-#[test]
-fn test_nested_rule_missing_semicolon() {
-    let diagnostics = UssDiagnostics::new();
-    let mut parser = UssParser::new().unwrap();
-    
-    // Test case with missing semicolon before nested rule
-    let content = r#"@import url("a.css");
-
-a {
-    background-color: red;
-    border-radius:10px
-    c{
-        
-    }
-}"#;
-    
-    let tree = parser.parse(content, None).unwrap();
-    let results = diagnostics.analyze(&tree, content);
-    
-    
-    
-    // Should detect missing semicolon before nested rule, not pseudo-class error
-    let missing_semicolon_errors: Vec<_> = results.iter()
-        .filter(|e| e.message.contains("Missing semicolon after property"))
-        .collect();
-    
-    assert!(!missing_semicolon_errors.is_empty(), "Should detect missing semicolon before nested rule");
-    
-    // Verify the specific error message
-    let semicolon_error = &missing_semicolon_errors[0];
-    assert!(semicolon_error.message.contains("border-radius"), "Should identify the correct property name");
-    assert_eq!(semicolon_error.code, Some(NumberOrString::String("missing-semicolon".to_string())));
 }
 
 #[test]

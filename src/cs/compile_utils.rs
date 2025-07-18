@@ -132,7 +132,8 @@ pub fn normalize_parameter_type(node: Node, source: &str) -> Option<String> {
             // Check for parameter modifiers (ref, in, out)
             let mut param_cursor = child.walk();
             for param_child in child.children(&mut param_cursor) {
-                if param_child.kind() == PARAMETER_MODIFIER {
+                // for ref/in/out
+                if param_child.kind() == MODIFIER {
                     if let Ok(modifier_text) = param_child.utf8_text(source.as_bytes()) {
                         param_parts.push(modifier_text.to_string());
                     }

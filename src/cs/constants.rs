@@ -122,11 +122,6 @@ pub const VARIABLE_DECLARATOR: &str = "variable_declarator";
 /// Example: `int value` in `void Method(int value)`
 pub const PARAMETER: &str = "parameter";
 
-/// Tree-sitter node kind for parameter modifiers
-/// 
-/// Example: `ref`, `in`, `out` in method parameters
-pub const PARAMETER_MODIFIER: &str = "parameter_modifier";
-
 // Additional Tree-sitter field names
 
 /// Tree-sitter field name for accessing the type of a declaration

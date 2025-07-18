@@ -34,6 +34,8 @@ pub const NODE_ATTRIBUTE_NAME: &'static str = "attribute_name";
 pub const NODE_PLAIN_VALUE: &str = "plain_value";
 /// Quoted string value (e.g., `"Arial"`, `'bold'`)
 pub const NODE_STRING_VALUE: &str = "string_value";
+/// child node of string value without quotes
+pub const NODE_STRING_CONTENT: &str = "string_content";
 /// Color value in various formats (e.g., `#ff0000`, `rgb(255,0,0)`)
 pub const NODE_COLOR_VALUE: &str = "color_value";
 /// Integer numeric value (e.g., `10`, `100`)

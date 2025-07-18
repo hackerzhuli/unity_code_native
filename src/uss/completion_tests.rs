@@ -641,6 +641,8 @@ fn test_tag_selector_completion() {
     let content = "Button { color: red; }\nLabel { margin: 10px; }\nBu";
     let tree = parser.parse(content, None).unwrap();
 
+    print_tree_to_stdout(tree.root_node(), content);
+
     // Position after 'Bu'
     let position = Position {
         line: 2,
@@ -880,6 +882,8 @@ fn test_url_completion() {
     // Test case: cursor inside url() function pointing to Assets directory
     let content = ".some { \n    background-image: url(\"project:/Assets/\"); \n}";
     let tree = parser.parse(content, None).unwrap();
+
+    print_tree_to_stdout(tree.root_node(), content);
 
     // Position inside the URL string at the end of "Assets/"
     let position = Position {
