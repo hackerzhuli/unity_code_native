@@ -127,7 +127,7 @@ impl UssLanguageServer {
     }
 
     /// Update UXML schema manager
-    async fn update_uxml_schema_and_get_data(&self) -> Arc<std::sync::Mutex<VisualElementsData>> {
+    async fn update_uxml_schema_and_get_data(&self) -> Arc<Mutex<VisualElementsData>> {
         let mut manager = self.uxml_schema_manager.lock().await;
         if let Err(e) = manager.update().await {
             log::error!("Failed to update UXML schema: {}", e);
