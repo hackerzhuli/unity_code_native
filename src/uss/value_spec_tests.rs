@@ -313,11 +313,23 @@ fn test_property_name_format() {
     let property_format = ValueFormat::single(ValueType::PropertyName);
     let definitions = UssDefinitions::new();
     
-    // Valid property name
+    // Valid animatable property
     let values = vec![UssValue::Identifier("width".to_string())];
     assert!(property_format.is_match(&values, &definitions));
-    
+
+    // Valid discrete animatable property
+    let values = vec![UssValue::Identifier("background-image".to_string())];
+    assert!(property_format.is_match(&values, &definitions));
+
     // Invalid - not an identifier
     let values = vec![UssValue::String("not-a-property".to_string())];
+    assert!(!property_format.is_match(&values, &definitions));
+
+    // not an animatable property
+    let values = vec![UssValue::Identifier("display".to_string())];
+    assert!(!property_format.is_match(&values, &definitions));
+
+    // non existing property
+    let values = vec![UssValue::Identifier("non-existing-property".to_string())];
     assert!(!property_format.is_match(&values, &definitions));
 }

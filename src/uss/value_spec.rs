@@ -3,7 +3,7 @@
 //! Contains types for defining and validating USS property values,
 //! including ValueType, ValueEntry, ValueFormat, and ValueSpec.
 
-use crate::uss::definitions::UssDefinitions;
+use crate::uss::definitions::{PropertyAnimation, UssDefinitions};
 use crate::uss::value::UssValue;
 use crate::uss::constants::*;
 
@@ -218,11 +218,19 @@ impl ValueFormat {
             },
             UssValue::String(_) => matches!(value_type, ValueType::String),
             UssValue::Color(_) => matches!(value_type, ValueType::Color),
-            UssValue::Identifier(keyword) => {
+            UssValue::Identifier(name) => {
                 match value_type {
-                    ValueType::Keyword(expected) => keyword == expected,
-                    ValueType::PropertyName => true, // Any identifier can be a property name
-                    ValueType::Color => definitions.is_valid_color_keyword(keyword), // Check if identifier is a valid color name
+                    ValueType::Keyword(expected) => name == expected,
+                    // Currently only animation related properties support property name as value
+                    // So it must be an animatable property
+                    ValueType::PropertyName => {
+                        if let Some(property_info) = definitions.get_property_info(name) {
+                            property_info.animatable != PropertyAnimation::None
+                        } else {
+                            false
+                        }
+                    }, 
+                    ValueType::Color => definitions.is_valid_color_keyword(name), // Check if identifier is a valid color name
                     _ => false,
                 }
             },

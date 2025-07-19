@@ -1128,8 +1128,8 @@ fn test_comma_separated_values_valid() {
     // Test case with valid comma-separated transition values
     let valid_content = r#"
 .element {
-    transition: opacity 0.3s ease-in-out, transform 0.5s linear;
-    transition-property: opacity, transform, color;
+    transition: opacity 0.3s ease-in-out, translate 0.5s linear;
+    transition-property: opacity, translate, color;
     transition-duration: 0.3s, 0.5s, 1s;
 }
 "#;
