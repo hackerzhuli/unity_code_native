@@ -58,7 +58,6 @@ async fn main() {
     
     // Create UXML schema manager once for the entire application
     let uxml_schema_manager = UxmlSchemaManager::new(PathBuf::from(&target_project_path).join("UIElementsSchema"));
-    let visual_elements_data = uxml_schema_manager.get_visual_elements_data();
     info!("UXML schema manager created");
 
     // Start UDP server first
@@ -81,7 +80,7 @@ async fn main() {
     let project_path_for_lsp = PathBuf::from(&target_project_path);
     let lsp_server_task = async move {
         info!("Starting USS Language Server (will handle LSP requests when connected)");
-        if let Err(e) = start_uss_language_server(project_path_for_lsp, visual_elements_data).await {
+        if let Err(e) = start_uss_language_server(project_path_for_lsp, std::sync::Arc::new(tokio::sync::Mutex::new(uxml_schema_manager))).await {
             error!("USS Language Server error: {:?}", e);
         }
         info!("USS Language Server stopped");

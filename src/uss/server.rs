@@ -30,7 +30,7 @@ pub struct UssLanguageServer {
     /// 2. Interior mutability is needed to modify state from &self methods
     /// 3. Async method boundaries require thread-safe primitives even in single-threaded context
     state: Arc<Mutex<UssServerState>>,
-    visual_elements_data: Arc<Mutex<VisualElementsData>>,
+    uxml_schema_manager: Arc<tokio::sync::Mutex<UxmlSchemaManager>>,
 }
 
 /// Internal state for the USS language server
@@ -48,7 +48,7 @@ struct UssServerState {
 
 impl UssLanguageServer {
     /// Create a new USS language server
-    pub fn new(client: Client, project_path: std::path::PathBuf, visual_elements_data: Arc<Mutex<VisualElementsData>>) -> Self {
+    pub fn new(client: Client, project_path: std::path::PathBuf, uxml_schema_manager: Arc<tokio::sync::Mutex<UxmlSchemaManager>>) -> Self {
         let state = UssServerState {
             document_manager: UssDocumentManager::new()
                 .expect("Failed to create USS document manager"),
@@ -63,7 +63,7 @@ impl UssLanguageServer {
         };
 
         Self {
-            visual_elements_data,
+            uxml_schema_manager,
             client,
             state: Arc::new(Mutex::new(state)),
         }
@@ -126,14 +126,13 @@ impl UssLanguageServer {
         Some(state.highlighter.generate_tokens(tree, content))
     }
 
-    /// Extract Visual Element class names from the shared visual elements data
-    fn get_element_names(&self) -> HashSet<String> {
-        if let Ok(data) = self.visual_elements_data.lock() {
-            data.get_all_elements().iter().map(|element| element.name.clone()).collect::<HashSet<String>>()
-        } else {
-            log::error!("Failed to acquire lock on visual_elements_data for get_element_names");
-            HashSet::new()
+    /// Update UXML schema manager
+    async fn update_uxml_schema_and_get_data(&self) -> Arc<std::sync::Mutex<VisualElementsData>> {
+        let mut manager = self.uxml_schema_manager.lock().await;
+        if let Err(e) = manager.update().await {
+            log::error!("Failed to update UXML schema: {}", e);
         }
+        return manager.get_visual_elements_data()
     }
 }
 
@@ -246,17 +245,7 @@ impl LanguageServer for UssLanguageServer {
         let uri = params.text_document_position_params.text_document.uri;
         let position = params.text_document_position_params.position;
 
-        // Get UXML element information
-        let uxml_elements = {
-            if let Ok(data) = self.visual_elements_data.lock() {
-                data.get_all_elements().iter().map(|element| {
-                    (element.name.clone(), element.fully_qualified_name.clone())
-                }).collect::<HashMap<String, String>>()
-            } else {
-                log::error!("Failed to acquire lock on visual_elements_data for hover");
-                HashMap::new()
-            }
-        };
+        let uxml_data = self.update_uxml_schema_and_get_data().await;
 
         let state = self.state.lock().ok();
         if let Some(state) = state {
@@ -270,7 +259,7 @@ impl LanguageServer for UssLanguageServer {
                         position,
                         &state.unity_manager,
                         project_url.as_ref(),
-                        Some(&uxml_elements),
+                        Some(uxml_data),
                     );
                     return Ok(hover);
                 }
@@ -308,7 +297,7 @@ impl LanguageServer for UssLanguageServer {
             uri
         );
 
-        let uxml_class_names = self.get_element_names();
+        let uxml_data = self.update_uxml_schema_and_get_data().await;
 
         // Perform all operations within a single lock scope
         let completions = {
@@ -339,7 +328,7 @@ impl LanguageServer for UssLanguageServer {
                     document_content,
                     position,
                     project_url.as_ref(),
-                    Some(&uxml_class_names),
+                    Some(uxml_data),
                     Some(&state.unity_manager),
                 )
             } else {
@@ -366,7 +355,12 @@ impl LanguageServer for UssLanguageServer {
     ) -> Result<DocumentDiagnosticReportResult> {
         let uri = params.text_document.uri;
 
-        let uxml_class_names = self.get_element_names();
+        let uxml_data = self.update_uxml_schema_and_get_data().await;
+
+        let mut uxml_names:Option<HashSet<String>> = None;
+        if let Ok(data) = uxml_data.lock() {
+            uxml_names = Some(data.get_all_names().keys().cloned().collect());
+        }
 
         // Extract necessary data from state and release lock quickly
         let (mut diagnostics, url_references, _, project_root) = {
@@ -407,7 +401,7 @@ impl LanguageServer for UssLanguageServer {
                         &content,
                         project_url.as_ref(),
                         variable_resolver,
-                        Some(&uxml_class_names),
+                        uxml_names.as_ref(),
                     );
 
                     let project_root = state.unity_manager.project_path().clone();
@@ -646,12 +640,12 @@ impl LanguageServer for UssLanguageServer {
 }
 
 /// Create and start the USS language server
-pub async fn start_uss_language_server(project_path: std::path::PathBuf, visual_elements_data: Arc<Mutex<VisualElementsData>>) -> Result<()> {
+pub async fn start_uss_language_server(project_path: std::path::PathBuf, uxml_schema_manager: Arc<tokio::sync::Mutex<UxmlSchemaManager>>) -> Result<()> {
     let stdin = tokio::io::stdin();
     let stdout = tokio::io::stdout();
 
     let (service, socket) =
-        LspService::new(|client| UssLanguageServer::new(client, project_path.clone(), visual_elements_data));
+        LspService::new(|client| UssLanguageServer::new(client, project_path.clone(), uxml_schema_manager));
     Server::new(stdin, stdout, socket).serve(service).await;
 
     Ok(())

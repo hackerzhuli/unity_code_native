@@ -38,20 +38,11 @@ async fn test_real_unity_schema_parsing() {
     let text_field = data.lookup("UnityEngine.UIElements.TextField");
     assert!(text_field.is_some(), "TextField should be found in Unity schema");
     
-    // Test namespace filtering
-    let ui_elements = data.get_elements_in_namespace("UnityEngine.UIElements");
-    assert!(!ui_elements.is_empty(), "Should find elements in UnityEngine.UIElements namespace");
-    
-    // Verify that Image is in the correct namespace
-    let image_in_namespace = ui_elements.iter().find(|e| e.name == "Image");
-    assert!(image_in_namespace.is_some(), "Image should be found in UnityEngine.UIElements namespace");
-    
     // Test get all elements returns a reasonable number
     let all_elements = data.get_all_elements();
     assert!(all_elements.len() > 10, "Should find many elements in Unity schema, found: {}", all_elements.len());
     
     println!("Successfully parsed {} Unity UI elements", all_elements.len());
-    println!("Found elements in UnityEngine.UIElements namespace: {}", ui_elements.len());
 }
 
 #[tokio::test]
@@ -115,7 +106,7 @@ async fn test_namespace_extraction_from_real_files() {
     // regardless of the XSD filename
     let all_elements = data.get_all_elements();
     
-    for element in &all_elements {
+    for (_, element) in all_elements {
         // Most Unity UI elements should be in UnityEngine.UIElements namespace
         // (there might be some exceptions for editor-specific elements)
         if element.namespace != "UnityEngine.UIElements" && 
@@ -124,11 +115,7 @@ async fn test_namespace_extraction_from_real_files() {
                     element.name, element.namespace);
         }
     }
-    
-    // Verify specific elements are in the correct namespace
-    let unity_elements = data.get_elements_in_namespace("UnityEngine.UIElements");
-    assert!(!unity_elements.is_empty(), "Should find elements in UnityEngine.UIElements namespace");
-    
+        
     // Check that common elements are properly namespaced
     let expected_elements = ["Image", "VisualElement", "Button", "TextField", "Label"];
     for expected in &expected_elements {

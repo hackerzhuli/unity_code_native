@@ -6,6 +6,7 @@
 //! - Unity version compatibility
 
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use crate::unity_project_manager::UnityProjectManager;
 use crate::uss::definitions::UssDefinitions;
@@ -15,6 +16,7 @@ use crate::uss::url_function_node::UrlFunctionNode;
 use crate::uss::function_node::FunctionNode;
 use crate::uss::uss_utils::convert_uss_string;
 use crate::language::asset_url::{project_url_to_path, project_url_to_relative_path, validate_url};
+use crate::uxml_schema_manager::VisualElementsData;
 use std::collections::HashMap;
 use tower_lsp::lsp_types::{Hover, HoverContents, MarkupContent, MarkupKind, Position, Url};
 use tree_sitter::{Node, Tree};
@@ -79,11 +81,10 @@ impl UssHoverProvider {
         position: Position,
         unity_manager: &UnityProjectManager,
         source_url: Option<&Url>,
-        uxml_elements: Option<&HashMap<String, String>>,
+        uxml_data: Option<Arc<Mutex<VisualElementsData>>>,
     ) -> Option<Hover> {
         // Find the deepest node at the position
         let node = find_node_at_position(tree.root_node(), position)?;
-        
         
         // Check if the node or any parent has errors - if so, don't show hover
         if has_error_nodes(node) {
@@ -118,7 +119,7 @@ impl UssHoverProvider {
         // Priority 4: Tag selectors
         if let Some(tag_node) = find_node_of_type_at_position(tree.root_node(), source, position, NODE_TAG_NAME) {
             if !has_error_nodes(tag_node) {
-                if let Some(hover) = self.hover_for_tag_selector(tag_node, source, uxml_elements) {
+                if let Some(hover) = self.hover_for_tag_selector(tag_node, source, uxml_data) {
                     return Some(hover);
                 }
             }
@@ -327,22 +328,27 @@ impl UssHoverProvider {
     /// 
     /// Analyzes tag selectors that target UXML elements and provides information
     /// about the element type, including its fully qualified name when available.
-    fn hover_for_tag_selector(&self, tag_node: Node, source: &str, uxml_elements: Option<&HashMap<String, String>>) -> Option<Hover> {
+    fn hover_for_tag_selector(&self, tag_node: Node, source: &str, uxml_data: Option<Arc<Mutex<VisualElementsData>>>) -> Option<Hover> {
         let tag_text = tag_node.utf8_text(source.as_bytes()).ok()?;
         
-        let content = if let Some(elements) = uxml_elements {
-            if let Some(fully_qualified_name) = elements.get(tag_text) {
-                format!(
-                    "### UXML Element {}\n**Full Name:** `{}`\n\nThis selector targets all `{}` elements in the UI hierarchy.",
-                    tag_text, fully_qualified_name, tag_text
-                )
-            } else {
-                format!("### UXML Element {}\n⚠️ Element not found in UXML schema.", tag_text)
+        // default text
+        let mut content =format!("### UXML Element {}\nThis selector targets all `{}` elements in the UI hierarchy.", tag_text, tag_text);
+        
+        if let Some(data) = uxml_data 
+        {
+            if let Ok(elements) = data.lock() 
+            {
+                if let Some(fully_qualified_name) = elements.get_all_names().get(tag_text) 
+                {
+                    content = format!(
+                        "### UXML Element {}\n**Full Name:** `{}`\n\nThis selector targets all `{}` elements in the UI hierarchy.",
+                        tag_text, fully_qualified_name, tag_text
+                    )
+                } else {
+                    content = format!("### UXML Element {}\n⚠️ Element not found in UXML schema.", tag_text)
+                }
             }
-        } else {
-            // Fallback when elements map is not available
-            format!("### UXML Element {}\nThis selector targets all `{}` elements in the UI hierarchy.", tag_text, tag_text)
-        };
+        }
         
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
@@ -352,6 +358,7 @@ impl UssHoverProvider {
             range: None,
         })
     }
+
 
     /// Checks if the current position is hovering over a pseudo-class identifier
     /// and returns appropriate hover information.

@@ -46,7 +46,10 @@ struct SchemaFileInfo {
 /// This struct is designed to be shared between threads using Arc<Mutex<T>>
 #[derive(Debug, Default)]
 pub struct VisualElementsData {
+    /// Visual elements by fully qualified name
     visual_elements: HashMap<String, VisualElementInfo>,
+    /// Visual element name to fully qualified name(there might be name collisions, new names will override old name)
+    name_to_full_name: HashMap<String, String>,
 }
 
 impl VisualElementsData {
@@ -54,6 +57,7 @@ impl VisualElementsData {
     pub fn new() -> Self {
         Self {
             visual_elements: HashMap::new(),
+            name_to_full_name: HashMap::new(),
         }
     }
 
@@ -67,43 +71,50 @@ impl VisualElementsData {
     /// 
     /// * `Some(VisualElementInfo)` if the element exists (cloned)
     /// * `None` if no element with that name is found
-    pub fn lookup(&self, fully_qualified_name: &str) -> Option<VisualElementInfo> {
-        self.visual_elements.get(fully_qualified_name).cloned()
+    pub fn lookup(&self, fully_qualified_name: &str) -> Option<&VisualElementInfo> {
+        self.visual_elements.get(fully_qualified_name)
     }
 
-    /// Returns all available visual elements from all loaded schema files
-    /// 
-    /// # Returns
-    /// 
-    /// A vector containing cloned `VisualElementInfo` instances
-    pub fn get_all_elements(&self) -> Vec<VisualElementInfo> {
-        self.visual_elements.values().cloned().collect()
-    }
-
-    /// Returns all visual elements belonging to a specific namespace
+    /// Looks up visual elements by name (without namespace)
     /// 
     /// # Arguments
     /// 
-    /// * `namespace` - The namespace to filter by (e.g., "UnityEngine.UIElements")
+    /// * `name` - The simple name of the visual element (e.g., "Button")
     /// 
     /// # Returns
     /// 
-    /// A vector containing cloned `VisualElementInfo` instances in the specified namespace
-    pub fn get_elements_in_namespace(&self, namespace: &str) -> Vec<VisualElementInfo> {
-        self.visual_elements.values()
-            .filter(|element| element.namespace == namespace)
-            .cloned()
-            .collect()
+    /// * `Some(&VisualElementInfo)` if elements with that name exist
+    /// * `None` if no elements with that name are found
+    pub fn lookup_by_name(&self, name: &str) -> Option<&VisualElementInfo> {
+        let full_name = self.name_to_full_name.get(name);
+        if let Some(full_name) = full_name {
+            return self.lookup(full_name);
+        }
+        None
+    }
+
+    /// Returns all available visual elements from all loaded schema files
+    pub fn get_all_elements(&self) -> &HashMap<String, VisualElementInfo> {
+        &self.visual_elements
+    }
+
+    /// Returns all available visual elements names(without namespace) from all loaded schema files
+    /// Maps to full name
+    pub fn get_all_names(&self) -> &HashMap<String, String> {
+        &self.name_to_full_name
     }
 
     /// Clears all visual elements
     pub fn clear(&mut self) {
         self.visual_elements.clear();
+        self.name_to_full_name.clear();
     }
 
     /// Inserts a visual element into the collection
     pub fn insert(&mut self, fully_qualified_name: String, element_info: VisualElementInfo) {
-        self.visual_elements.insert(fully_qualified_name, element_info);
+        let name = element_info.name.clone();
+        self.visual_elements.insert(fully_qualified_name.clone(), element_info);
+        self.name_to_full_name.insert(name, fully_qualified_name);
     }
 }
 
