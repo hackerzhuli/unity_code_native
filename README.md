@@ -6,7 +6,7 @@ Unity Code Native is a high-performance Rust backend that powers advanced Unity 
 
 ## Main Features
 
-### 🎨 USS Language Server (Primary Feature)
+### 🎨 USS Language Server
 A feature-complete language server for Unity Style Sheets (USS) that brings modern IDE capabilities to Unity's UI Toolkit development:
 
 - **High performance**: Written in rust, built from ground up for performance. Get instant feedback (diagnostics) on syntax and values as you type! 100% high performance as a game dev's code should be!
