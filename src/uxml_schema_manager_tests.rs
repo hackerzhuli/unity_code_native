@@ -15,8 +15,12 @@ async fn test_real_unity_schema_parsing() {
     let mut manager = UxmlSchemaManager::new(schema_dir);
     manager.update().await.unwrap();
     
+    // Get the visual elements data for testing
+    let visual_elements_data = manager.get_visual_elements_data();
+    let data = visual_elements_data.lock().unwrap();
+    
     // Test that we can find the Image element from Unity's schema
-    let image_element = manager.lookup("UnityEngine.UIElements.Image");
+    let image_element = data.lookup("UnityEngine.UIElements.Image");
     assert!(image_element.is_some(), "Image element should be found in Unity schema");
     
     let image = image_element.unwrap();
@@ -25,17 +29,17 @@ async fn test_real_unity_schema_parsing() {
     assert_eq!(image.fully_qualified_name, "UnityEngine.UIElements.Image");
     
     // Test that we can find other common Unity elements
-    let visual_element = manager.lookup("UnityEngine.UIElements.VisualElement");
+    let visual_element = data.lookup("UnityEngine.UIElements.VisualElement");
     assert!(visual_element.is_some(), "VisualElement should be found in Unity schema");
     
-    let button = manager.lookup("UnityEngine.UIElements.Button");
+    let button = data.lookup("UnityEngine.UIElements.Button");
     assert!(button.is_some(), "Button should be found in Unity schema");
     
-    let text_field = manager.lookup("UnityEngine.UIElements.TextField");
+    let text_field = data.lookup("UnityEngine.UIElements.TextField");
     assert!(text_field.is_some(), "TextField should be found in Unity schema");
     
     // Test namespace filtering
-    let ui_elements = manager.get_elements_in_namespace("UnityEngine.UIElements");
+    let ui_elements = data.get_elements_in_namespace("UnityEngine.UIElements");
     assert!(!ui_elements.is_empty(), "Should find elements in UnityEngine.UIElements namespace");
     
     // Verify that Image is in the correct namespace
@@ -43,7 +47,7 @@ async fn test_real_unity_schema_parsing() {
     assert!(image_in_namespace.is_some(), "Image should be found in UnityEngine.UIElements namespace");
     
     // Test get all elements returns a reasonable number
-    let all_elements = manager.get_all_elements();
+    let all_elements = data.get_all_elements();
     assert!(all_elements.len() > 10, "Should find many elements in Unity schema, found: {}", all_elements.len());
     
     println!("Successfully parsed {} Unity UI elements", all_elements.len());
@@ -68,7 +72,8 @@ async fn test_file_change_detection() {
     let mut manager = UxmlSchemaManager::new(dir_path);
     manager.update().await.unwrap();
     
-    assert_eq!(manager.get_all_elements().len(), 1);
+    let visual_elements_data = manager.get_visual_elements_data();
+    assert_eq!(visual_elements_data.lock().unwrap().get_all_elements().len(), 1);
     
     // Wait a bit to ensure different modification time
     std::thread::sleep(std::time::Duration::from_millis(10));
@@ -84,8 +89,9 @@ async fn test_file_change_detection() {
     fs::write(&schema_path, updated_content).unwrap();
     manager.update().await.unwrap();
     
-    assert_eq!(manager.get_all_elements().len(), 2);
-    assert!(manager.lookup("Test.Namespace.Element2").is_some());
+    let data = visual_elements_data.lock().unwrap();
+    assert_eq!(data.get_all_elements().len(), 2);
+    assert!(data.lookup("Test.Namespace.Element2").is_some());
 }
 
 #[tokio::test]
@@ -100,10 +106,14 @@ async fn test_namespace_extraction_from_real_files() {
     let mut manager = UxmlSchemaManager::new(schema_dir);
     manager.update().await.unwrap();
     
+    // Get the visual elements data for testing
+    let visual_elements_data = manager.get_visual_elements_data();
+    let data = visual_elements_data.lock().unwrap();
+    
     // Verify that we're not using filename as namespace
     // All Unity elements should be in "UnityEngine.UIElements" namespace
     // regardless of the XSD filename
-    let all_elements = manager.get_all_elements();
+    let all_elements = data.get_all_elements();
     
     for element in &all_elements {
         // Most Unity UI elements should be in UnityEngine.UIElements namespace
@@ -116,14 +126,14 @@ async fn test_namespace_extraction_from_real_files() {
     }
     
     // Verify specific elements are in the correct namespace
-    let unity_elements = manager.get_elements_in_namespace("UnityEngine.UIElements");
+    let unity_elements = data.get_elements_in_namespace("UnityEngine.UIElements");
     assert!(!unity_elements.is_empty(), "Should find elements in UnityEngine.UIElements namespace");
     
     // Check that common elements are properly namespaced
     let expected_elements = ["Image", "VisualElement", "Button", "TextField", "Label"];
     for expected in &expected_elements {
         let fqn = format!("UnityEngine.UIElements.{}", expected);
-        if let Some(element) = manager.lookup(&fqn) {
+        if let Some(element) = data.lookup(&fqn) {
             assert_eq!(element.namespace, "UnityEngine.UIElements", 
                       "Element '{}' should be in UnityEngine.UIElements namespace", expected);
             println!("✓ Found {} in correct namespace", expected);

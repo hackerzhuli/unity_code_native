@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 use quick_xml::events::Event;
 use quick_xml::Reader;
@@ -41,6 +42,71 @@ struct SchemaFileInfo {
     elements: Vec<String>,
 }
 
+/// Core data structure containing visual elements and providing lookup functionality
+/// This struct is designed to be shared between threads using Arc<Mutex<T>>
+#[derive(Debug, Default)]
+pub struct VisualElementsData {
+    visual_elements: HashMap<String, VisualElementInfo>,
+}
+
+impl VisualElementsData {
+    /// Creates a new empty VisualElementsData instance
+    pub fn new() -> Self {
+        Self {
+            visual_elements: HashMap::new(),
+        }
+    }
+
+    /// Looks up a visual element by its fully qualified name
+    /// 
+    /// # Arguments
+    /// 
+    /// * `fully_qualified_name` - The fully qualified name (e.g., "UnityEngine.UIElements.Button")
+    /// 
+    /// # Returns
+    /// 
+    /// * `Some(VisualElementInfo)` if the element exists (cloned)
+    /// * `None` if no element with that name is found
+    pub fn lookup(&self, fully_qualified_name: &str) -> Option<VisualElementInfo> {
+        self.visual_elements.get(fully_qualified_name).cloned()
+    }
+
+    /// Returns all available visual elements from all loaded schema files
+    /// 
+    /// # Returns
+    /// 
+    /// A vector containing cloned `VisualElementInfo` instances
+    pub fn get_all_elements(&self) -> Vec<VisualElementInfo> {
+        self.visual_elements.values().cloned().collect()
+    }
+
+    /// Returns all visual elements belonging to a specific namespace
+    /// 
+    /// # Arguments
+    /// 
+    /// * `namespace` - The namespace to filter by (e.g., "UnityEngine.UIElements")
+    /// 
+    /// # Returns
+    /// 
+    /// A vector containing cloned `VisualElementInfo` instances in the specified namespace
+    pub fn get_elements_in_namespace(&self, namespace: &str) -> Vec<VisualElementInfo> {
+        self.visual_elements.values()
+            .filter(|element| element.namespace == namespace)
+            .cloned()
+            .collect()
+    }
+
+    /// Clears all visual elements
+    pub fn clear(&mut self) {
+        self.visual_elements.clear();
+    }
+
+    /// Inserts a visual element into the collection
+    pub fn insert(&mut self, fully_qualified_name: String, element_info: VisualElementInfo) {
+        self.visual_elements.insert(fully_qualified_name, element_info);
+    }
+}
+
 /// Manages Unity UXML schema files and provides lookup functionality for UI elements
 /// 
 /// This manager monitors a directory of XSD schema files, parses them to extract
@@ -49,7 +115,7 @@ struct SchemaFileInfo {
 pub struct UxmlSchemaManager {
     schema_directory: PathBuf,
     schema_files: HashMap<PathBuf, SchemaFileInfo>,
-    visual_elements: HashMap<String, VisualElementInfo>,
+    visual_elements_data: Arc<Mutex<VisualElementsData>>,
     dir_changed: DirChanged,
     last_scan_timestamp: u64,
 }
@@ -75,10 +141,15 @@ impl UxmlSchemaManager {
         Self {
             schema_directory: schema_dir,
             schema_files: HashMap::new(),
-            visual_elements: HashMap::new(),
+            visual_elements_data: Arc::new(Mutex::new(VisualElementsData::new())),
             dir_changed,
             last_scan_timestamp: 0,
         }
+    }
+
+    /// Returns a clone of the Arc<Mutex<VisualElementsData>> for sharing with other components
+    pub fn get_visual_elements_data(&self) -> Arc<Mutex<VisualElementsData>> {
+        Arc::clone(&self.visual_elements_data)
     }
 
     pub async fn some(&mut self) -> (){
@@ -165,44 +236,6 @@ impl UxmlSchemaManager {
         Ok(())
     }
 
-    /// Looks up a visual element by its fully qualified name
-    /// 
-    /// # Arguments
-    /// 
-    /// * `fully_qualified_name` - The fully qualified name (e.g., "UnityEngine.UIElements.Button")
-    /// 
-    /// # Returns
-    /// 
-    /// * `Some(&VisualElementInfo)` if the element exists
-    /// * `None` if no element with that name is found
-    pub fn lookup(&self, fully_qualified_name: &str) -> Option<&VisualElementInfo> {
-        self.visual_elements.get(fully_qualified_name)
-    }
-
-    /// Returns all available visual elements from all loaded schema files
-    /// 
-    /// # Returns
-    /// 
-    /// A vector containing references to all `VisualElementInfo` instances
-    pub fn get_all_elements(&self) -> Vec<&VisualElementInfo> {
-        self.visual_elements.values().collect()
-    }
-
-    /// Returns all visual elements belonging to a specific namespace
-    /// 
-    /// # Arguments
-    /// 
-    /// * `namespace` - The namespace to filter by (e.g., "UnityEngine.UIElements")
-    /// 
-    /// # Returns
-    /// 
-    /// A vector containing references to `VisualElementInfo` instances in the specified namespace
-    pub fn get_elements_in_namespace(&self, namespace: &str) -> Vec<&VisualElementInfo> {
-        self.visual_elements.values()
-            .filter(|element| element.namespace == namespace)
-            .collect()
-    }
-
     async fn process_schema_file(&mut self, path: &Path, last_modified: SystemTime) -> Result<(), UxmlSchemaError> {
         let content = fs::read_to_string(path).await?;
         let (namespace, elements) = self.parse_schema_content(&content)?;
@@ -220,18 +253,22 @@ impl UxmlSchemaManager {
     
     /// Rebuilds the visual_elements HashMap from all cached schema files
     fn rebuild_visual_elements(&mut self) {
-        self.visual_elements.clear();
-        
-        for file_info in self.schema_files.values() {
-            for element_name in &file_info.elements {
-                let fqn = format!("{}.{}", file_info.namespace, element_name);
-                let element_info = VisualElementInfo {
-                    name: element_name.clone(),
-                    namespace: file_info.namespace.clone(),
-                    fully_qualified_name: fqn.clone(),
-                };
-                self.visual_elements.insert(fqn, element_info);
+        if let Ok(mut data) = self.visual_elements_data.lock() {
+            data.clear();
+            
+            for file_info in self.schema_files.values() {
+                for element_name in &file_info.elements {
+                    let fqn = format!("{}.{}", file_info.namespace, element_name);
+                    let element_info = VisualElementInfo {
+                        name: element_name.clone(),
+                        namespace: file_info.namespace.clone(),
+                        fully_qualified_name: fqn.clone(),
+                    };
+                    data.insert(fqn, element_info);
+                }
             }
+        } else {
+            log::error!("Failed to acquire lock on visual_elements_data for rebuilding");
         }
     } 
 
