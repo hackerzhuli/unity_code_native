@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 use log::info;
 
 pub(crate) struct ProcessMonitor {
@@ -41,7 +41,7 @@ impl ProcessMonitor {
 
         // Slow path: full system scan (when we don't have cached PIDs or they became invalid)
         self.system
-            .refresh_processes_specifics(ProcessesToUpdate::All, true, ProcessRefreshKind::nothing()); // we need nothing, no cpu, no memory, just basics
+            .refresh_processes_specifics(ProcessesToUpdate::All, true, process_refresh_kind());
         let normalized_project_path = normalize_path(&self.target_project_path.as_str());
 
         if self.unity_pid().is_none() {
@@ -101,10 +101,10 @@ impl ProcessMonitor {
 
         let unity_pid = self.unity_pid().unwrap();
 
-        if self
+        self
             .system
-            .refresh_processes_specifics(ProcessesToUpdate::Some(&[unity_pid]), false, ProcessRefreshKind::nothing()) == 0
-        {
+            .refresh_processes_specifics(ProcessesToUpdate::Some(&[unity_pid]), true, process_refresh_kind());
+        if self.system.process(unity_pid).is_none() {
             self.set_unity_pid(None);
         }
     }
@@ -119,10 +119,10 @@ impl ProcessMonitor {
 
         let hot_reload_pid = self.hot_reload_pid().unwrap();
 
-        if self
+        self
             .system
-            .refresh_processes_specifics(ProcessesToUpdate::Some(&[hot_reload_pid]), false, ProcessRefreshKind::nothing()) == 0
-        {
+            .refresh_processes_specifics(ProcessesToUpdate::Some(&[hot_reload_pid]), true, process_refresh_kind());
+        if self.system.process(hot_reload_pid).is_none() {
             self.set_hot_reload_pid(None);
         }
     }
@@ -266,4 +266,10 @@ pub(crate) fn extract_hot_reload_project_path(process: &sysinfo::Process) -> Opt
     }
 
     None
+}
+
+///  create process refresh kind
+fn process_refresh_kind() -> ProcessRefreshKind {
+    // we need nothing, no cpu, no memory, just basics
+    ProcessRefreshKind::nothing().with_cmd(UpdateKind::Always)
 }
