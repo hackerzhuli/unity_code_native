@@ -338,18 +338,19 @@ impl UssHoverProvider {
         {
             if let Ok(elements) = data.lock() 
             {
-                if let Some(fully_qualified_name) = elements.get_all_names().get(tag_text) 
-                {
-                    content = format!(
-                        "### UXML Element {}\n**Full Name:** `{}`\n\nThis selector targets all `{}` elements in the UI hierarchy.",
-                        tag_text, fully_qualified_name, tag_text
-                    )
-                } else {
-                    content = format!("### UXML Element {}\n⚠️ Element not found in UXML schema.", tag_text)
+                if !elements.is_empty(){
+                    if let Some(fully_qualified_name) = elements.get_all_names().get(tag_text) 
+                    {
+                        content = format!(
+                            "### UXML Element {}\n**Full Name:** `{}`\n\nThis selector targets all `{}` elements in the UI hierarchy.",
+                            tag_text, fully_qualified_name, tag_text
+                        )
+                    } else {
+                        content = format!("### UXML Element {}\n⚠️ Element not found in UXML schema.", tag_text)
+                    }
                 }
             }
         }
-        
         Some(Hover {
             contents: HoverContents::Markup(MarkupContent {
                 kind: MarkupKind::Markdown,

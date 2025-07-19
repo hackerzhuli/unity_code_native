@@ -359,7 +359,9 @@ impl LanguageServer for UssLanguageServer {
 
         let mut uxml_names:Option<HashSet<String>> = None;
         if let Ok(data) = uxml_data.lock() {
-            uxml_names = Some(data.get_all_names().keys().cloned().collect());
+            if !data.is_empty(){
+                uxml_names = Some(data.get_all_names().keys().cloned().collect());
+            }
         }
 
         // Extract necessary data from state and release lock quickly

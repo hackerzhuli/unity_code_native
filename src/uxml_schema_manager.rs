@@ -116,6 +116,11 @@ impl VisualElementsData {
         self.visual_elements.insert(fully_qualified_name.clone(), element_info);
         self.name_to_full_name.insert(name, fully_qualified_name);
     }
+
+    /// Returns true if the collection is empty, false otherwise
+    pub fn is_empty(&self) -> bool {
+        self.visual_elements.is_empty()
+    }
 }
 
 /// Manages Unity UXML schema files and provides lookup functionality for UI elements
@@ -182,6 +187,12 @@ impl UxmlSchemaManager {
         
         // Skip scan if no changes detected since last scan
         if current_timestamp <= self.last_scan_timestamp {
+            return Ok(());
+        }
+
+        // Make sure directory exists, other wise, we should not do anything
+        // Not even logging, because repeated updates can cause lots of logs flooding our debug log 
+        if !self.schema_directory.exists() {
             return Ok(());
         }
 
