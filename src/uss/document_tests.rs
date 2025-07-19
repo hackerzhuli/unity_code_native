@@ -33,14 +33,10 @@ mod tests {
         assert_eq!(document.document_version().minor, 1);
         assert!(manager.is_document_open(&uri));
         
-        // Close document - it should still exist but be marked as closed
+        // Close document - it should be completely removed from memory
         manager.close_document(&uri);
-        assert!(manager.get_document(&uri).is_some());
-        assert!(!manager.is_document_open(&uri));
-        
-        // Explicitly remove document
-        manager.remove_document(&uri);
         assert!(manager.get_document(&uri).is_none());
+        assert!(!manager.is_document_open(&uri));
     }
     
     #[test]
