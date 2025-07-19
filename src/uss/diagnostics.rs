@@ -1185,7 +1185,7 @@ impl UssDiagnostics {
         // Only validate if we have UXML class names available
         if let Some(class_names) = uxml_class_names {
             // Tag names are case-sensitive according to USS spec
-            if class_names.len() != 0 && !class_names.contains(tag_name) {
+            if !class_names.contains(tag_name) {
                 let range = node_to_range(node, content);
                 diagnostics.push(Diagnostic {
                     range,
