@@ -26,6 +26,8 @@ TODO list:
 - [x] We should make sure our list of color and their hex value are identical to what's shown in Unity's offcial docs, add a test for that.
 - [x] ~~CSDocs: Symbol name normalization from a string is still flawed, we should fix it. Eg. didn't handle when method parameters's generic arguments contains fully qualified name, or something like that. We need to improve the name normalization logic a lot before it will be reliable.~~
 - [x] Auto completion for property names can sometimes repeat what user already have typed, especially begining with a hyphen, eg, if user typed, `-unity-f`, and select `-unity-font-style`, it will become `--unity-font-style`, which is incorrect.
+- [ ] Transition property is not validated, add valiadtion for `transition-property` value and `transition` value, especially the property name, make sure it is a valid property name.
+
 
 TODO for consideration:
 - [ ] (We should do this later, it is complex because it involves Unity Editor) Add code action for url when url does include a guid, but file doesn't exist or guid doesn't match, then we can offer a code action to fix it, typically it is because user moved a file, which involves messaging Unity Editor, because we need to locate the asset, which could fail due to non existence of the guid or Unity Editor is busy
