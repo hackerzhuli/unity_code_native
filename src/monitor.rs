@@ -271,5 +271,5 @@ pub(crate) fn extract_hot_reload_project_path(process: &sysinfo::Process) -> Opt
 ///  create process refresh kind
 fn process_refresh_kind() -> ProcessRefreshKind {
     // we need nothing, no cpu, no memory, just basics
-    ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet).with_cmd(UpdateKind::OnlyIfNotSet)
+    ProcessRefreshKind::nothing().with_exe(UpdateKind::Always).with_cmd(UpdateKind::Always)
 }
