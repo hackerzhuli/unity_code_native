@@ -1,9 +1,12 @@
 //! USS Document
 //!
 //! Represents a single USS document with its content, syntax tree, and version.
+use std::sync::Arc;
+
 use tower_lsp::lsp_types::{Position, Range, TextDocumentContentChangeEvent, Url};
 use tree_sitter::{InputEdit, Point, Tree};
 
+use crate::uss::definitions::UssDefinitions;
 use crate::uss::parser::UssParser;
 use crate::uss::variable_resolver::VariableResolver;
 use crate::language::document::DocumentVersion;
@@ -29,7 +32,8 @@ pub struct UssDocument {
 
 impl UssDocument {
     /// Create a new USS document
-    pub fn new(uri: Url, content: String, version: i32) -> Self {
+    pub fn new(uri: Url, content: String, version: i32, definitions: Arc<UssDefinitions>) -> Self {
+
         let line_starts = Self::calculate_line_starts(&content);
         Self {
             uri,
@@ -38,12 +42,12 @@ impl UssDocument {
             document_version: DocumentVersion { major: 1, minor: version },
             is_open: false,
             line_starts,
-            variable_resolver: VariableResolver::new(),
+            variable_resolver: VariableResolver::new(definitions),
         }
     }
     
     /// Create a new USS document with explicit document version
-    pub fn new_with_document_version(uri: Url, content: String, document_version: DocumentVersion, is_open: bool) -> Self {
+    pub fn new_with_document_version(uri: Url, content: String, document_version: DocumentVersion, is_open: bool, definitions: Arc<UssDefinitions>) -> Self {
         let line_starts = Self::calculate_line_starts(&content);
         Self {
             uri,
@@ -52,7 +56,7 @@ impl UssDocument {
             document_version,
             is_open,
             line_starts,
-            variable_resolver: VariableResolver::new(),
+            variable_resolver: VariableResolver::new(definitions),
         }
     }
     
@@ -325,7 +329,7 @@ mod tests {
     fn create_test_document() -> UssDocument {
         let uri = Url::parse("file:///test.uss").unwrap();
         let content = ".test { color: red; }".to_string();
-        UssDocument::new(uri, content, 1)
+        UssDocument::new(uri, content, 1, Arc::new(UssDefinitions::new()))
     }
 
     #[test]
@@ -403,7 +407,8 @@ mod tests {
     fn test_multiline_content() {
         let uri = Url::parse("file:///test.uss").unwrap();
         let content = ".test {\n  color: red;\n  background: blue;\n}".to_string();
-        let doc = UssDocument::new(uri, content, 1);
+        let doc = UssDocument::new(uri, content, 1, Arc::new(UssDefinitions::new()));
+
         
         // Test line start calculation
         let pos = doc.byte_to_position(8); // Start of second line
@@ -456,7 +461,8 @@ mod tests {
         let content = ".test { color: red; }".to_string();
         let version = DocumentVersion { major: 5, minor: 3 };
         
-        let doc = UssDocument::new_with_document_version(uri, content, version, true);
+        let doc = UssDocument::new_with_document_version(uri, content, version, true, Arc::new(UssDefinitions::new()));
+
         
         assert_eq!(doc.document_version().major, 5);
         assert_eq!(doc.document_version().minor, 3);

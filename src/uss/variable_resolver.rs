@@ -21,6 +21,7 @@
 //!   - `Unresolved`: Exists but cannot be resolved due to missing dependencies or circular references
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use tree_sitter::Node;
 use crate::uss::value::UssValue;
 use crate::uss::constants::*;
@@ -47,17 +48,17 @@ pub struct VariableResolver {
     parsed_values: HashMap<String, Vec<UssValue>>,
     resolved: bool,
     /// USS language definitions for value parsing
-    definitions: UssDefinitions,
+    definitions: Arc<UssDefinitions>,
 }
 
 impl VariableResolver {
     /// Create a new variable resolver
-    pub fn new() -> Self {
+    pub fn new(definitions: Arc<UssDefinitions>) -> Self {
         Self {
             variables: HashMap::new(),
             parsed_values: HashMap::new(),
             resolved: false,
-            definitions: UssDefinitions::new(),
+            definitions,
         }
     }
 
@@ -272,11 +273,5 @@ impl VariableResolver {
         // Update the variable status
         self.variables.insert(var_name.to_string(), VariableStatus::Resolved(resolved_values.clone()));
         Some(resolved_values)
-    }
-}
-
-impl Default for VariableResolver {
-    fn default() -> Self {
-        Self::new()
     }
 }

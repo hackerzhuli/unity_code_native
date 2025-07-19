@@ -41,8 +41,6 @@ pub struct ValueEntry {
     pub options: Vec<ValueType>
 }
 
-
-
 impl ValueEntry {
     pub fn options(types: Vec<ValueType>) -> Self {
         Self {

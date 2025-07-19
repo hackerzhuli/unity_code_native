@@ -1,4 +1,7 @@
-use crate::uss::{constants::UNIT_PX, parser::UssParser, value::UssValue, variable_resolver::{VariableStatus, VariableResolver}};
+
+use std::sync::Arc;
+
+use crate::uss::{constants::UNIT_PX, definitions::UssDefinitions, parser::UssParser, value::UssValue, variable_resolver::{VariableResolver, VariableStatus}};
 
 fn create_test_tree(content: &str) -> Option<tree_sitter::Tree> {
     let mut parser = UssParser::new().unwrap();
@@ -14,7 +17,7 @@ fn test_variable_extraction() {
 }"#;
     
     let tree = create_test_tree(content).unwrap();
-    let mut resolver = VariableResolver::new();
+    let mut resolver = VariableResolver::new(Arc::new(UssDefinitions::new()));
     resolver.add_variables_from_tree(tree.root_node(), content);
     
     let variables = resolver.get_variables();
@@ -34,7 +37,7 @@ fn test_variable_resolution_simple() {
         "#;
     
     let tree = create_test_tree(content).unwrap();
-    let mut resolver = VariableResolver::new();
+    let mut resolver = VariableResolver::new(Arc::new(UssDefinitions::new()));
     resolver.add_variables_from_tree(tree.root_node(), content);
     
     let variables = resolver.get_variables();
@@ -64,7 +67,7 @@ fn test_variable_resolution_circular() {
         "#;
     
     let tree = create_test_tree(content).unwrap();
-    let mut resolver = VariableResolver::new();
+    let mut resolver = VariableResolver::new(Arc::new(UssDefinitions::new()));
     resolver.add_variables_from_tree(tree.root_node(), content);
     
     let color_a = resolver.get_variable("color-a").unwrap();
@@ -87,7 +90,7 @@ fn test_variable_resolution_ambiguous() {
         "#;
     
     let tree = create_test_tree(content).unwrap();
-    let mut resolver = VariableResolver::new();
+    let mut resolver = VariableResolver::new(Arc::new(UssDefinitions::new()));
     resolver.add_variables_from_tree(tree.root_node(), content);
     
     let primary_var = resolver.get_variable("primary-color").unwrap();
@@ -108,7 +111,7 @@ fn test_complex_variable_dependencies() {
         "#;
     
     let tree = create_test_tree(content).unwrap();
-    let mut resolver = VariableResolver::new();
+    let mut resolver = VariableResolver::new(Arc::new(UssDefinitions::new()));
     resolver.add_variables_from_tree(tree.root_node(), content);
     
     let variables = resolver.get_variables();
@@ -160,7 +163,7 @@ fn test_variable_parsing_errors() {
         "#;
     
     let tree = create_test_tree(content).unwrap();
-    let mut resolver = VariableResolver::new();
+    let mut resolver = VariableResolver::new(Arc::new(UssDefinitions::new()));
     resolver.add_variables_from_tree(tree.root_node(), content);
     
     let variables = resolver.get_variables();

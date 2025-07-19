@@ -1,9 +1,12 @@
 //! Tests for USS diagnostics functionality
+use std::sync::Arc;
+
 use super::diagnostics::*;
 use super::parser::UssParser;
 use tower_lsp::lsp_types::NumberOrString;
 use url::Url;
 use crate::language::tree_printer::print_tree_to_stdout;
+use crate::uss::definitions::UssDefinitions;
 
 #[test]
 fn test_import_statement_validation() {
@@ -680,7 +683,7 @@ fn test_variable_resolution_warning() {
     let tree = parser.parse(content, None).unwrap();
     
     // Create variable resolver and populate it from the parsed tree
-    let mut variable_resolver = VariableResolver::new();
+    let mut variable_resolver = VariableResolver::new(Arc::new(UssDefinitions::new()));
     variable_resolver.add_variables_from_tree(tree.root_node(), content);
     
     let (results, _url_references) = diagnostics.analyze_with_variables(&tree, content, None, Some(&variable_resolver));

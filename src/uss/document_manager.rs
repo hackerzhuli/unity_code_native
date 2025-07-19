@@ -3,8 +3,10 @@
 //! Manages multiple USS documents and provides operations for document lifecycle.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use tower_lsp::lsp_types::{TextDocumentContentChangeEvent, Url};
 
+use crate::uss::definitions::UssDefinitions;
 use crate::uss::parser::UssParser;
 use crate::language::document::DocumentVersion;
 use super::document::UssDocument;
@@ -13,6 +15,7 @@ use super::document::UssDocument;
 pub struct UssDocumentManager {
     documents: HashMap<Url, UssDocument>,
     parser: UssParser,
+    definitions: Arc<UssDefinitions>,
 }
 
 impl UssDocumentManager {
@@ -21,13 +24,14 @@ impl UssDocumentManager {
         Ok(Self {
             documents: HashMap::new(),
             parser: UssParser::new()?,
+            definitions: Arc::new(UssDefinitions::new()),
         })
     }
     
     /// Open a new document
     pub fn open_document(&mut self, uri: Url, content: String, version: i32) {
         // Since closed documents are removed from memory, we always create a new document
-        let mut document = UssDocument::new(uri.clone(), content, version);
+        let mut document = UssDocument::new(uri.clone(), content, version, self.definitions.clone());
         document.mark_opened(version);
         document.parse(&mut self.parser);
         self.documents.insert(uri, document);

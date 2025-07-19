@@ -3,15 +3,18 @@
 #[cfg(test)]
 mod tests {
 
+    use std::sync::Arc;
+
     use tower_lsp::lsp_types::{Position, Range, TextDocumentContentChangeEvent, Url};
 
-    use crate::uss::{document::UssDocument, document_manager::UssDocumentManager};
+    use crate::uss::{definitions::UssDefinitions, document::UssDocument, document_manager::UssDocumentManager};
 
     #[test]
     fn test_document_creation() {
         let uri = Url::parse("file:///test.uss").unwrap();
         let content = ".button { color: red; }".to_string();
-        let document = UssDocument::new(uri.clone(), content.clone(), 1);
+        let document = UssDocument::new(uri.clone(), content.clone(), 1, Arc::new(UssDefinitions::new()));
+
         
         assert_eq!(document.uri, uri);
         assert_eq!(document.content(), &content);
@@ -95,17 +98,12 @@ mod tests {
     fn test_line_starts_calculation() {
         let uri = Url::parse("file:///test.uss").unwrap();
         let content = ".button {\n  color: red;\n  font-size: 12px;\n}".to_string();
-        let document = UssDocument::new(uri, content, 1);
+        let document = UssDocument::new(uri, content, 1, Arc::new(UssDefinitions::new()));
+
         
         // Test position to byte conversion
         // This is an internal test, so we'll just verify the document was created successfully
         assert_eq!(document.document_version().minor, 1);
         assert!(document.content().contains("color: red"));
     }
-    
-
-    
-
-    
-
 }

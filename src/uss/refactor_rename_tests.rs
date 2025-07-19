@@ -2,7 +2,9 @@
 //!
 //! These tests help understand the tree structure and validate refactoring operations.
 
-use crate::language::tree_utils::find_node_at_position;
+use std::sync::Arc;
+
+use crate::{language::tree_utils::find_node_at_position, uss::definitions::UssDefinitions};
 use crate::uss::parser::UssParser;
 use crate::uss::refactor::*;
 use tower_lsp::lsp_types::{Position, PrepareRenameResponse, Range};
@@ -506,7 +508,7 @@ fn test_handle_rename_chained_selector() {
     let provider = UssRefactorProvider::new();
     let content = ".class1.class2 { color: red; }\n.class1 { margin: 10px; }\n.class2 { padding: 5px; }";
     let uri = Url::parse("file:///test.uss").unwrap();
-    let mut document = UssDocument::new(uri.clone(), content.to_string(), 1);
+    let mut document = UssDocument::new(uri.clone(), content.to_string(), 1, Arc::new(UssDefinitions::new()));
     
     // Parse the document to create the syntax tree
     let mut parser = crate::uss::parser::UssParser::new().expect("Failed to create USS parser");
