@@ -938,22 +938,20 @@ impl UssCompletionProvider {
         if let Some(data) = uxml_data {
             if let Ok(element_names) = data.lock()
             {
-                if !element_names.is_empty(){
-                    for (element_name, _) in element_names.get_all_elements() {
-                        if element_name.to_lowercase().starts_with(&partial_text) {
-                            items.push(CompletionItem {
-                                label: element_name.clone(),
-                                kind: Some(CompletionItemKind::CLASS),
-                                detail: Some("UXML Element".to_string()),
-                                insert_text: Some(element_name.clone()),
-                                insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
-                                documentation: Some(Documentation::MarkupContent(MarkupContent {
-                                    kind: MarkupKind::Markdown,
-                                    value: format!("**UXML Element:** `{}`", element_name),
-                                })),
-                                ..Default::default()
-                            });
-                        }
+                for (element_name, _) in element_names.get_all_elements() {
+                    if element_name.to_lowercase().starts_with(&partial_text) {
+                        items.push(CompletionItem {
+                            label: element_name.clone(),
+                            kind: Some(CompletionItemKind::CLASS),
+                            detail: Some("UXML Element".to_string()),
+                            insert_text: Some(element_name.clone()),
+                            insert_text_format: Some(InsertTextFormat::PLAIN_TEXT),
+                            documentation: Some(Documentation::MarkupContent(MarkupContent {
+                                kind: MarkupKind::Markdown,
+                                value: format!("**UXML Element:** `{}`", element_name),
+                            })),
+                            ..Default::default()
+                        });
                     }
                 }
             }
