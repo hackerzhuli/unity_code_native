@@ -42,7 +42,7 @@ path = "examples/tree_dumper.rs"
 # development release build for fast builds during iterative development
 [profile.release-fast]
 inherits = "release"
-opt-level = 1
+opt-level = 0
 incremental = true
 debug = false
 lto = false

@@ -126,8 +126,6 @@ fn test_property_name_completion() {
     let content = ".some { \n    col\n} .other{width:10px;}";
     let tree = parser.parse(content, None).unwrap();
 
-    print_tree_to_stdout(tree.root_node(), content);
-
     // Position at the end of "col" (line 1, character 7)
     let position = Position {
         line: 1,
@@ -313,8 +311,6 @@ fn test_property_name_completion_partial_match_before_2() {
 
     let tree = parser.parse(content, None).unwrap();
 
-    print_tree_to_stdout(tree.root_node(), content);
-
     // Position at the end of "back"
     let position = Position {
         line: 1,
@@ -350,9 +346,6 @@ fn test_property_name_completion_bug_after_property() {
     // Test case: reproducing the bug where 'co' after a property doesn't trigger completions
     let content = ".anim {\n    translate: 200px 300px;\n    co\n    transition-property: translate, rotate, scale;\n}";
     let tree = parser.parse(content, None).unwrap();
-
-    println!("=== Tree structure for bug reproduction ===");
-    print_tree_to_stdout(tree.root_node(), content);
 
     // Position at the end of "co" (line 2, character 6)
     let position = Position {
@@ -397,9 +390,6 @@ fn test_property_name_completion_bug_after_custom_property() {
     // Test case: reproducing the bug where 'co' after a custom property doesn't trigger completions
     let content = ".a {\n    --a: red;\n    co\n    background-color:aqua;\n    flex-direction: column-reverse;\n    display: flex;\n}";
     let tree = parser.parse(content, None).unwrap();
-
-    println!("=== Tree structure for custom property bug reproduction ===");
-    print_tree_to_stdout(tree.root_node(), content);
 
     // Position at the end of "co" (line 2, character 6)
     let position = Position {
