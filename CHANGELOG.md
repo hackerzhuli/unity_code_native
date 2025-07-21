@@ -1,5 +1,5 @@
 # Changelog
-## 1.0.0 - 2025-07-19
+## 1.0.0 - 2025-07-21
 
 ### Added
 - **USS Language Server**: Feature-complete language server for Unity Style Sheets
