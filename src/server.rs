@@ -66,8 +66,16 @@ pub struct SymbolDocsResponse {
     pub inherited_from_symbol_name: Option<String>,
 }
 
-// Time interval for periodic detect Unity when Unity is not yet detected
+/// Time interval for periodic detect Unity when Unity is not yet detected
+/// Note that it takes 30 seconds or more to start Unity Editor, so we don't need to detect Unity too frequently
 const DETECT_UNITY_INTERVAL: Duration = Duration::from_secs(10);
+
+/// Time interval for cleaning up inactive clients
+const CLEANUP_INTERVAL: Duration = Duration::from_secs(5);
+
+/// Time interval for monitoring Unity processes
+/// Typically this will not do all processes refresh, only refresh processes that we care about and already detected
+const MONITOR_INTERVAL: Duration = Duration::from_millis(500);
 
 struct ClientInfo {
     last_message_time: Instant,
@@ -106,8 +114,8 @@ impl Server {
 
     pub async fn run(&mut self) {
         let mut buffer = [0u8; 1024];
-        let mut cleanup_interval = interval(Duration::from_secs(5));
-        let mut monitor_interval = interval(Duration::from_millis(100));
+        let mut cleanup_interval = interval(CLEANUP_INTERVAL);
+        let mut monitor_interval = interval(MONITOR_INTERVAL);
 
         loop {
             tokio::select! {

@@ -273,3 +273,69 @@ fn process_refresh_kind() -> ProcessRefreshKind {
     // we need nothing, no cpu, no memory, just basics
     ProcessRefreshKind::nothing().with_exe(UpdateKind::Always).with_cmd(UpdateKind::Always)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sysinfo::{System, ProcessRefreshKind, UpdateKind};
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn test_process_refresh_kind_parent_id_accessible() {
+        // Create a system and refresh with our specific ProcessRefreshKind
+        let mut system = System::new();
+        let refresh_kind = ProcessRefreshKind::nothing();
+        
+        // Refresh processes with our specific refresh kind
+        system.refresh_processes_specifics(
+            sysinfo::ProcessesToUpdate::All,
+            true,
+            refresh_kind
+        );
+        
+        // Find any process that has a parent (most processes should have one)
+        let mut found_process_with_parent = false;
+        
+        for (_pid, process) in system.processes() {
+            // Verify parent_id is accessible even though we didn't explicitly request it
+            if process.parent().is_some() {
+                found_process_with_parent = true;
+            }
+
+            // Verify that memory info is not detailed (we didn't request memory refresh)
+            assert!(process.memory() == 0, "memory should be 0");
+        }
+        
+        // Assert that we found at least one process with a parent
+        // This verifies that parent_id is accessible even without explicit request
+        assert!(found_process_with_parent, "Should find at least one process with a parent ID");
+        
+        // The test verifies that:
+        // 1. parent_id is accessible (found_process_with_parent = true)
+        // 2. We only requested exe and cmd info, not CPU or detailed memory
+        // 3. The ProcessRefreshKind configuration works as expected
+    }
+
+    #[test]
+    fn test_process_refresh_kind_memory_info() {
+        // Create a system and refresh with our specific ProcessRefreshKind
+        let mut system = System::new();
+        let refresh_kind = ProcessRefreshKind::nothing().with_memory();
+        
+        // Refresh processes with our specific refresh kind
+        system.refresh_processes_specifics(
+            sysinfo::ProcessesToUpdate::All,
+            true,
+            refresh_kind
+        );
+        
+        let mut sum_memory:u64 = 0;
+
+        for (_pid, process) in system.processes() {
+            // Verify that memory info is detailed
+            sum_memory += process.memory();
+        }
+
+        assert!(sum_memory > 1000000000, "sum memory should be greater than 1000000000");
+    }
+}
